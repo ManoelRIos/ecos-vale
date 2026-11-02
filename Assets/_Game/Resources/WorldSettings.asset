@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c5295f632ee25a279ed1148719d6e752, type: 3}
+  m_Name: WorldSettings
+  m_EditorClassIdentifier:
+  seed: 71319
+  worldSize: 8192
+  chunkSize: 128
+  resolution: 24
+  viewRadius: 2
+  propsPerChunk: 24
+  daySeconds: 900
+  biomes:
+  - {fileID: 11400000, guid: c0c24a548b45560aabc15301b4122149, type: 2}
+  - {fileID: 11400000, guid: edb38f9e3d5e534d9ee15cb559ac66dd, type: 2}
+  - {fileID: 11400000, guid: 38fc0efad7d25cff9e7a767498c45760, type: 2}
+  - {fileID: 11400000, guid: f51a7c2718a65c5ca59587dd857dd0f0, type: 2}
+  - {fileID: 11400000, guid: c3ba2a27d78d5000a3f3cdfc22c83e9c, type: 2}
+  - {fileID: 11400000, guid: 16d64068f93a59d39a805f95aaf91c95, type: 2}

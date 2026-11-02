@@ -1,0 +1,14 @@
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uilds/
+[Ll]ogs/
+UserSettings/
+.vs/
+*.csproj
+!Tools/CoreChecks.csproj
+Tools/bin/
+*.sln
+*.user
+.DS_Store
+__pycache__/

@@ -1,0 +1,6 @@
+{
+  "name": "Ecos.Tests",
+  "references": ["Ecos.Runtime"],
+  "includePlatforms": ["Editor"],
+  "optionalUnityReferences": ["TestAssemblies"]
+}
