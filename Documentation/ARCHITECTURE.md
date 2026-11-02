@@ -44,3 +44,7 @@ Na integração NGO, implementar um gateway de RPCs que obtenha o jogador pela i
 O save v1 guarda o estado independente dos assets. O arquivo anterior é copiado para `.bak`; um temporário é substituído sobre o arquivo principal. Versões desconhecidas e estruturas inválidas falham com mensagem, sem sobrescrever o arquivo ao carregar. A recuperação do `.bak` é manual nesta versão.
 
 A fábrica usa meshes próprios e primitivas nativas, materiais URP compartilhados e luzes sem assets externos. Os prefabs de referência estão serializados no projeto. O pipeline URP é criado pelo Editor para usar a serialização oficial da versão instalada, sem inventar referências internas do renderer. Sons e mixer podem ser atribuídos ao sistema de áudio, mas nenhum conteúdo sonoro foi entregue.
+
+## Preparação de renderização
+
+`RenderingSetup` aplica o `ValleyURP` dos Resources antes da sessão e após mudanças de qualidade. O Editor também valida pipeline/renderer e shaders dos materiais antes de Play. O reparo explícito renova somente os recursos gerados mantendo suas identidades de asset e valores básicos de qualidade; o diagnóstico expõe o estado e mensagens de shader. `WorldClock` mantém uma instância do material do céu durante a sessão, atualizada pelo horário e descartada ao encerrar. As novas meshes de props são compartilhadas e preservadas ao salvar prefabs pelo Editor.

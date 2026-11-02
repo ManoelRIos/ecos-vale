@@ -10,7 +10,7 @@ namespace Ecos
         int mapSeed;
         float mapZoom = 8, drawnZoom;
         bool settings;
-        Vector2 scroll;
+        Vector2 scroll, menuScroll;
         int selected = -1;
         readonly string[] quality =
         {
@@ -36,13 +36,13 @@ namespace Ecos
             title.normal.textColor = new Color(1, .69f, .3f);
             body = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 18,
+                fontSize = 20,
                 wordWrap = true
             };
             body.normal.textColor = new Color(.86f, .88f, .94f);
             small = new GUIStyle(body)
             {
-                fontSize = 14
+                fontSize = 17
             };
             GUI.skin.button.fontSize = 16;
             GUI.skin.button.fixedHeight = 38;
@@ -51,14 +51,15 @@ namespace Ecos
         void OnGUI()
         {
             Styles();
-            float scale = Mathf.Min(Screen.width / 1280f, Screen.height / 720f);
+            float scale = Mathf.Clamp(Mathf.Min(Screen.width / 1280f, Screen.height / 720f), .85f, 1.5f);
             GUI.matrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, Vector3.one * scale);
             float width = Screen.width / scale, height = Screen.height / scale;
             GUI.color = Color.white;
             if (game.Menu)
             {
                 GUI.Box(new Rect(0, 0, width, height), "");
-                GUILayout.BeginArea(new Rect(width / 2 - 235, 55, 470, height - 80));
+                GUILayout.BeginArea(new Rect(width / 2 - 235, 35, 470, Mathf.Max(100, height - 55)));
+                menuScroll = GUILayout.BeginScrollView(menuScroll);
                 GUILayout.Label("ECOS DO VALE", title);
                 GUILayout.Label("O silêncio guarda três vozes. Encontre-as.", body);
                 GUILayout.Space(24);
@@ -90,7 +91,7 @@ namespace Ecos
                         game.NewSeed = number;
                     int q = GUILayout.SelectionGrid(QualitySettings.GetQualityLevel(), quality, 3);
                     if (q != QualitySettings.GetQualityLevel())
-                        QualitySettings.SetQualityLevel(q, true);
+                        game.SetQuality(q);
                     AudioListener.volume = GUILayout.HorizontalSlider(AudioListener.volume, 0, 1);
                 }
 
@@ -99,6 +100,7 @@ namespace Ecos
                     game.Quit();
                 GUILayout.Space(10);
                 GUILayout.Label(game.Notice, body);
+                GUILayout.EndScrollView();
                 GUILayout.EndArea();
                 return;
             }
@@ -108,9 +110,9 @@ namespace Ecos
             var s = game.State;
             var p = game.Player.transform.position;
             int b = WorldMath.Biome(p.x, p.z, s.seed);
-            GUI.Box(new Rect(18, 18, 390, 125), "");
+            GUI.Box(new Rect(18, 18, 405, 148), "");
             GUI.Label(new Rect(32, 28, 365, 30), game.Settings.biomes[b].displayName, body);
-            GUI.Label(new Rect(32, 62, 360, 72), ExplorationQuest.Objective(s), small);
+            GUI.Label(new Rect(32, 62, 375, 95), ExplorationQuest.Objective(s), small);
             int hour = (int)(game.Clock.time * 24);
             int min = (int)(game.Clock.time * 1440) % 60;
             float yaw = game.Orbit.transform.eulerAngles.y;
@@ -192,12 +194,13 @@ namespace Ecos
                 map.Apply();
             }
 
-            var rect = new Rect(w / 2 - 250, 100, 500, 500);
-            GUI.Box(new Rect(rect.x - 15, rect.y - 35, 530, 565), "");
+            float mapSize = Mathf.Min(500, Mathf.Max(200, h - 155));
+            var rect = new Rect(w / 2 - mapSize / 2, 80, mapSize, mapSize);
+            GUI.Box(new Rect(rect.x - 15, rect.y - 35, rect.width + 30, rect.height + 65), "");
             GUI.Label(new Rect(rect.x, rect.y - 30, 500, 30), $"Mapa · {game.Settings.worldSize / mapZoom:0} m · N ↑", body);
-            if (GUI.Button(new Rect(rect.x + 320, rect.y - 34, 85, 30), "Zoom +"))
+            if (GUI.Button(new Rect(rect.x + rect.width - 180, rect.y - 34, 85, 30), "Zoom +"))
                 mapZoom = Mathf.Min(32, mapZoom * 4);
-            if (GUI.Button(new Rect(rect.x + 410, rect.y - 34, 85, 30), "Zoom −"))
+            if (GUI.Button(new Rect(rect.x + rect.width - 90, rect.y - 34, 85, 30), "Zoom −"))
                 mapZoom = Mathf.Max(1, mapZoom / 4);
             GUI.DrawTexture(rect, map);
             Vector3 p = game.Player.transform.position;

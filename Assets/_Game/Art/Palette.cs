@@ -9,8 +9,16 @@ namespace Ecos
         public Material terrain;
         public Palette()
         {
-            var saved = Resources.Load<Material>("TerrainMaterial");
-            terrain = saved ? new Material(saved) : new Material(Shader.Find("Ecos/Terrain"));
+            terrain = new Material(RequireShader("Ecos/Terrain"));
+            terrain.name = "Ecos terreno (runtime)";
+        }
+
+        static Shader RequireShader(string name)
+        {
+            var shader = Shader.Find(name);
+            if (!shader)
+                throw new System.InvalidOperationException("Shader ausente: " + name + ". Pare o Play e use Ecos > Reparar renderização URP.");
+            return shader;
         }
 
         public Material Get(Color c, bool glow = false)
@@ -18,8 +26,9 @@ namespace Ecos
             Color key = glow ? new Color(c.r, c.g, c.b, .99f) : c;
             if (materials.TryGetValue(key, out var m))
                 return m;
-            m = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            m.color = c;
+            m = new Material(RequireShader("Universal Render Pipeline/Lit"));
+            m.SetColor("_BaseColor", c);
+            m.SetFloat("_Smoothness", .12f);
             m.enableInstancing = true;
             if (glow)
             {

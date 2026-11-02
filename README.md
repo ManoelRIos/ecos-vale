@@ -34,6 +34,12 @@ O log mais recente já registra Physics 2D e não contém erros `CS...`, mas mos
 
 O atalho recebeu revisão estática; **não foi executado no Windows** neste ambiente. Ele não certifica compilação ou Play Mode. A opção `/check` verifica os arquivos e o tamanho do caminho sem iniciar o Editor.
 
+## Renderização e revisão visual
+
+Se os objetos aparecerem magenta, pare o Play e use **Ecos → Reparar renderização URP**, depois **Ecos → Abrir cena principal** e Play. A versão atual também aplica o pipeline esperado em runtime e preserva essa seleção ao trocar qualidade. O menu **Ecos → Diagnosticar renderização** informa o estado do pipeline e dos shaders.
+
+A revisão inclui céu gradual, névoa menos densa, personagem e árvores com novas silhuetas, abóboras/rochas/cogumelos facetados e texto maior na Game View. Consulte [VISUAL_UPDATE.md](Documentation/VISUAL_UPDATE.md). Essas mudanças ainda precisam de confirmação visual no Unity; não há screenshot ou benchmark validado da nova versão.
+
 ## Pequena aventura
 
 Você encontra os **três Ecos do Vale**, recolhe cristais e restaura um altar em cada local. Cada restauração consome um cristal. A terceira concede um **Artefato do Vale**, uma única vez. Há dezoito cristais na área inicial, além de madeira e pedra.

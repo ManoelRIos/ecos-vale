@@ -17,7 +17,7 @@ MonoBehaviour:
   chunkSize: 128
   resolution: 24
   viewRadius: 2
-  propsPerChunk: 24
+  propsPerChunk: 32
   daySeconds: 900
   biomes:
   - {fileID: 11400000, guid: c0c24a548b45560aabc15301b4122149, type: 2}

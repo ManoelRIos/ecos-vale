@@ -23,5 +23,7 @@
     "max": 288
   },
   "latest_user_log_project_root_characters": 130,
-  "short_path_reimport_verified_on_windows": false
+  "short_path_reimport_verified_on_windows": false,
+  "user_screenshot_observed": "Game running HUD with magenta props/player and ground not legible; user reports no red Console errors",
+  "rendering_revision_validated_in_unity": false
 }

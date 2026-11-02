@@ -16,6 +16,27 @@ namespace Ecos.Tests
             Color.magenta
         };
         [Test]
+        public void SharedVisualMeshesHaveOutwardNonDegenerateFaces()
+        {
+            var meshes = new[] { LowPolyMesh.Octahedron, LowPolyMesh.Cone, LowPolyMesh.Trunk, LowPolyMesh.Crown, LowPolyMesh.MushroomCap };
+            Assert.AreSame(LowPolyMesh.Cone, LowPolyMesh.Cone);
+            foreach (var mesh in meshes)
+            {
+                Assert.IsTrue(LowPolyMesh.IsGenerated(mesh), mesh.name);
+                Vector3[] vertices = mesh.vertices;
+                int[] triangles = mesh.triangles;
+                Assert.AreEqual(vertices.Length, mesh.normals.Length, mesh.name);
+                for (int i = 0; i < triangles.Length; i += 3)
+                {
+                    Vector3 a = vertices[triangles[i]], b = vertices[triangles[i + 1]], c = vertices[triangles[i + 2]];
+                    Vector3 normal = Vector3.Cross(b - a, c - a);
+                    Assert.Greater(normal.sqrMagnitude, .00000001f, mesh.name + " face " + i);
+                    Assert.Greater(Vector3.Dot(normal, (a + b + c) / 3), 0, mesh.name + " winding " + i);
+                }
+            }
+        }
+
+        [Test]
         public void NeighborChunksShareVerticesAndNormals()
         {
             var a = TerrainMeshGenerator.Generate(-1, 0, 128, 24, 71319, Palette, CancellationToken.None);

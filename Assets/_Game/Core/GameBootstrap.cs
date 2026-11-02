@@ -18,6 +18,7 @@ namespace Ecos
 
         public int NewSeed = 71319;
         public bool InventoryOpen, MapOpen;
+        public string RenderingError { get; private set; }
         public string Notice = "Bem-vindo ao vale. Inicie uma jornada.";
         public Interactable Focus { get; private set; }
 
@@ -46,12 +47,33 @@ namespace Ecos
             menuCamera.clearFlags = CameraClearFlags.SolidColor;
             menuCamera.backgroundColor = new Color(.035f,.025f,.065f);
             NewSeed = Settings.seed;
+            PrepareRendering();
             gameObject.AddComponent<AmbientAudio>();
             gameObject.AddComponent<GameUI>();
         }
 
+        bool PrepareRendering()
+        {
+            if (RenderingSetup.TryApply(out string error))
+            {
+                RenderingError = null;
+                return true;
+            }
+            RenderingError = error;
+            Notify(error);
+            Debug.LogError(error, this);
+            return false;
+        }
+
+        public void SetQuality(int level)
+        {
+            QualitySettings.SetQualityLevel(level, true);
+            PrepareRendering();
+        }
+
         public void Begin(bool resume)
         {
+            if (!PrepareRendering()) return;
             SaveData state;
             if (resume)
             {

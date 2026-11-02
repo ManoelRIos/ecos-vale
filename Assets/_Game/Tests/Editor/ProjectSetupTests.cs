@@ -71,5 +71,56 @@ namespace Ecos.Tests
             Assert.AreSame(graphics, GraphicsSettings.defaultRenderPipeline);
             Assert.AreSame(quality, QualitySettings.renderPipeline);
         }
+        [Test]
+        public void MaterialRepairPreservesAssetIdentityAndBaseColor()
+        {
+            var unlit = Shader.Find("Universal Render Pipeline/Unlit");
+            var lit = Shader.Find("Universal Render Pipeline/Lit");
+            Assert.IsNotNull(unlit, "The imported URP package must supply its Unlit shader.");
+            Assert.IsNotNull(lit, "The imported URP package must supply its Lit shader.");
+            string path = folder + "/RepairMaterial.mat";
+            var material = new Material(unlit);
+            Color expectedColor = new Color(.17f, .41f, .29f, 1);
+            material.SetColor("_BaseColor", expectedColor);
+            AssetDatabase.CreateAsset(material, path);
+            string guid = AssetDatabase.AssetPathToGUID(path);
+            var graphics = GraphicsSettings.defaultRenderPipeline;
+            var quality = QualitySettings.renderPipeline;
+
+            var repaired = ProjectSetup.EnsureMaterialAsset(path, "Universal Render Pipeline/Lit");
+
+            Assert.AreSame(material, repaired);
+            Assert.AreEqual(guid, AssetDatabase.AssetPathToGUID(path));
+            Assert.AreSame(lit, repaired.shader);
+            Assert.AreEqual(expectedColor, repaired.GetColor("_BaseColor"));
+            Assert.IsTrue(repaired.enableInstancing);
+            Assert.AreSame(repaired, ProjectSetup.EnsureMaterialAsset(path, "Universal Render Pipeline/Lit"));
+            Assert.AreSame(graphics, GraphicsSettings.defaultRenderPipeline);
+            Assert.AreSame(quality, QualitySettings.renderPipeline);
+        }
+
+        [Test]
+        public void ExplicitResourceRefreshPreservesBothAssetGuidsAndQualityValues()
+        {
+            var pipeline = ProjectSetup.EnsurePipelineAssets(PipelinePath, RendererPath);
+            var renderer = AssetDatabase.LoadAssetAtPath<UniversalRendererData>(RendererPath);
+            string pipelineGuid = AssetDatabase.AssetPathToGUID(PipelinePath);
+            string rendererGuid = AssetDatabase.AssetPathToGUID(RendererPath);
+            pipeline.shadowDistance = 73;
+            pipeline.renderScale = .85f;
+            var graphics = GraphicsSettings.defaultRenderPipeline;
+            var quality = QualitySettings.renderPipeline;
+
+            var refreshed = ProjectSetup.RefreshPipelineResources(PipelinePath, RendererPath);
+
+            Assert.AreSame(pipeline, refreshed);
+            Assert.AreSame(renderer, refreshed.rendererDataList[0]);
+            Assert.AreEqual(pipelineGuid, AssetDatabase.AssetPathToGUID(PipelinePath));
+            Assert.AreEqual(rendererGuid, AssetDatabase.AssetPathToGUID(RendererPath));
+            Assert.AreEqual(73, refreshed.shadowDistance);
+            Assert.AreEqual(.85f, refreshed.renderScale);
+            Assert.AreSame(graphics, GraphicsSettings.defaultRenderPipeline);
+            Assert.AreSame(quality, QualitySettings.renderPipeline);
+        }
     }
 }

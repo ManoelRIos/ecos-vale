@@ -6,10 +6,10 @@
 | --- | --- |
 | SDK .NET 8.0.427 instalado de fonte oficial via TLS | Concluído |
 | Compilação e execução de `Tools/CoreChecks.csproj` | **12 verificações passaram** |
-| Parser C# tree-sitter 0.26.0 / grammar 0.23.5 | **29 arquivos sem erro sintático** |
+| Parser C# tree-sitter 0.26.0 / grammar 0.23.5 | **30 arquivos sem erro sintático** |
 | Testes Python de versão e empacotamento | **17 passaram (8 + 9)** |
 | Estrutura, versões diretas e evidências de manifests | Passou |
-| Assets e metadados locais | **62 arquivos de assets; 82 GUIDs únicos** |
+| Assets e metadados locais | **66 arquivos de assets; 86 GUIDs únicos** |
 | Referências locais de GUID, cena/prefab e IDs internos | Passou |
 | `bash -n Tools/setup-cloud.sh Tools/unity-check.sh` | Passou |
 | Script completo `Tools/setup-cloud.sh` | Executado com sucesso; reutilizou SDK e repetiu as 12 verificações |
@@ -24,7 +24,7 @@ A consulta Git HTTPS, fora do sandbox de comandos, funcionou e confirmou que o r
 
 **Não há Unity Editor neste ambiente.** Portanto, não houve resolução UPM, compilação dos assemblies Unity, compilação de shader, importação nativa dos YAMLs, teste de cena em Play Mode, build Windows ou medição de FPS.
 
-Dez testes EditMode estão implementados em `Assets/_Game/Tests/Editor/WorldTests.cs` e `ProjectSetupTests.cs`, **todos ainda não executados**:
+Treze testes EditMode estão implementados em `Assets/_Game/Tests/Editor/WorldTests.cs` e `ProjectSetupTests.cs`, **todos ainda não executados**:
 
 1. Igualdade dos vértices, normais e cores de chunks vizinhos.
 2. Cancelamento da geração.
@@ -36,6 +36,9 @@ Dez testes EditMode estão implementados em `Assets/_Game/Tests/Editor/WorldTest
 8. Fluxo de três coletas/restaurações pela autoridade até a recompensa.
 9. Criação idempotente do pipeline preservando configurações válidas.
 10. Reparo de renderer ausente preservando o GUID do pipeline.
+11. Reparo de material preservando GUID e cor base.
+12. Atualização explícita de recursos preservando GUIDs e valores básicos de qualidade.
+13. Reutilização dos meshes visuais e faces orientadas para fora, sem triângulos degenerados.
 
 Não há teste de Play Mode executado ou executável Windows. A meta de 60 FPS não foi avaliada. Ausência de erros sintáticos não equivale a compilação de APIs Unity bem-sucedida.
 
@@ -43,7 +46,7 @@ Não há teste de Play Mode executado ou executável Windows. A meta de 60 FPS n
 
 1. Aplicar as regras de rede do rascunho: `packages.unity.com` e `download.packages.unity.com`. Elas foram salvas; a tentativa no runtime atual retornou HTTP 403, antes de qualquer aplicação/publicação.
 2. Disponibilizar Unity 6000.0.85f1 licenciado e resolver UPM. Usar `Tools/unity-check.sh import` e ler o log.
-3. Executar `Tools/unity-check.sh tests`. Confirmar dez testes executados e nenhum falhando no XML atual.
+3. Executar `Tools/unity-check.sh tests`. Confirmar treze testes executados e nenhum falhando no XML atual.
 4. Abrir Valley, iniciar Novo jogo, testar câmera/terreno, percorrer os três locais, coletar cristais, restaurar os três altares e confirmar um artefato. Verificar inventário cheio, descarte, mapa e ciclo ambiental.
 5. Sair e usar Continuar; confirmar seed, posição, inventário e objetos consumidos preservados. Testar arquivo inválido sem sobrescrever o save válido de backup.
 6. Fazer build com o módulo Windows e testar o executável em Windows. Medir CPU/GPU, alocações e frames na máquina alvo antes de avaliar a meta de performance.
@@ -87,3 +90,11 @@ A sessão mais recente já contém Physics 2D e 30 pacotes resolvidos, sem erros
 A distribuição passou a usar `Distribution/EcosDoVale.zip` com uma raiz curta `EcosDoVale`, sem Library, caches ou distribuição recursiva. O gerador `Tools/package_project.py` usa apenas arquivos rastreados no índice Git e valida Editor/Physics 2D antes de empacotar. O atalho recusa raiz acima de 60 caracteres antes de abrir o Editor. A recuperação documentada preserva o cache anterior renomeando Library somente após mover o projeto para um caminho curto.
 
 Os testes do empacotador verificam arquivos necessários, ausência de cache/ZIP recursivo, integridade e reprodução determinística. Isso não equivale à validação do importador Windows nem do Play Mode, que continuam pendentes após esta alteração. O log original do usuário não foi incluído no Git.
+
+## Revisão de renderização e arte
+
+A screenshot do usuário mostra magenta e terreno não legível. O usuário informou ausência de erros vermelhos; não foi recebido um diagnóstico do pipeline ativo. O código agora verifica seleção URP/renderer, repara shaders de materiais existentes, prepara o Editor antes de Play e reafirma a seleção em runtime/qualidade. Novos comandos de reparo e diagnóstico ajudam a distinguir configuração de falha de shader.
+
+Foram implementados céu gradual, iluminação/névoa revisadas, novo personagem e vegetação facetada por bioma, LOD de copas preservado e melhorias de legibilidade da UI. A verificação numérica de Cone/Trunk/Crown/MushroomCap passou com 14/24/42/48 triângulos, orientação externa e área positiva. Esses checks não renderizam os meshes nem compilam HLSL.
+
+O total de testes EditMode passou para 13, ainda todos sem execução aqui. A compilação completa dos novos scripts, shaders, renderização e desempenho no Editor não foram confirmados. Detalhes em VISUAL_UPDATE.md.

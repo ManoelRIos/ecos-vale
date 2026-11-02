@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEditor.SceneManagement;
+using UnityEditor.Rendering;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
@@ -19,10 +20,16 @@ namespace Ecos.Editor
         const string ShrinePath = "Assets/_Game/Prefabs/Shrine.prefab";
         static readonly string[] ItemIds = { "wood", "stone", "crystal", "herb", "artifact", "key", "quest" };
         static bool creatingDefaults;
+        static bool playPreparationQueued;
+        const string LitShaderName = "Universal Render Pipeline/Lit";
+        const string WeatherShaderName = "Universal Render Pipeline/Particles/Unlit";
+        const string TerrainShaderName = "Ecos/Terrain";
+        const string SkyShaderName = "Ecos/ValleySky";
 
         static ProjectSetup()
         {
             EditorApplication.delayCall += Ensure;
+            EditorApplication.playModeStateChanged += PrepareBeforePlay;
         }
 
         static void Ensure()
@@ -48,14 +55,21 @@ namespace Ecos.Editor
             foreach (var biome in world.biomes)
                 if (!biome) return true;
             var pipeline = AssetDatabase.LoadAssetAtPath<UniversalRenderPipelineAsset>(Resource + "ValleyURP.asset");
-            if (!HasDefaultRenderer(pipeline) || !AssetDatabase.LoadAssetAtPath<UniversalRendererData>(Resource + "ValleyRenderer.asset"))
+            var renderer = AssetDatabase.LoadAssetAtPath<UniversalRendererData>(Resource + "ValleyRenderer.asset");
+            if (!HasDefaultRenderer(pipeline) || !renderer || !UsesRenderer(pipeline, renderer))
                 return true;
-            if (!GraphicsSettings.defaultRenderPipeline)
+            if (GraphicsSettings.defaultRenderPipeline != pipeline)
                 return true;
             for (int i = 0; i < QualitySettings.names.Length; i++)
-                if (!QualitySettings.GetRenderPipelineAssetAt(i)) return true;
-            foreach (var name in new[] { "TerrainMaterial", "LitMaterial", "WeatherMaterial" })
-                if (!AssetDatabase.LoadAssetAtPath<Material>(Resource + name + ".mat")) return true;
+                if (QualitySettings.GetRenderPipelineAssetAt(i) != pipeline) return true;
+            if (!MaterialUsesShader(Resource + "TerrainMaterial.mat", TerrainShaderName)
+                || !MaterialUsesShader(Resource + "LitMaterial.mat", LitShaderName)
+                || !MaterialUsesShader(Resource + "GlowMaterial.mat", LitShaderName)
+                || !MaterialUsesShader(Resource + "WeatherMaterial.mat", WeatherShaderName)
+                || !MaterialUsesShader(Resource + "ValleySkyMaterial.mat", SkyShaderName))
+                return true;
+            foreach (string guid in AssetDatabase.FindAssets("t:Material", new[] { "Assets/_Game/Art" }))
+                if (!MaterialUsesShader(AssetDatabase.GUIDToAssetPath(guid), LitShaderName)) return true;
             foreach (var id in ItemIds)
                 if (!AssetDatabase.LoadAssetAtPath<ItemDefinition>(Resource + "Item_" + id + ".asset")) return true;
             return !AssetDatabase.LoadAssetAtPath<GameObject>(TravelerPath)
@@ -63,9 +77,46 @@ namespace Ecos.Editor
                 || !File.Exists(ScenePath);
         }
 
+        static void PrepareBeforePlay(PlayModeStateChange state)
+        {
+            if (state != PlayModeStateChange.ExitingEditMode || playPreparationQueued)
+                return;
+            if (!NeedsSetup())
+                return;
+            // Save/import only after the cancelled transition has returned to Edit Mode.
+            EditorApplication.isPlaying = false;
+            playPreparationQueued = true;
+            EditorApplication.delayCall += FinishPreparingPlay;
+        }
+
+        static void FinishPreparingPlay()
+        {
+            if (EditorApplication.isCompiling || EditorApplication.isUpdating
+                || EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                EditorApplication.delayCall += FinishPreparingPlay;
+                return;
+            }
+            try
+            {
+                CreateDefaults();
+                if (NeedsSetup())
+                    throw new InvalidOperationException("Ecos: preparação incompleta. Use Ecos > Diagnosticar renderização e confira o primeiro erro do Console.");
+                playPreparationQueued = false;
+                EditorApplication.isPlaying = true;
+            }
+            catch (Exception error)
+            {
+                playPreparationQueued = false;
+                Debug.LogException(error);
+            }
+        }
+
         [MenuItem("Ecos/Criar assets e atualizar cena")]
         public static void CreateDefaults()
         {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+                throw new InvalidOperationException("Pare o Play Mode antes de preparar os assets do projeto.");
             if (creatingDefaults)
                 return;
             creatingDefaults = true;
@@ -78,9 +129,7 @@ namespace Ecos.Editor
                 AssetDatabase.Refresh();
                 var world = EnsureWorldSettings();
                 EnsurePipeline();
-                EnsureMaterial("TerrainMaterial", "Ecos/Terrain");
-                EnsureMaterial("LitMaterial", "Universal Render Pipeline/Lit");
-                EnsureMaterial("WeatherMaterial", "Universal Render Pipeline/Particles/Unlit");
+                EnsureProjectMaterials();
                 EnsureItems();
                 EnsurePrefabs();
                 EnsureScene(world);
@@ -225,34 +274,102 @@ namespace Ecos.Editor
 
         static void PersistMaterials(GameObject go)
         {
-            const string meshPath = "Assets/_Game/Art/Octahedron.asset";
+            // Native primitives already have an engine asset path. Factory meshes need a
+            // real asset before the prefab can safely reference them after a domain reload.
+            var persisted = new Dictionary<Mesh, Mesh>();
             foreach (var filter in go.GetComponentsInChildren<MeshFilter>())
             {
-                if (filter.sharedMesh != LowPolyMesh.Octahedron || AssetDatabase.Contains(filter.sharedMesh))
+                var mesh = filter.sharedMesh;
+                if (!LowPolyMesh.IsGenerated(mesh) || AssetDatabase.Contains(mesh) || !string.IsNullOrEmpty(AssetDatabase.GetAssetPath(mesh)))
                     continue;
-                var existing = AssetDatabase.LoadAssetAtPath<Mesh>(meshPath);
-                if (existing)
-                    filter.sharedMesh = existing;
-                else
-                    AssetDatabase.CreateAsset(filter.sharedMesh, meshPath);
+                if (!persisted.TryGetValue(mesh, out var saved))
+                {
+                    string path = "Assets/_Game/Art/" + SafeAssetName(mesh.name) + ".asset";
+                    saved = AssetDatabase.LoadAssetAtPath<Mesh>(path);
+                    if (!saved)
+                    {
+                        saved = mesh;
+                        AssetDatabase.CreateAsset(saved, path);
+                    }
+                    persisted.Add(mesh, saved);
+                }
+                filter.sharedMesh = saved;
+                foreach (var collider in go.GetComponentsInChildren<MeshCollider>())
+                    if (collider.sharedMesh == mesh) collider.sharedMesh = saved;
             }
             foreach (var renderer in go.GetComponentsInChildren<Renderer>())
             {
                 var material = renderer.sharedMaterial;
-                if (!AssetDatabase.Contains(material))
+                if (material && !AssetDatabase.Contains(material))
                     AssetDatabase.CreateAsset(material, AssetDatabase.GenerateUniqueAssetPath("Assets/_Game/Art/LowPoly.mat"));
             }
         }
 
-        static void EnsureMaterial(string name, string shader)
+        static string SafeAssetName(string value)
         {
-            string path = Resource + name + ".mat";
-            if (AssetDatabase.LoadAssetAtPath<Material>(path))
-                return;
-            var source = Shader.Find(shader);
-            if (!source)
-                throw new InvalidOperationException("Shader ausente: " + shader);
-            AssetDatabase.CreateAsset(new Material(source) { enableInstancing = true }, path);
+            foreach (char invalid in Path.GetInvalidFileNameChars())
+                value = value.Replace(invalid, '_');
+            return string.IsNullOrEmpty(value) ? "LowPolyMesh" : value;
+        }
+
+        static bool MaterialUsesShader(string path, string shaderName)
+        {
+            var material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            var expected = Shader.Find(shaderName);
+            return material && expected && material.shader == expected;
+        }
+
+        // Material repair is deliberately isolated from global pipeline/quality settings.
+        public static Material EnsureMaterialAsset(string path, string shaderName)
+        {
+            var expected = Shader.Find(shaderName);
+            if (!expected)
+                throw new InvalidOperationException("Shader ausente: " + shaderName + ". Confira o primeiro erro de importação no Console e o caminho curto do projeto.");
+            var material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (!material)
+            {
+                material = new Material(expected) { enableInstancing = true };
+                AssetDatabase.CreateAsset(material, path);
+                return material;
+            }
+            bool changed = false;
+            if (material.shader != expected)
+            {
+                bool hasBase = material.HasProperty("_BaseColor");
+                bool hasColor = material.HasProperty("_Color");
+                Color original = hasBase ? material.GetColor("_BaseColor") : hasColor ? material.GetColor("_Color") : Color.white;
+                material.shader = expected;
+                if (hasBase || hasColor)
+                {
+                    if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", original);
+                    else if (material.HasProperty("_Color")) material.SetColor("_Color", original);
+                }
+                changed = true;
+            }
+            if (!material.enableInstancing)
+            {
+                material.enableInstancing = true;
+                changed = true;
+            }
+            if (changed) EditorUtility.SetDirty(material);
+            return material;
+        }
+
+        static void EnsureProjectMaterials()
+        {
+            EnsureMaterialAsset(Resource + "TerrainMaterial.mat", TerrainShaderName);
+            EnsureMaterialAsset(Resource + "LitMaterial.mat", LitShaderName);
+            var glow = EnsureMaterialAsset(Resource + "GlowMaterial.mat", LitShaderName);
+            if (!glow.IsKeywordEnabled("_EMISSION"))
+            {
+                glow.EnableKeyword("_EMISSION");
+                glow.SetColor("_EmissionColor", Color.white);
+                EditorUtility.SetDirty(glow);
+            }
+            EnsureMaterialAsset(Resource + "WeatherMaterial.mat", WeatherShaderName);
+            EnsureMaterialAsset(Resource + "ValleySkyMaterial.mat", SkyShaderName);
+            foreach (string guid in AssetDatabase.FindAssets("t:Material", new[] { "Assets/_Game/Art" }))
+                EnsureMaterialAsset(AssetDatabase.GUIDToAssetPath(guid), LitShaderName);
         }
 
         static bool HasDefaultRenderer(UniversalRenderPipelineAsset pipeline)
@@ -268,7 +385,17 @@ namespace Ecos.Editor
                     return false;
                 var renderers = pipeline.rendererDataList;
                 int index = selected.intValue;
-                return index >= 0 && index < renderers.Length && renderers[index];
+                return index >= 0 && index < renderers.Length && renderers[index] is UniversalRendererData;
+            }
+        }
+
+        static bool UsesRenderer(UniversalRenderPipelineAsset pipeline, UniversalRendererData renderer)
+        {
+            if (!HasDefaultRenderer(pipeline)) return false;
+            using (var serialized = new SerializedObject(pipeline))
+            {
+                var selected = serialized.FindProperty("m_DefaultRendererIndex");
+                return selected != null && pipeline.rendererDataList[selected.intValue] == renderer;
             }
         }
 
@@ -289,7 +416,7 @@ namespace Ecos.Editor
                 pipeline.shadowDistance = 90;
                 AssetDatabase.CreateAsset(pipeline, pipelinePath);
             }
-            else if (!HasDefaultRenderer(pipeline))
+            else if (!HasDefaultRenderer(pipeline) || !UsesRenderer(pipeline, renderer))
             {
                 var repaired = UniversalRenderPipelineAsset.Create(renderer);
                 repaired.renderScale = 1;
@@ -312,14 +439,13 @@ namespace Ecos.Editor
         static void EnsurePipeline()
         {
             var pipeline = EnsurePipelineAssets(Resource + "ValleyURP.asset", Resource + "ValleyRenderer.asset");
-            if (!GraphicsSettings.defaultRenderPipeline)
-                GraphicsSettings.defaultRenderPipeline = pipeline;
+            GraphicsSettings.defaultRenderPipeline = pipeline;
             int previous = QualitySettings.GetQualityLevel();
             try
             {
                 for (int i = 0; i < QualitySettings.names.Length; i++)
                 {
-                    if (QualitySettings.GetRenderPipelineAssetAt(i))
+                    if (QualitySettings.GetRenderPipelineAssetAt(i) == pipeline)
                         continue;
                     QualitySettings.SetQualityLevel(i, false);
                     QualitySettings.renderPipeline = pipeline;
@@ -328,6 +454,97 @@ namespace Ecos.Editor
             finally
             {
                 QualitySettings.SetQualityLevel(previous, false);
+            }
+        }
+
+        [MenuItem("Ecos/Reparar renderização URP")]
+        public static void RepairRendering()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                Debug.LogError("Pare o Play Mode antes de reparar a renderização.");
+                return;
+            }
+            CreateDefaults();
+            RefreshPipelineResources(Resource + "ValleyURP.asset", Resource + "ValleyRenderer.asset");
+            EnsurePipeline();
+            EnsureProjectMaterials();
+            AssetDatabase.SaveAssets();
+            Debug.Log("Ecos: recursos do pipeline e shaders dos materiais reparados. Confira os diagnósticos abaixo antes de testar Play.");
+            DiagnoseRendering();
+        }
+
+        // Explicit repair for generated project resources; GUIDs remain unchanged.
+        public static UniversalRenderPipelineAsset RefreshPipelineResources(string pipelinePath, string rendererPath)
+        {
+            var pipeline = EnsurePipelineAssets(pipelinePath, rendererPath);
+            var renderer = AssetDatabase.LoadAssetAtPath<UniversalRendererData>(rendererPath);
+            var freshRenderer = ScriptableObject.CreateInstance<UniversalRendererData>();
+            var freshPipeline = UniversalRenderPipelineAsset.Create(renderer);
+            float renderScale = pipeline.renderScale;
+            float shadowDistance = pipeline.shadowDistance;
+            int samples = pipeline.msaaSampleCount;
+            string rendererName = renderer.name;
+            string pipelineName = pipeline.name;
+            try
+            {
+                EditorUtility.CopySerialized(freshRenderer, renderer);
+                renderer.name = rendererName;
+                EditorUtility.SetDirty(renderer);
+                EditorUtility.CopySerialized(freshPipeline, pipeline);
+                pipeline.name = pipelineName;
+                pipeline.renderScale = renderScale;
+                pipeline.shadowDistance = shadowDistance;
+                pipeline.msaaSampleCount = samples;
+                EditorUtility.SetDirty(pipeline);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(freshPipeline);
+                UnityEngine.Object.DestroyImmediate(freshRenderer);
+            }
+            return pipeline;
+        }
+
+        [MenuItem("Ecos/Diagnosticar renderização")]
+        public static void DiagnoseRendering()
+        {
+            Debug.Log("Ecos renderização: ativo=" + PipelineDescription(GraphicsSettings.currentRenderPipeline)
+                + "; Graphics=" + PipelineDescription(GraphicsSettings.defaultRenderPipeline)
+                + "; qualidade=" + QualitySettings.names[QualitySettings.GetQualityLevel()]
+                + " -> " + PipelineDescription(QualitySettings.renderPipeline));
+            var pipeline = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
+            if (!pipeline)
+                Debug.LogError("Ecos: o pipeline ativo não é URP. Pare Play e use Ecos > Reparar renderização URP.");
+            else if (!HasDefaultRenderer(pipeline))
+                Debug.LogError("Ecos: o URP ativo não possui renderer válido. Use Ecos > Reparar renderização URP.");
+            foreach (string shaderName in new[] { TerrainShaderName, LitShaderName, WeatherShaderName, SkyShaderName })
+                DiagnoseShader(shaderName);
+        }
+
+        static string PipelineDescription(RenderPipelineAsset pipeline)
+        {
+            return pipeline ? pipeline.name + " (" + pipeline.GetType().Name + ")" : "Built-in / nenhum";
+        }
+
+        static void DiagnoseShader(string name)
+        {
+            var shader = Shader.Find(name);
+            if (!shader)
+            {
+                Debug.LogError("Ecos: shader não encontrado: " + name + ". Confira importação dos pacotes e o primeiro erro do Console.");
+                return;
+            }
+            Debug.Log("Ecos shader: " + name + "; isSupported=" + shader.isSupported
+                + "; arquivo=" + AssetDatabase.GetAssetPath(shader));
+            // Supported status can lag a pipeline switch; report it, never hide the error
+            // by swapping to a different shader or disabling shader validation.
+            foreach (var message in ShaderUtil.GetShaderMessages(shader))
+            {
+                string text = "Ecos shader " + name + ": " + message.message
+                    + " (" + message.file + ":" + message.line + ")";
+                if (message.severity == ShaderCompilerMessageSeverity.Error) Debug.LogError(text);
+                else if (message.severity == ShaderCompilerMessageSeverity.Warning) Debug.LogWarning(text);
             }
         }
 

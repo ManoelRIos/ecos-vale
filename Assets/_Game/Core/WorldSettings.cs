@@ -15,7 +15,7 @@ namespace Ecos
         [Range(1, 4)]
         public int viewRadius = 2;
         [Range(0, 50)]
-        public int propsPerChunk = 24;
+        public int propsPerChunk = 32;
         [Min(60)]
         public float daySeconds = 900;
         public BiomeDefinition[] biomes;

@@ -8,7 +8,13 @@ ECOS DO VALE - ABERTURA EM CAMINHO CURTO NO WINDOWS
    Ele recusa caminhos acima de 60 caracteres e abre a propria pasta.
    O Editor esperado e Unity 6000.0.85f1, instalado pelo Unity Hub.
 4. Aguarde o Package Manager e a compilacao terminarem.
-5. Abra Assets/_Game/Scenes/Valley.unity e pressione Play.
+5. Fora do Play, use Ecos > Reparar renderizacao URP.
+6. Abra Assets/_Game/Scenes/Valley.unity, pressione Play e escolha Novo jogo.
+
+Se os objetos ainda ficarem magenta, use Ecos > Diagnosticar renderizacao
+e confira as mensagens de pipeline e shader dessa sessao.
+Esta revisao inclui novas formas de personagem/arvores, ceu gradual e HUD maior.
+A aparencia final ainda precisa ser validada no Unity.
 
 Se o Editor estiver instalado fora do caminho padrao, use no Hub:
 Add project from disk -> C:\Dev\EcosDoVale, com Editor 6000.0.85f1.
