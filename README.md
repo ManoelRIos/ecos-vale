@@ -20,6 +20,14 @@ A versão anterior 6000.0.40f1 é afetada pela CVE-2025-59489. Use o Editor 6000
 
 O log de abertura também identificou um módulo nativo ausente: **Physics 2D**, exigido pelos componentes do Netcode 2.0.0 mesmo em um jogo 3D. O manifest atual já inclui essa dependência. Se estiver usando a cópia anterior, habilite Physics 2D nos pacotes Built-in do Package Manager e aguarde recompilar.
 
+## Abrir a pasta correta no Windows
+
+Feche o Editor e extraia o ZIP atualizado em uma **pasta nova**. Dentro dela, execute **ABRIR_ECOS_DO_VALE.cmd**. O atalho confere a presença de Physics 2D no manifest e o pin 6000.0.85f1, e inicia o Editor com o caminho dessa pasta explícito. Ele não baixa ferramentas nem altera arquivos do projeto. Se o Editor estiver fora do caminho padrão do Hub, as instruções exibem como selecionar a pasta manualmente. O log dessa abertura fica em `Logs/Ecos-Editor.log`.
+
+O atalho recebeu revisão estática; **não foi executado no Windows** neste ambiente. Ele não prova compilação ou funcionamento do jogo. A opção `/check` verifica os arquivos sem iniciar o Editor.
+
+O segundo log fornecido ainda registra 29 pacotes e nenhuma referência ao módulo Physics 2D. Portanto, a sessão registrada continuava sem a correção aplicada. O log não permite distinguir cópia antiga, manifest não sincronizado ou resolução de pacotes persistida. Abrir uma extração nova evita misturar essa sessão com a cópia atualizada. Preserve qualquer trabalho próprio na cópia anterior.
+
 ## Pequena aventura
 
 Você encontra os **três Ecos do Vale**, recolhe cristais e restaura um altar em cada local. Cada restauração consome um cristal. A terceira concede um **Artefato do Vale**, uma única vez. Há dezoito cristais na área inicial, além de madeira e pedra.

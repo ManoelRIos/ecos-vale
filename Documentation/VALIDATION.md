@@ -70,3 +70,11 @@ Foram identificados três erros C# distintos `CS1069` em `NetworkRigidBodyBase.c
 A fonte oficial da tag `ngo/2.0.0` confirma que a classe `NetworkRigidbodyBase` referencia os dois módulos quando qualquer um deles está habilitado. As falhas posteriores de carregamento de Collections/Splines/InputSystem são candidatas a efeitos em cascata; não foram tratadas como incompatibilidades independentes sem nova recompilação.
 
 A validação estática do projeto corrigido passou. Um teste negativo em uma cópia temporária sem Physics 2D confirmou que o validador rejeita a configuração original. Não houve recompilação Unity nem confirmação de Play Mode após esta correção; isso precisa ser confirmado na máquina do usuário. O log original não foi incluído no Git.
+
+## Segundo log e pacote de abertura
+
+A segunda sessão enviada pelo usuário ainda registrava 29 pacotes, sem Physics 2D, sem `COM_UNITY_MODULES_PHYSICS2D` e sem `UnityEngine.Physics2DModule.dll` nos argumentos do compilador. Os três erros C# de NGO são os mesmos; o log não confirma aplicação do manifest corrigido. Não foi identificado outro erro C# independente na revisão completa dos 29 scripts e das referências de assembly.
+
+O pacote passou a incluir um atalho Windows que confere a própria pasta e inicia o Editor com `-projectPath` explícito, além de instruções de extração nova. A estrutura do atalho, seus rótulos e verificações anteriores ao lançamento receberam revisão estática. **O atalho não foi executado no Windows.** A tentativa de instalar um PowerShell auxiliar de teste foi rejeitada pela revisão automática por não ser necessária ao diagnóstico; a restrição foi respeitada e nenhuma instalação alternativa foi feita.
+
+A validação estática, os testes de política de versão e os testes do núcleo continuam separados da validação Unity. Não há comprovação de compilação ou Play Mode após a correção na máquina do usuário.

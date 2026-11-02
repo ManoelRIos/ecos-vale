@@ -50,6 +50,14 @@ O arquivo original de log contém dados locais e não é versionado no repositó
 
 Se ocorrer outro erro após recompilar, o log no Windows fica em `%LOCALAPPDATA%\Unity\Editor\Editor.log`. A primeira mensagem vermelha do Console, incluindo código e arquivo, ajuda a identificar a próxima causa.
 
+## Segundo log: o estado aberto ainda não inclui a correção
+
+O segundo log repete os mesmos três `CS1069`. A lista de pacotes resolvidos tem 29 entradas e inclui a física 3D, mas não `com.unity.modules.physics2d`. A invocação do compilador também não contém `COM_UNITY_MODULES_PHYSICS2D` nem a referência `UnityEngine.Physics2DModule.dll`. Isso confirma que o módulo continuava ausente no estado carregado pela sessão; não demonstra que o manifest corrigido foi aplicado e falhou.
+
+O log não diferencia cópia antiga, checkout/manifest não sincronizado e estado persistido de pacotes. Por isso, o novo pacote inclui `ABRIR_ECOS_DO_VALE.cmd`, que confere os arquivos da própria pasta e a abre explicitamente. Use uma extração nova e mantenha a cópia anterior se houver alterações suas. Nenhum cache ou arquivo do usuário é removido pelo atalho.
+
+A revisão completa dos 29 scripts e das referências de assembly não identificou outro erro C# independente. Isso é revisão de fonte e análise sintática, não compilação Unity. Os avisos de Collections, exemplos HDRP opcionais e suporte de build Windows não devem ser tratados como novas causas C# sem resolver o primeiro bloqueio.
+
 ## Limite da verificação
 
 Foram executados testes de política de versão, análise sintática dos scripts e testes do núcleo C#. Os testes EditMode, a importação de assets, shaders, Play Mode e o build continuam sem execução aqui. Consulte `VALIDATION.md`; não considere o projeto compilado somente porque os checks estáticos passaram.

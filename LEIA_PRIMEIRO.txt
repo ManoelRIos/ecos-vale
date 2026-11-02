@@ -1,0 +1,25 @@
+ECOS DO VALE - ABERTURA DA COPIA ATUALIZADA
+
+1. Feche o Unity Editor antes de abrir esta copia.
+2. Extraia TODO o ZIP em uma PASTA NOVA. Nao execute o projeto dentro do ZIP.
+3. Dentro da pasta extraida, execute ABRIR_ECOS_DO_VALE.cmd.
+   Ele confere esta pasta, Physics 2D e a versao fixada, e abre esta mesma pasta.
+   O Editor esperado e Unity 6000.0.85f1, instalado pelo Unity Hub.
+4. Aguarde o Package Manager e a compilacao terminarem.
+5. Abra Assets/_Game/Scenes/Valley.unity e pressione Play.
+
+Se o Unity estiver instalado fora do caminho padrao:
+No Hub, use Add project from disk e selecione ESTA pasta (a que contem
+Assets, Packages e ProjectSettings). Escolha o Editor 6000.0.85f1.
+
+O log dessa abertura via atalho ficara em Logs/Ecos-Editor.log.
+O atalho nao instala ferramentas, nao altera seus arquivos nem apaga caches.
+Ele verifica configuracao; nao substitui a compilacao pelo Unity.
+O atalho Windows ainda nao foi executado neste ambiente Linux.
+
+O log anterior mostrava que o projeto aberto ainda nao tinha Physics 2D.
+Este ZIP declara com.unity.modules.physics2d, versao 1.0.0, no manifest.
+Adicionar um repositorio ou reiniciar o Editor, por si so, nao sincroniza
+os arquivos da branch nem comprova que a copia correta foi aberta.
+
+Consulte README.md e Documentation/VALIDATION.md para o estado real dos testes.
