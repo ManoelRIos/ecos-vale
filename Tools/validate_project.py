@@ -8,10 +8,13 @@ import re
 import sys
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
+from check_editor_version import project_version, version_error
 errors = []
 def check(condition, message):
     if not condition:
         errors.append(message)
+pinned_editor = project_version()
+check(version_error(pinned_editor, pinned_editor) is None, 'Unsafe or unsupported pinned Editor: ' + pinned_editor)
 assets = ROOT / 'Assets'
 files = [p for p in assets.rglob('*') if p.is_file() and p.suffix != '.meta']
 guids = {}

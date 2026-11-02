@@ -10,6 +10,7 @@ if [[ ! -x "$sdk_dir/dotnet" ]]; then
   bash "$installer" --version 8.0.427 --install-dir "$sdk_dir" --no-path
 fi
 python3 -m pip install --disable-pip-version-check --target /workspace/.tools/python --upgrade -r Tools/requirements-validation.txt
+python3 -m unittest discover -s Tools -p "test_*.py"
 PYTHONPATH="/workspace/.tools/python${PYTHONPATH:+:$PYTHONPATH}" python3 Tools/validate_project.py
 DOTNET_CLI_HOME=/workspace/.tools/dotnet-home DOTNET_CLI_TELEMETRY_OPTOUT=1 "$sdk_dir/dotnet" run --project Tools/CoreChecks.csproj
 printf '%s\n' 'Core C# and static validation complete. Unity import, Play Mode and Windows build remain separate required checks.'

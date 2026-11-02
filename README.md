@@ -1,18 +1,22 @@
 # Ecos do Vale
 
-Vertical slice em C# para **Unity 6 LTS 6000.0.40f1**, Windows PC, URP e Input System. Todo o conteúdo visual é feito de primitivas e meshes próprias; nenhum asset pago é necessário.
+Vertical slice em C# para **Unity 6 LTS 6000.0.85f1**, Windows PC, URP e Input System. Todo o conteúdo visual é feito de primitivas e meshes próprias; nenhum asset pago é necessário.
 
 **Estado real:** projeto e assets criados; testes do núcleo C# e verificações estáticas executados. Este ambiente não possui Unity Editor. A importação dos assets, compilação dos componentes Unity, experiência em Play Mode, shaders e build Windows **ainda não foram executados**. Não há executável Windows validado nesta entrega.
 
 ## Abrir e jogar
 
-1. Instale Unity **6000.0.40f1** pelo Unity Hub, com Windows Build Support, e ative uma licença válida. Unity Personal é uma opção quando aplicável.
+1. Instale Unity **6000.0.85f1** pelo Unity Hub, com Windows Build Support, e ative uma licença válida. Unity Personal é uma opção quando aplicável.
 2. Adicione esta pasta como projeto existente. Aguarde a resolução dos pacotes fixados em `Packages/manifest.json`.
 3. Na primeira importação, `ProjectSetup` cria o pipeline URP e o renderer usando as APIs do Editor, e registra a cena no Build Settings. Os dados dos seis biomas, itens, materiais, prefabs visuais e a cena inicial já estão no projeto.
 4. Use **Ecos → Abrir cena principal**, ou abra `Assets/_Game/Scenes/Valley.unity`. Pressione Play e **Novo jogo**.
 5. Caso a configuração automática não ocorra, execute **Ecos → Criar assets e atualizar cena**. A operação preserva os assets existentes. Confira o Console antes de jogar.
 
 A cena contém um ponto de entrada; o terreno, jogador e ambiente são construídos ao iniciar a sessão. Os prefabs em `Prefabs/` são referências visuais editáveis; a fábrica procedural é usada pelo runtime. Não é necessário montar objetos no Inspector.
+
+## Atualização de segurança e abertura
+
+A versão anterior 6000.0.40f1 é afetada pela CVE-2025-59489. Use o Editor 6000.0.85f1 e uma extração nova do ZIP atualizado. Confira o [guia de correção e diagnóstico](Documentation/UNITY_TROUBLESHOOTING.md) se o Hub mostrar Security Alert ou o projeto abrir com erros. Alterar o pin não instala o Editor automaticamente.
 
 ## Pequena aventura
 

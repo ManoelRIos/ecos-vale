@@ -1,6 +1,14 @@
 {
   "name": "Ecos.Tests",
-  "references": ["Ecos.Runtime"],
-  "includePlatforms": ["Editor"],
-  "optionalUnityReferences": ["TestAssemblies"]
+  "references": [
+    "Ecos.Runtime",
+    "Ecos.Editor",
+    "Unity.RenderPipelines.Universal.Runtime"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
 }
