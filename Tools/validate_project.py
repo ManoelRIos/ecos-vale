@@ -47,6 +47,11 @@ for path in files:
 for path in assets.rglob('*.asmdef'):
     json.loads(path.read_text())
 manifest = json.loads((ROOT / 'Packages/manifest.json').read_text())['dependencies']
+# NGO 2.0.0's NetworkRigidbodyBase compiles when either physics module is
+# enabled, but references types from both modules (confirmed by Editor CS1069).
+if manifest.get('com.unity.netcode.gameobjects') == '2.0.0':
+    for module in ('com.unity.modules.physics', 'com.unity.modules.physics2d'):
+        check(manifest.get(module) == '1.0.0', f'Netcode 2.0.0 requires built-in module: {module}')
 for package, version in manifest.items():
     check(re.fullmatch(r'\d+\.\d+\.\d+', version) is not None, f'Unpinned dependency: {package}')
 for path in (ROOT / 'Documentation/PackageManifests').glob('*.json'):

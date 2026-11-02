@@ -59,4 +59,14 @@ O rascunho foi persistido com sucesso. Salvar o rascunho **não aplica rede, nã
 - A existência do patch foi conferida no repositório oficial UnityCsReference; o uso de URP 17.0.4 em um projeto oficial 6.0 também foi conferido. Evidência em UnityCompatibility.json.
 - Oito testes Python de política de versão passaram, incluindo rejeição da versão vulnerável, limite 58f1/58f2, linha errada e patch inferior ao fixado.
 - Inicialização URP revisada para usar a fábrica pública e recuperar configurações parciais. Isso não foi executado no Editor neste ambiente.
-- O usuário confirmou Editor 6000.0.40f1 e a janela genérica de Safe Mode. As mensagens concretas do Console ainda são necessárias para atribuir o erro de compilação; o alerta de segurança é confirmado, os demais erros não foram reproduzidos.
+- A versão antiga foi substituída; o log posteriormente enviado pelo usuário confirma Editor 6000.0.85f1. O diagnóstico de compilação agora está identificado abaixo.
+
+## Diagnóstico confirmado pelo log do usuário
+
+O log do Editor recebido nesta etapa mostra resolução UPM concluída com Netcode 2.0.0, Input System 1.11.2, Cinemachine 3.1.0, Splines 2.9.1 e URP 17.0.4, no Unity 6000.0.85f1. Essa é evidência da máquina do usuário, não execução do Editor no ambiente cloud.
+
+Foram identificados três erros C# distintos `CS1069` em `NetworkRigidBodyBase.cs` (linhas 53, 89, 691), repetidos pelo compilador/Console: faltam `Rigidbody2D` e `FixedJoint2D`. A causa é a ausência de `com.unity.modules.physics2d` no manifest. Esse módulo foi adicionado na versão 1.0.0 e o validador passou a exigir os dois módulos de física para NGO 2.0.0.
+
+A fonte oficial da tag `ngo/2.0.0` confirma que a classe `NetworkRigidbodyBase` referencia os dois módulos quando qualquer um deles está habilitado. As falhas posteriores de carregamento de Collections/Splines/InputSystem são candidatas a efeitos em cascata; não foram tratadas como incompatibilidades independentes sem nova recompilação.
+
+A validação estática do projeto corrigido passou. Um teste negativo em uma cópia temporária sem Physics 2D confirmou que o validador rejeita a configuração original. Não houve recompilação Unity nem confirmação de Play Mode após esta correção; isso precisa ser confirmado na máquina do usuário. O log original não foi incluído no Git.

@@ -30,13 +30,25 @@ O URP permanece em **17.0.4**. Além do manifest-fonte, foi conferido um projeto
 
 O script `Tools/unity-check.sh` verifica o Editor selecionado antes de importar/testar/buildar. A validação estática também rejeita um pin na faixa afetada da CVE ou fora da linha suportada.
 
-## Erros de compilação ainda exigem o Console
+## Erro confirmado pelo log: Physics 2D ausente
 
-O aviso de segurança **não demonstra a causa de cada erro de importação/compilação**. O usuário confirmou Editor 6000.0.40f1 e a janela genérica de Safe Mode. Neste ambiente não há Editor instalado e ainda não foram fornecidas as primeiras mensagens vermelhas do Console. Portanto, não foi reproduzido nem confirmado o erro exato que bloqueou sua abertura.
+O log enviado pelo usuário confirma Editor **6000.0.85f1**, resolução de pacotes concluída e URP **17.0.4** registrado. A versão do Editor já está atualizada, mas o Play Mode continua bloqueado por três erros `CS1069` do **Netcode for GameObjects 2.0.0**, em `NetworkRigidBodyBase.cs`:
 
-Se continuar falhando, os dados úteis são a versão exibida no Hub e a primeira mensagem completa do Console, incluindo código CSxxxx/nome do pacote e caminho do arquivo. No Windows, o log do Editor fica em `%LOCALAPPDATA%\Unity\Editor\Editor.log`. Mensagens posteriores podem ser apenas consequências do primeiro erro.
+- Linha 53: tipo `Rigidbody2D` ausente.
+- Linha 89: tipo `Rigidbody2D` ausente.
+- Linha 691: tipo `FixedJoint2D` ausente.
 
-Se o erro for de pacote não encontrado ou download bloqueado, confira a conexão/autenticação do Package Manager; no ambiente cloud os domínios `packages.unity.com` e `download.packages.unity.com` estão salvos no rascunho, mas ainda dependem de aplicação das configurações. Isso é diferente da conectividade da sua máquina local.
+A própria mensagem da Unity recomenda habilitar o pacote nativo **Physics 2D**. Embora o jogo seja 3D, essa versão do Netcode compila uma classe que referencia a física 2D e 3D quando qualquer um desses módulos está habilitado. A correção adiciona `"com.unity.modules.physics2d": "1.0.0"` ao manifest, junto ao módulo de física 3D já existente. Não é necessário editar arquivos em `Library/PackageCache` ou trocar de versão do Netcode para esse erro.
+
+A versão corrigida pode ser baixada novamente da branch. Para corrigir a cópia atual, habilite **Physics 2D** na lista de pacotes **Built-in** do Package Manager e aguarde a resolução/recompilação. Depois abra `Assets/_Game/Scenes/Valley.unity` e tente Play novamente.
+
+As falhas posteriores de carregamento de `Unity.Collections.CodeGen`, `SplineComponent` e `InputActionAsset` aparecem após a compilação interrompida. Devem ser reavaliadas depois da correção principal, sem desabilitar validação de referências nem trocar pacotes arbitrariamente. Não foi confirmado que sejam problemas independentes.
+
+Há também aviso sobre extensão `WindowsStandalone`; o suporte de build Windows deve ser conferido antes de gerar um executável. Esse aviso não explica os erros `CS1069` de Physics 2D.
+
+O arquivo original de log contém dados locais e não é versionado no repositório. Esta seção guarda apenas o diagnóstico técnico necessário. Ainda não foi recebido um log após a adição de Physics 2D, portanto a compilação final e o Play Mode permanecem sem confirmação.
+
+Se ocorrer outro erro após recompilar, o log no Windows fica em `%LOCALAPPDATA%\Unity\Editor\Editor.log`. A primeira mensagem vermelha do Console, incluindo código e arquivo, ajuda a identificar a próxima causa.
 
 ## Limite da verificação
 

@@ -18,3 +18,5 @@ URP depende de Core/Shader Graph 17.0.4 e Universal Config 17.0.3. Cinemachine d
 Os GUIDs de Lit e ParticlesUnlit foram conferidos nos respectivos `.shader.meta` da branch oficial Graphics `6000.0/staging`; `Tools/external_guids.json` é a lista explícita de referências externas permitidas na checagem estática. Os GUIDs locais são únicos e acompanhados de `.meta`.
 
 O patch de referência do projeto foi atualizado para 6000.0.85f1 por causa da CVE-2025-59489. Evidências e fontes estão em [UnityCompatibility.json](UnityCompatibility.json); a abertura ainda depende de validação real no Editor.
+
+Para NGO 2.0.0, o projeto habilita ambos os módulos nativos `com.unity.modules.physics` e `com.unity.modules.physics2d`, versão 1.0.0. O log do usuário confirmou `CS1069` quando Physics 2D estava ausente; `NetworkRigidBodyBase` referencia tipos dos dois módulos mesmo em um jogo 3D. A fonte correspondente é `Runtime/Components/NetworkRigidBodyBase.cs` na tag oficial `ngo/2.0.0`.

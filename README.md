@@ -18,6 +18,8 @@ A cena contém um ponto de entrada; o terreno, jogador e ambiente são construí
 
 A versão anterior 6000.0.40f1 é afetada pela CVE-2025-59489. Use o Editor 6000.0.85f1 e uma extração nova do ZIP atualizado. Confira o [guia de correção e diagnóstico](Documentation/UNITY_TROUBLESHOOTING.md) se o Hub mostrar Security Alert ou o projeto abrir com erros. Alterar o pin não instala o Editor automaticamente.
 
+O log de abertura também identificou um módulo nativo ausente: **Physics 2D**, exigido pelos componentes do Netcode 2.0.0 mesmo em um jogo 3D. O manifest atual já inclui essa dependência. Se estiver usando a cópia anterior, habilite Physics 2D nos pacotes Built-in do Package Manager e aguarde recompilar.
+
 ## Pequena aventura
 
 Você encontra os **três Ecos do Vale**, recolhe cristais e restaura um altar em cada local. Cada restauração consome um cristal. A terceira concede um **Artefato do Vale**, uma única vez. Há dezoito cristais na área inicial, além de madeira e pedra.
