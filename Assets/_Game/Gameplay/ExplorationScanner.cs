@@ -42,6 +42,7 @@ namespace Ecos
                 case InteractionKind.Camp: return !state.campBuilt;
                 case InteractionKind.Workbench: return !state.lensCrafted;
                 case InteractionKind.Chest: return !state.openedCaches.Contains(target.id);
+                case InteractionKind.Observe: return !state.observedSpecies.Contains(target.itemId);
                 default: return !state.readClues.Contains(target.id);
             }
         }

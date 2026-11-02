@@ -303,7 +303,7 @@ namespace Ecos
                 float clearance = placement.kind == 0 ? 12 : placement.kind == 1 ? 8 : 5;
                 if (!Landmarks.Near(wx, wz, clearance))
                 {
-                    var prop = pool.Rent(placement.biome, placement.kind, best.decorationRoot);
+                    var prop = pool.Rent(placement.biome, placement.kind, best.decorationRoot, placement.variant);
                     prop.transform.localPosition = new Vector3(placement.x, placement.y, placement.z);
                     prop.transform.localRotation = Quaternion.Euler(0, placement.yaw, 0);
                     prop.transform.localScale = Vector3.one * placement.scale;

@@ -1,6 +1,6 @@
 # Ecos do Vale
 
-Protótipo de exploração em terceira pessoa para **Unity 6.0 LTS 6000.0.85f1**, C#, URP e Input System. Esta revisão concentra a aventura em um vale de **1024 × 1024 m**, com floresta densa, recursos próximos, acampamento, criação de uma lente, pistas e tesouros.
+Protótipo de exploração em terceira pessoa para **Unity 6.0 LTS 6000.0.85f1**, C#, URP e Input System. Esta revisão dá vida ao vale de **1024 × 1024 m** com árvores de formas diferentes, seis espécies de criaturas, guia de campo e uma rota de descobertas com cenários próprios.
 
 A versão anterior foi executada pelo usuário no Unity. **Esta revisão foi verificada com testes do núcleo C# e checks estáticos; animações, interface, JsonUtility, importação e desempenho ainda precisam de validação no Editor.** Não há build Windows validado desta revisão.
 
@@ -31,9 +31,17 @@ O acampamento fica a poucos passos do início. Os recursos aparecem em pequenos 
 | Cabana do Último Eco | Restaurar com 1 cristal e 2 madeiras |
 | Conclusão | Receber o Artefato do Vale e experiência, uma única vez |
 
-Além da missão, há **três baús selados**, **três fragmentos de história**, descobertas de localidades e biomas. A lente abre os baús. Descobrir, ler e restaurar concede XP; a cada 40 XP o personagem sobe um nível e amplia a mochila, até 20 espaços. Receitas e recompensas são atômicas: falhar por falta de recursos/espaço não entrega nem consome parcialmente.
+Além da missão, há **seis baús selados**, **seis fragmentos de história**, dezesseis localidades e seis biomas. Marcos de pedra e setas ligam uma carroça abandonada, um arco de raízes, um jardim lunar, um mirante, um observatório partido e o refúgio da ponte velha. Cada lugar guarda uma pista ou tesouro e cinco recursos próximos; há 124 coletas fixas no total. A lente abre os baús. Descobrir, ler e restaurar concede XP; a cada 40 XP o personagem sobe um nível e amplia a mochila, até 20 espaços. Receitas e recompensas são atômicas: falhar por falta de recursos/espaço não entrega nem consome parcialmente.
 
 O mapa marca os locais descobertos. Os três santuários preservam as coordenadas anteriores: `(28,20)`, `(-65,80)` e `(105,-60)`. A fogueira está em `(-12,-9)` e a bancada em `(-6,-14)`.
+
+## Criaturas e guia de campo
+
+Coelhos saltam e fogem, cervos pastam, raposas se aproximam por curiosidade e javalis farejam e ficam alertas. À noite, morcegos voam baixo e fagulhas mágicas surgem entre as árvores; a lente atrai sua curiosidade. Os modelos e animações são procedurais, sem assets pagos.
+
+Aproxime-se com **Ctrl** e use **E** para observar. Cada espécie concede **12 XP uma vez**, mesmo que outro animal da mesma espécie seja encontrado depois. Em **I → Guia de campo**, os registros revelam hábitos e descrições. Registrar as seis espécies concede um artefato e 25 XP, uma única vez; se a mochila estiver cheia, a recompensa aguarda espaço.
+
+Os habitats são definidos pela seed, com moradores preferenciais por bioma. Até 18 criaturas ficam ativas por padrão, próximas ao jogador, com criação/retirada gradual; o limite configurável é 24 em `Resources/WildlifeSettings.asset`. Movimento, decisões e encontros são locais/offline. O guia é persistente; posições e estados transitórios dos animais não são salvos.
 
 ## Controles
 
@@ -42,9 +50,9 @@ O mapa marca os locais descobertos. Os três santuários preservam as coordenada
 | WASD / mouse | Mover / olhar |
 | Shift / Espaço / Ctrl | Correr / pular / agachar |
 | Roda do mouse | Zoom da câmera |
-| E / F | Interagir / alternar lanterna |
+| E / F | Interagir ou observar criatura / alternar lanterna |
 | Q | Pulso da lente, após criá-la |
-| I / M / Esc | Mochila / mapa / pausa |
+| I / M / Esc | Mochila e guia de campo / mapa / pausa |
 | F3, apenas Editor/Development | Contadores de desenvolvimento |
 
 A animação procedural tem respiração, passos baseados no deslocamento real, joelhos/cotovelos, corrida, curvas, salto e aterrissagem. Agachar altera a cápsula sem escalar a raiz física; o personagem verifica espaço para levantar. Ainda exige teste de colisão e apresentação no Editor.
@@ -52,8 +60,8 @@ A animação procedural tem respiração, passos baseados no deslocamento real, 
 ## Mundo e apresentação
 
 - Mundo lógico de 1 km por lado, 64 chunks de 128 m; seed configurável e seis biomas.
-- Até 280 candidatos de decoração por chunk, filtrados por relevo, trilhas e clareiras. Grade com variação mantém árvores próximas; vegetação rasteira, pedras e cogumelos formam grupos.
-- Na seed padrão, os nove chunks iniciais planejam 1150 árvores e 1108 detalhes, antes das clareiras dos POIs. A distância média da árvore mais próxima nesses candidatos é 9,35 m. Isso é medição de dados, não benchmark de renderização.
+- Até 280 candidatos de decoração por chunk, filtrados por relevo, trilhas e clareiras. Cada bioma tem quatro silhuetas de árvore (24 no total). Pequenos bosques misturam famílias locais, com alturas e ramificações diferentes; detalhes formam manchas de flores, samambaias, caniços, arbustos, tocos, troncos e cogumelos.
+- Na seed padrão, os nove chunks iniciais planejam 1150 árvores e 1118 detalhes, antes das clareiras dos POIs e corredores da rota. As quatro famílias de árvore aparecem em 262/312/250/326 candidatos, com distância média da árvore mais próxima de 9,35 m. Isso é medição de dados, não benchmark de renderização.
 - Dois workers de dados, cache limitado, cancelamento e criação na thread principal. Decoração processada em até 8 candidatos/frame, com orçamento flexível de 2 ms; uma criação individual pode ultrapassá-lo.
 - Padrão: 25 meshes de terreno e nove chunks com decoração; um anel extra de terreno protege o horizonte sem povoar tudo. Raio de decoração ajustável de 1 a 2. Pool limitado a 256 objetos e 48 por tipo.
 - Cores mais saturadas, cogumelos sem emissão no chapéu, brilho discreto na parte inferior e iluminação menos propensa a estourar cores.
@@ -62,9 +70,9 @@ A animação procedural tem respiração, passos baseados no deslocamento real, 
 
 ## Saves
 
-O arquivo continua em `Application.persistentDataPath/ecos-slot1.json`, com backup `.bak`. O formato passou para **v2**: fogueira, lente, XP, baús e fragmentos passam a ser salvos junto ao progresso anterior.
+O arquivo continua em `Application.persistentDataPath/ecos-slot1.json`, com backup `.bak`. O formato passou para **v3**, acrescentando espécies observadas e recompensa do guia à fogueira, lente, XP, baús, fragmentos e progresso anterior.
 
-Saves v1 são migrados sem descartar inventário, santuários ou descobertas. Quem já restaurou um santuário mantém acesso ao acampamento/lente. Posições fora dos novos limites retornam à área inicial. Para conhecer a sequência completa desde o começo, escolha Nova jornada; a interface pede confirmação antes de substituir a viagem no próximo save.
+Saves v1 e v2 são migrados sem descartar inventário, santuários ou descobertas. Quem já restaurou um santuário em v1 mantém acesso ao acampamento/lente. Posições fora dos limites retornam à área inicial. **Continuar também mostra a nova vegetação, os animais e os novos lugares**; não é necessário apagar o progresso. Nova jornada reinicia a sequência com confirmação antes de substituir a viagem no próximo save.
 
 ## Testes e ferramentas
 
@@ -75,7 +83,7 @@ python3 -m unittest discover -s Tools -p 'test_*.py'
 dotnet run --project Tools/CoreChecks.csproj
 ```
 
-O teste .NET compila os arquivos reais de ruído, inventário, progressão e distribuição de props. Ele não usa stubs Unity nem valida renderização. Os testes EditMode em `Assets/_Game/Tests/Editor` precisam do Editor.
+O teste .NET compila os arquivos reais de ruído, inventário, progressão, catálogo de criaturas e distribuição de props. Ele não usa stubs Unity nem valida renderização. Os testes em `Assets/_Game/Tests/Editor` precisam do Editor.
 
 Com `UNITY_EDITOR_PATH` apontando para o executável licenciado:
 
@@ -93,6 +101,6 @@ Para recriar o ZIP num clone Git, adicione arquivos novos ao índice e execute `
 
 Não há conexão host/client jogável, lobby, Relay ou matchmaking. `IWorldAuthority` e o estado NGO são preparação; o jogo atual é offline. Também não há combate, inimigos, água/lava navegáveis, vilarejos completos, música final ou animações humanoides importadas.
 
-A UI usa IMGUI; a vegetação decorativa não possui colisores. O terreno usa resolução uniforme e a decoração possui LOD. Densidade é configuração de nova sessão; o raio de visão pode mudar ao vivo. A meta de 1080p/60 FPS ainda não foi medida. O conteúdo principal concentra-se em aproximadamente 200 m ao redor do acampamento; o restante é floresta procedural.
+A UI usa IMGUI; a vegetação decorativa não possui colisores. O terreno usa resolução uniforme e a decoração possui LOD. Densidade é configuração de nova sessão; o raio de visão pode mudar ao vivo. A meta de 1080p/60 FPS ainda não foi medida. Os locais novos ampliam a exploração até cerca de 280 m do acampamento; o restante é floresta procedural. As criaturas usam direção local e verificações simples de terreno/obstáculos, sem NavMesh, combate ou ecossistema persistente.
 
-Veja [COMPACT_ADVENTURE.md](Documentation/COMPACT_ADVENTURE.md), [VALIDATION.md](Documentation/VALIDATION.md) e [ARCHITECTURE.md](Documentation/ARCHITECTURE.md).
+Veja [LIVING_VALLEY.md](Documentation/LIVING_VALLEY.md), [VALIDATION.md](Documentation/VALIDATION.md) e [ARCHITECTURE.md](Documentation/ARCHITECTURE.md). [COMPACT_ADVENTURE.md](Documentation/COMPACT_ADVENTURE.md) registra a etapa anterior.

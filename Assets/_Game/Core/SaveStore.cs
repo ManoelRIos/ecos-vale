@@ -15,7 +15,7 @@ namespace Ecos
 
     public static class SaveStore
     {
-        public const int CurrentVersion = 2;
+        public const int CurrentVersion = 3;
         public static string PathName => Path.Combine(Application.persistentDataPath, "ecos-slot1.json");
         public static bool Exists => File.Exists(PathName);
 
@@ -53,7 +53,7 @@ namespace Ecos
 
         static void Prepare(SaveData data)
         {
-            if (data == null || (data.version != 1 && data.version != CurrentVersion)
+            if (data == null || data.version < 1 || data.version > CurrentVersion
                 || data.inventory == null || data.inventory.stacks == null || data.inventory.capacity < 1
                 || data.inventory.capacity > 128 || data.inventory.stacks.Count > data.inventory.capacity
                 || !Finite(data.position.x) || !Finite(data.position.y) || !Finite(data.position.z)
@@ -70,10 +70,18 @@ namespace Ecos
             {
                 // v1 had no camp/lens/chests/journals. Existing shrine progress is retained.
                 ProgressionRules.MigrateLegacy(data);
+            }
+            if (data.version < 3)
+            {
+                if (data.observedSpecies == null) data.observedSpecies = new List<string>();
                 data.version = CurrentVersion;
             }
             ValidateIds(data.openedCaches);
             ValidateIds(data.readClues);
+            ValidateIds(data.observedSpecies);
+            foreach (string species in data.observedSpecies)
+                if (!CreatureCatalog.IsSpecies(species))
+                    throw new InvalidDataException("Espécie inválida no guia de campo.");
         }
 
         static bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);

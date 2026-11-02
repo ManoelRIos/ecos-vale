@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace Ecos
 {
-    public enum InteractionKind { Pickup, Shrine, Camp, Workbench, Chest, Journal }
+    public enum InteractionKind { Pickup, Shrine, Camp, Workbench, Chest, Journal, Observe }
 
     public sealed class Interactable : MonoBehaviour
     {
@@ -23,6 +23,7 @@ namespace Ecos
                     case InteractionKind.Workbench: return WorldCommandKind.CraftLens;
                     case InteractionKind.Chest: return WorldCommandKind.OpenCache;
                     case InteractionKind.Journal: return WorldCommandKind.ReadClue;
+                    case InteractionKind.Observe: return WorldCommandKind.Observe;
                     default: return WorldCommandKind.Collect;
                 }
             }
@@ -45,6 +46,8 @@ namespace Ecos
                     return state.openedCaches.Contains(id) ? "Baú aberto" : state.lensCrafted ? "Abrir baú selado" : "Baú selado — precisa da lente";
                 case InteractionKind.Journal:
                     return state.readClues.Contains(id) ? "Reler fragmento" : "Ler fragmento antigo";
+                case InteractionKind.Observe:
+                    return state.observedSpecies.Contains(itemId) ? title + " · espécie registrada" : "Observar " + title + " · aproxime-se agachado";
                 default:
                     return "Coletar " + ItemCatalog.Name(itemId) + (amount > 1 ? " × " + amount : "");
             }
@@ -53,6 +56,7 @@ namespace Ecos
         public string Description(SaveData state)
         {
             if (EffectiveKind == InteractionKind.Journal && !string.IsNullOrEmpty(loreText)) return loreText;
+            if (EffectiveKind == InteractionKind.Observe) return CreatureCatalog.Description(itemId);
             return Prompt(state);
         }
 

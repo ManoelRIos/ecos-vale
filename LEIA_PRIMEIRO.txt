@@ -16,11 +16,15 @@ ECOS DO VALE - ABERTURA EM CAMINHO CURTO NO WINDOWS
 
 Se os objetos ainda ficarem magenta, use Ecos > Diagnosticar renderizacao
 e confira as mensagens de pipeline e shader dessa sessao.
-Esta revisao usa mundo compacto de 1024m, floresta densa, animacao articulada,
-menu com cenario 3D e progressao: fogueira -> lente -> tres santuarios.
+Esta revisao usa mundo compacto de 1024m, 24 formas de arvores, detalhes
+variados, seis especies de criaturas e seis novos cenarios de exploracao.
+Siga os marcos de pedra a partir do acampamento para encontrar a rota.
+Use Ctrl para se aproximar e E para observar; o guia fica em I > Guia de campo.
+Morcegos e fagulhas aparecem a noite. Registrar seis especies da um artefato.
+O ciclo fogueira -> lente -> tres santuarios continua disponivel.
 Use E na fogueira/bancada e Q apos criar a lente. Consulte README.md.
-Saves v1 sao migrados para v2 sem descartar itens/progresso.
-Escolha Nova jornada para conhecer a sequencia desde o inicio.
+Saves v1/v2 sao migrados para v3 sem descartar itens/progresso.
+Continuar mostra a nova vegetacao, criaturas e locais; nao precisa recomecar.
 A aparencia final ainda precisa ser validada no Unity.
 
 Se o Editor estiver instalado fora do caminho padrao, use no Hub:

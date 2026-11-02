@@ -8,11 +8,11 @@
 | --- | --- |
 | Core | Composição de sessão, configurações e persistência |
 | World / Biomes | Ruído determinístico, mesh, streaming, pool e configurações ambientais |
-| Art | Materiais compartilhados, primitivas e octaedro facetado |
+| Art | Materiais/meshes compartilhados, viajante e variantes de vegetação |
 | Player | Motor CharacterController e câmera Input System |
 | Environment | Hora, iluminação, partículas climáticas e estrelas |
 | Inventory | Definições estáveis, catálogo e dados serializáveis de pilhas |
-| Gameplay / Quests | Alvos interativos e missão demonstrativa |
+| Gameplay / Quests | Alvos interativos, fauna, guia de campo e regras de progressão |
 | Multiplayer | Contrato de autoridade offline e estado global NGO preparatório |
 | UI / Audio | Interface inicial e canais de áudio configuráveis |
 | Editor | Geração idempotente de assets ausentes, URP e build |
@@ -41,7 +41,7 @@ Na integração NGO, implementar um gateway de RPCs que obtenha o jogador pela i
 
 ## Persistência e recursos
 
-O save v2 (com migração de v1) guarda o estado independente dos assets. O arquivo anterior é copiado para `.bak`; um temporário é substituído sobre o arquivo principal. Versões desconhecidas e estruturas inválidas falham com mensagem, sem sobrescrever o arquivo ao carregar. A recuperação do `.bak` é manual nesta versão.
+O save v3 (com migração de v1/v2) guarda o estado independente dos assets, incluindo espécies observadas e a recompensa do guia. O arquivo anterior é copiado para `.bak`; um temporário é substituído sobre o arquivo principal. Versões desconhecidas e estruturas inválidas falham com mensagem, sem sobrescrever o arquivo ao carregar. A recuperação do `.bak` é manual nesta versão.
 
 A fábrica usa meshes próprios e primitivas nativas, materiais URP compartilhados e luzes sem assets externos. Os prefabs de referência estão serializados no projeto. O pipeline URP é criado pelo Editor para usar a serialização oficial da versão instalada, sem inventar referências internas do renderer. Sons e mixer podem ser atribuídos ao sistema de áudio, mas nenhum conteúdo sonoro foi entregue.
 
@@ -53,6 +53,16 @@ A fábrica usa meshes próprios e primitivas nativas, materiais URP compartilhad
 
 O padrão atual é 1024 m com um anel extra de terreno. `PropDistribution` produz dados puros determinísticos; `ChunkManager` cria até 8 candidatos/frame sob orçamento flexível de 2 ms e retira objetos progressivamente. O pool tem limite global 256 e 48 por tipo. A malha distante permanece sem povoar todos os chunks.
 
+Cada candidato carrega bioma, tipo e variante. O pool usa essas três dimensões como chave; `VegetationFactory` compartilha geometrias e materiais entre instâncias. `Landmarks` mantém 16 localidades, a rota e os alvos fixos; `ExplorationDressing` monta os novos conjuntos com LOD e colisores estruturais simples. Os alvos de coleta/interação têm IDs separados dos props decorativos.
+
 `ProgressionState` contém inventário e progresso serializáveis; `SaveData` herda esses campos e acrescenta dados do mundo. `ProgressionRules` executa receitas atômicas, XP e recompensas únicas sem Unity API. `OfflineWorldAuthority` valida tipo, distância e alvo antes de chamar essas regras. Descobertas offline também usam a mesma regra pura; uma futura sessão online deve encaminhar a descoberta validada pelo host.
 
 `PlayerVisualAnimator` mantém um rig rígido de duas partes por membro sob `VisualRoot`, separado do CharacterController. `MenuBackdrop` tem câmera/luzes em layer própria e é desativado antes do jogo. O scanner é uma apresentação local, sem conceder loot diretamente.
+
+## Fauna e observação
+
+`CreatureCatalog` é C# puro: IDs, hábitos, descrições e seleção determinística por habitat/bioma/horário. `WildlifeSettings` controla população/raios/intervalos. `WildlifeDirector` cria e retira gradualmente os atores próximos ao jogador sobre chunks carregados. Captura o registro da própria sessão e remove os alvos ao retirar os atores ou destruir a sessão.
+
+`CreatureActor` decide repouso/passeio/fuga/curiosidade/alerta localmente e consulta terreno/obstáculos somente na thread principal. `CreatureVisual` anima membros usando meshes e materiais compartilhados. Observar encaminha o ID do alvo e o comando à autoridade; a espécie vem do alvo validado, sem permitir ao jogador escolher recompensa. `ProgressionRules` concede XP por espécie e recompensa o guia completo de forma atômica e única. UI e scanner apenas apresentam o estado.
+
+Esses atores possuem estado de gameplay e precisam de autoridade/replicação do host em uma futura sessão NGO. A IA atual é offline; somente as observações e recompensas são persistidas, não as posições dos animais.

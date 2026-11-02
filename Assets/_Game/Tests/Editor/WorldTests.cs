@@ -176,31 +176,72 @@ namespace Ecos.Tests
         {
             const string json = "{\"version\":1,\"seed\":42,\"position\":{\"x\":1,\"y\":2,\"z\":3},\"time\":0.4,\"inventory\":{\"capacity\":12,\"stacks\":[{\"id\":\"wood\",\"count\":5}]},\"collected\":[\"crystal-0\"],\"discovered\":[\"shrine-0\"],\"restored\":[\"shrine-0\"],\"rewarded\":false}";
             Assert.IsTrue(SaveStore.TryParse(json, out var state, out string error), error);
-            Assert.AreEqual(2, state.version);
+            Assert.AreEqual(SaveStore.CurrentVersion, state.version);
             Assert.AreEqual(42, state.seed);
             Assert.AreEqual(new Vector3(1, 2, 3), state.position);
             Assert.AreEqual(5, state.inventory.Count("wood"));
             Assert.IsTrue(state.campBuilt && state.lensCrafted);
             CollectionAssert.Contains(state.collected, "crystal-0");
             CollectionAssert.Contains(state.restored, "shrine-0");
-            Assert.IsNotNull(state.openedCaches); Assert.IsNotNull(state.readClues);
+            Assert.IsNotNull(state.openedCaches); Assert.IsNotNull(state.readClues); Assert.IsEmpty(state.observedSpecies);
         }
 
         [Test]
-        public void SaveVersionTwoRetainsInheritedProgressionFields()
+        public void SaveVersionThreeRetainsInheritedProgressionAndFieldGuide()
         {
             var original = new SaveData { campBuilt = true, lensCrafted = true };
             original.openedCaches.Add("cache-0"); original.readClues.Add("journal-0");
+            original.observedSpecies.Add("hare");
             ProgressionRules.GainExperience(original, 80);
             original.inventory.Add("herb", 7);
             Assert.IsTrue(SaveStore.TryParse(JsonUtility.ToJson(original), out var restored, out string error), error);
-            Assert.AreEqual(2, restored.version);
+            Assert.AreEqual(SaveStore.CurrentVersion, restored.version);
             Assert.AreEqual(80, restored.experience);
             Assert.AreEqual(14, restored.inventory.capacity);
             Assert.IsTrue(restored.campBuilt && restored.lensCrafted);
             Assert.AreEqual(7, restored.inventory.Count("herb"));
             CollectionAssert.Contains(restored.openedCaches, "cache-0");
             CollectionAssert.Contains(restored.readClues, "journal-0");
+            CollectionAssert.Contains(restored.observedSpecies, "hare");
+        }
+
+        [Test]
+        public void VersionTwoMigrationPreservesAdventureAndAddsEmptyFieldGuide()
+        {
+            const string json = "{\"version\":2,\"seed\":77,\"position\":{\"x\":12,\"y\":8,\"z\":-14},\"time\":0.4,\"inventory\":{\"capacity\":14,\"stacks\":[{\"id\":\"herb\",\"count\":9}]},\"collected\":[\"gather-herb-0\"],\"discovered\":[\"camp\"],\"restored\":[],\"openedCaches\":[\"cache-0\"],\"readClues\":[\"journal-0\"],\"campBuilt\":true,\"lensCrafted\":true,\"experience\":81}";
+            Assert.IsTrue(SaveStore.TryParse(json, out var state, out string error), error);
+            Assert.AreEqual(3, state.version);
+            Assert.AreEqual(77, state.seed);
+            Assert.AreEqual(81, state.experience);
+            Assert.AreEqual(9, state.inventory.Count("herb"));
+            Assert.IsTrue(state.campBuilt && state.lensCrafted);
+            CollectionAssert.Contains(state.openedCaches, "cache-0");
+            CollectionAssert.Contains(state.readClues, "journal-0");
+            Assert.IsEmpty(state.observedSpecies);
+            Assert.IsFalse(state.guideRewarded);
+        }
+
+        [Test]
+        public void AuthorityObservesSpeciesOnceAcrossDifferentCreaturesAndRejectsRemoteObservation()
+        {
+            var state = new SaveData();
+            var first = new GameObject("hare-1"); var second = new GameObject("hare-2");
+            try
+            {
+                var a = first.AddComponent<Interactable>(); a.kind = InteractionKind.Observe; a.id = "wildlife-1"; a.itemId = "hare";
+                var b = second.AddComponent<Interactable>(); b.kind = InteractionKind.Observe; b.id = "wildlife-2"; b.itemId = "hare";
+                var targets = new System.Collections.Generic.Dictionary<string, Interactable> { { a.id, a }, { b.id, b } };
+                var authority = new OfflineWorldAuthority(state, targets);
+                Assert.IsFalse(authority.Execute(new WorldCommand(WorldCommandKind.Observe, a.id), Vector3.one * 100, out _));
+                Assert.IsFalse(authority.Execute(new WorldCommand(WorldCommandKind.Collect, a.id), Vector3.zero, out _));
+                Assert.IsTrue(authority.Execute(new WorldCommand(WorldCommandKind.Observe, a.id), Vector3.zero, out _));
+                Assert.IsFalse(authority.Execute(new WorldCommand(WorldCommandKind.Observe, b.id), Vector3.zero, out _));
+                Assert.AreEqual(12, state.experience);
+                Assert.AreEqual(1, state.observedSpecies.Count);
+                Assert.IsTrue(first.activeSelf && second.activeSelf);
+                Assert.IsEmpty(state.collected);
+            }
+            finally { Object.DestroyImmediate(first); Object.DestroyImmediate(second); }
         }
     }
 }

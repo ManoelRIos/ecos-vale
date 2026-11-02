@@ -8,12 +8,12 @@ namespace Ecos
     public readonly struct PropPlacement
     {
         public readonly float x, y, z, yaw, scale;
-        public readonly int biome, kind;
+        public readonly int biome, kind, variant;
 
-        public PropPlacement(float x, float y, float z, float yaw, float scale, int biome, int kind)
+        public PropPlacement(float x, float y, float z, float yaw, float scale, int biome, int kind, int variant = 0)
         {
             this.x = x; this.y = y; this.z = z; this.yaw = yaw; this.scale = scale;
-            this.biome = biome; this.kind = kind;
+            this.biome = biome; this.kind = kind; this.variant = variant;
         }
     }
 
@@ -26,6 +26,9 @@ namespace Ecos
                 throw new ArgumentOutOfRangeException(nameof(budget));
             if (biomeDensity == null || biomeDensity.Length != 6)
                 throw new ArgumentException("Six biome density values are required.", nameof(biomeDensity));
+            foreach (float density in biomeDensity)
+                if (float.IsNaN(density) || float.IsInfinity(density))
+                    throw new ArgumentException("Biome density values must be finite.", nameof(biomeDensity));
             if (budget == 0) return Array.Empty<PropPlacement>();
             var placements = new List<PropPlacement>(budget);
             int treeSide = Math.Max(1, (int)Math.Round(Math.Sqrt(budget * .5)));
@@ -46,16 +49,19 @@ namespace Ecos
                 }
                 if (i < understory)
                 {
-                    // 53 is coprime with the default 12x12 grid: nearby details spread through the grove.
-                    int anchor = (i * 53 + offset) % treeCells;
+                    // Three details share a tree's surroundings: little fern/mushroom/stone
+                    // gardens replace one identical decoration at every trunk.
+                    int anchor = ((i / 3) * 53 + offset) % treeCells;
                     Anchor(chunkX, chunkZ, anchor % treeSide, anchor / treeSide, spacing, seed, out float x, out float z);
                     float angle = WorldMath.Random(i + chunkX * 151, chunkZ, seed + 914) * (float)Math.PI * 2;
-                    float radius = 1.7f + WorldMath.Random(chunkX, i + chunkZ * 137, seed + 303) * 2.4f;
+                    float radius = 1.2f + WorldMath.Random(chunkX, i + chunkZ * 137, seed + 303) * 2.6f;
                     x += (float)Math.Cos(angle) * radius;
                     z += (float)Math.Sin(angle) * radius;
                     if (x < .5f || z < .5f || x >= size - .5f || z >= size - .5f) continue;
-                    float choice = WorldMath.Random(i, chunkX + chunkZ * 101, seed + 605);
-                    int kind = choice < .12f ? 1 : choice < .39f ? 2 : 3;
+                    float wx = chunkX * size + x, wz = chunkZ * size + z;
+                    uint patch = PatchHash(wx, wz, 24, seed + 605);
+                    int choice = (int)(patch % 10);
+                    int kind = choice == 0 ? 1 : choice < 4 ? 2 : 3;
                     Add(placements, chunkX, chunkZ, size, seed, i + treeCells, x, z, kind, biomeDensity);
                 }
             }
@@ -78,15 +84,28 @@ namespace Ecos
             int biome = WorldMath.Biome(wx, wz, seed);
             float density = Math.Max(0, Math.Min(1, densities[biome]));
             float cluster = .92f + WorldMath.Noise(wx * .025f, wz * .025f, seed + 407) * .08f;
-            if (WorldMath.Random(id + cx * 193, cz, seed + 887) > density * cluster) return;
+            if (density <= 0 || WorldMath.Random(id + cx * 193, cz, seed + 887) > density * cluster) return;
             float height = WorldMath.Height(wx, wz, seed);
             float slope = Math.Abs(WorldMath.Height(wx + 2, wz, seed) - height)
                         + Math.Abs(WorldMath.Height(wx, wz + 2, seed) - height);
             if (slope > (kind == 0 ? 3.5f : 5.5f)) return;
-            float scale = kind == 0 ? .8f + WorldMath.Random(cx, id + cz * 157, seed + 163) * .5f
-                : .8f + WorldMath.Random(cx, id + cz * 157, seed + 163) * .65f;
+            uint individual = WorldMath.Hash(cx * 193 + id, cz, seed + 991);
+            // Warped microregions favor a recognizable local tree family, with a mixed
+            // minority at every location. This avoids chunk-aligned species boundaries.
+            uint patch = PatchHash(wx, wz, kind == 0 ? 43 : 18, seed + 1201 + kind * 71);
+            int variant = (int)((individual % 100 < 65 ? patch : individual / 101) % 4);
+            float scale = kind == 0 ? .74f + WorldMath.Random(cx, id + cz * 157, seed + 163) * .56f
+                : .7f + WorldMath.Random(cx, id + cz * 157, seed + 163) * .8f;
             output.Add(new PropPlacement(x, height, z,
-                WorldMath.Random(cx + id, cz, seed + 809) * 360, scale, biome, kind));
+                WorldMath.Random(cx + id, cz, seed + 809) * 360, scale, biome, kind, variant));
+        }
+
+        static uint PatchHash(float x, float z, float span, int seed)
+        {
+            float warpX = WorldMath.Noise(x * .012f, z * .012f, seed + 31) * 18;
+            float warpZ = WorldMath.Noise(x * .012f, z * .012f, seed + 83) * 18;
+            return WorldMath.Hash((int)Math.Floor((x + warpX) / span),
+                (int)Math.Floor((z + warpZ) / span), seed);
         }
     }
 }

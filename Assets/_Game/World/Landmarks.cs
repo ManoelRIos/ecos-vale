@@ -27,7 +27,21 @@ namespace Ecos
             new Location("cache-2", "Esconderijo das flores", 10, 118, 10),
             new Location("journal-0", "Memórias do vigia", 20, 12, 7),
             new Location("journal-1", "Jardim das lembranças", -56, 68, 7),
-            new Location("journal-2", "Último viajante", 88, -42, 7)
+            new Location("journal-2", "Último viajante", 88, -42, 7),
+            new Location("path-journal-0", "Carroça das Andorinhas", -112, -35, 15),
+            new Location("path-cache-0", "Arco das Raízes", -162, 35, 17),
+            new Location("path-journal-1", "Jardim da Lua", -185, 118, 16),
+            new Location("path-cache-1", "Mirante do Peregrino", -70, 212, 17),
+            new Location("path-journal-2", "Observatório Partido", 94, 245, 18),
+            new Location("path-cache-2", "Refúgio da Ponte Velha", 232, 126, 17)
+        };
+        // A small authored loop remains deterministic for every seed. Decorations reserve a
+        // narrow walking corridor; cairns and warm lanterns lead between distinct silhouettes.
+        public static readonly Vector2[] JourneyRoute =
+        {
+            new Vector2(-12, -9), new Vector2(-112, -35), new Vector2(-162, 35),
+            new Vector2(-185, 118), new Vector2(-70, 212), new Vector2(94, 245),
+            new Vector2(232, 126), new Vector2(105, -60)
         };
         public readonly Dictionary<string, Interactable> registry = new Dictionary<string, Interactable>();
         Palette palette;
@@ -38,6 +52,14 @@ namespace Ecos
         {
             foreach (var p in Locations)
                 if ((new Vector2(x, z) - p.position).sqrMagnitude < radius * radius) return true;
+            float corridor = Mathf.Min(3.4f, radius * .35f);
+            var point = new Vector2(x, z);
+            for (int i = 1; i < JourneyRoute.Length; i++)
+            {
+                Vector2 start = JourneyRoute[i - 1], delta = JourneyRoute[i] - start;
+                float t = Mathf.Clamp01(Vector2.Dot(point - start, delta) / delta.sqrMagnitude);
+                if ((point - (start + delta * t)).sqrMagnitude < corridor * corridor) return true;
+            }
             return x * x + z * z < 64;
         }
         public static Vector3 Ground(float x, float z, int seed) => new Vector3(x, WorldMath.Height(x, z, seed) + .3f, z);
@@ -58,6 +80,7 @@ namespace Ecos
                 CreateCache(Locations[4 + i], state);
                 CreateJournal(Locations[7 + i], i, state);
             }
+            CreateJourney(state);
             // Stable v1 pickup IDs remain consumed after migration.
             for (int i = 0; i < 18; i++)
             {
@@ -71,6 +94,33 @@ namespace Ecos
             SpawnResources(state, "stone", 18, 12, 62, 19);
             SpawnResources(state, "herb", 26, 10, 82, 31);
             RefreshState(state);
+        }
+
+        void CreateJourney(SaveData state)
+        {
+            string[] lore =
+            {
+                "A carroça perdeu uma roda ao oeste da fogueira. Seguimos os marcos de pedra para o norte, até o arco coberto de raízes. A lente abre o selo deixado ao pé dele. Depois, procure os cogumelos sob a lua.",
+                "Quando as flores azuis despertam, os pequenos animais deixam suas pegadas. Do jardim, os marcos sobem para nordeste: um mirante guarda provisões. Mais ao leste, as pedras do observatório ainda apontam para o céu.",
+                "O observatório ficou sem teto, mas não perdeu as estrelas. A última expedição desceu para sudeste até a ponte velha. Seu baú está junto ao abrigo, antes do retorno à cabana. Observe quem vive no caminho; o vale também conta histórias sem palavras."
+            };
+            string[] items = { "wood", "stone", "herb", "crystal", "herb" };
+            for (int i = 0; i < 6; i++)
+            {
+                var location = Locations[10 + i];
+                if (i % 2 == 0) CreateJournal(location, lore[i / 2], state);
+                else CreateCache(location, state);
+                ExplorationDressing.Create(palette, transform, location.position, state.seed, i);
+                for (int j = 0; j < items.Length; j++)
+                {
+                    float angle = j * 2.39996f + i * .72f;
+                    float radius = 6.2f + j * .55f;
+                    Vector2 position = location.position + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius;
+                    CreatePickup(palette, state, "route-" + i + "-" + j, items[j],
+                        Ground(position.x, position.y, state.seed), items[j] == "wood" || items[j] == "stone" ? 2 : 1);
+                }
+            }
+            ExplorationDressing.CreateTrail(palette, transform, JourneyRoute, state.seed);
         }
 
         void SpawnResources(SaveData state, string item, int count, float inner, float outer, int salt)
@@ -140,14 +190,19 @@ namespace Ecos
 
         void CreateJournal(Location location, int index, SaveData state)
         {
-            var journal = Place(location.title, location.position.x, location.position.y, state);
-            var t = Register(journal, location.id, location.title, InteractionKind.Journal);
             string[] lore = {
                 "O vigia guardou sua última chama no acampamento. Madeira e pedra reacendem a fogueira; ervas e cristais alimentam a lente. A torre responde à pedra.",
                 "Entre as lanternas, sementes ainda florescem. Traga ervas ao cemitério. O pulso da lente também revela os selos escondidos entre as raízes.",
                 "O último viajante deixou madeira na cabana. Três vozes restauradas devolvem o canto ao vale. Ler, descobrir e ajudar ampliam sua mochila."
             };
-            t.loreText = lore[index];
+            CreateJournal(location, lore[index], state);
+        }
+
+        void CreateJournal(Location location, string lore, SaveData state)
+        {
+            var journal = Place(location.title, location.position.x, location.position.y, state);
+            var t = Register(journal, location.id, location.title, InteractionKind.Journal);
+            t.loreText = lore;
             palette.Part(journal.transform, "Pedestal", PrimitiveType.Cube, Vector3.up * .5f, new Vector3(.65f, 1, .65f), new Color(.32f, .37f, .39f));
             var book = palette.Part(journal.transform, "Livro", PrimitiveType.Cube, new Vector3(0, 1.08f, 0), new Vector3(.8f, .12f, .55f), new Color(.87f, .72f, .39f));
             book.transform.localRotation = Quaternion.Euler(0, 15, -8);
@@ -165,9 +220,10 @@ namespace Ecos
                     var light = shrine.GetComponentInChildren<Light>();
                     if (light) light.color = restored ? new Color(1, .59f, .18f) : new Color(.3f, .6f, 1);
                 }
-            for (int i = 0; i < 3; i++)
-                if (registry.TryGetValue("cache-" + i, out var chest))
+            foreach (var entry in registry)
+                if (entry.Value && entry.Value.EffectiveKind == InteractionKind.Chest)
                 {
+                    var chest = entry.Value;
                     var lid = chest.transform.Find("Tampa");
                     if (lid) lid.localRotation = state.openedCaches.Contains(chest.id) ? Quaternion.Euler(-65, 0, 0) : Quaternion.identity;
                 }

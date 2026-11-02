@@ -5,16 +5,16 @@
 | Verificação | Resultado |
 | --- | --- |
 | SDK .NET 8.0.427 instalado de fonte oficial via TLS | Concluído |
-| Compilação e execução de `Tools/CoreChecks.csproj` | **20 verificações passaram** |
-| Parser C# tree-sitter 0.26.0 / grammar 0.23.5 | **38 arquivos sem erro sintático** |
+| Compilação e execução de `Tools/CoreChecks.csproj` | **25 verificações passaram** |
+| Parser C# tree-sitter 0.26.0 / grammar 0.23.5 | **46 arquivos sem erro sintático** |
 | Testes Python de versão e empacotamento | **17 passaram (8 + 9)** |
 | Estrutura, versões diretas e evidências de manifests | Passou |
-| Assets e metadados locais | **74 arquivos de assets; 94 GUIDs únicos** |
+| Assets e metadados locais | **83 arquivos de assets; 103 GUIDs únicos** |
 | Referências locais de GUID, cena/prefab e IDs internos | Passou |
 | `bash -n Tools/setup-cloud.sh Tools/unity-check.sh` | Passou |
-| Script completo `Tools/setup-cloud.sh` | Executado com sucesso; reutilizou SDK e executou o núcleo disponível naquela etapa; suíte atual ampliada para 20 |
+| Script completo `Tools/setup-cloud.sh` | Executado com sucesso; reutilizou SDK e executou o núcleo disponível naquela etapa; suíte atual ampliada para 25 |
 
-As verificações .NET compilam os arquivos reais de produção `WorldMath.cs`, `InventoryState.cs`, `ProgressionState.cs`, `ProgressionRules.cs` e `PropDistribution.cs`, sem stubs Unity. Cobrem repetibilidade/seed, alturas finitas, seis biomas na área inicial de 1 km, continuidade do ruído, igualdade das alturas nas bordas, intervalo aleatório, empilhamento, atomicidade em overflow/remoção, entradas inválidas, custos completos da campanha, recompensas únicas, migração do progresso, distribuição densa e chão inicial/limites.
+As verificações .NET compilam os arquivos reais de produção `WorldMath.cs`, `InventoryState.cs`, `ProgressionState.cs`, `ProgressionRules.cs`, `CreatureCatalog.cs` e `PropDistribution.cs`, sem stubs Unity. Cobrem repetibilidade/seed, alturas finitas, seis biomas na área inicial de 1 km, continuidade do ruído, igualdade das alturas nas bordas, intervalo aleatório, empilhamento, atomicidade em overflow/remoção, entradas inválidas, custos completos da campanha, recompensas únicas, migração do progresso, distribuição densa, quatro variantes, habitats diurnos/noturnos, observação e recompensa do guia.
 
 A checagem de GUIDs permite somente os shaders URP inspecionados e meshes nativos explícitos como referências externas. Ela verifica que as referências locais existem; não comprova que a Unity importou/renderizou esses assets.
 
@@ -24,7 +24,7 @@ A consulta Git HTTPS, fora do sandbox de comandos, funcionou e confirmou que o r
 
 **Não há Unity Editor neste ambiente.** Portanto, não houve resolução UPM, compilação dos assemblies Unity, compilação de shader, importação nativa dos YAMLs, teste de cena em Play Mode, build Windows ou medição de FPS.
 
-Vinte e dois testes do conjunto do Editor estão implementados em `Assets/_Game/Tests/Editor/WorldTests.cs`, `ProjectSetupTests.cs`, `PropDistributionTests.cs` e `PlayerVisualAnimatorTests.cs`, **todos ainda não executados aqui**. O último é uma coroutine que entra e sai do Play Mode:
+Vinte e nove testes do conjunto do Editor estão implementados em `Assets/_Game/Tests/Editor/WorldTests.cs`, `ProjectSetupTests.cs`, `PropDistributionTests.cs`, `PlayerVisualAnimatorTests.cs` e `VegetationTests.cs`, **todos ainda não executados aqui**. Um deles é uma coroutine que entra e sai do Play Mode:
 
 1. Igualdade dos vértices, normais e cores de chunks vizinhos.
 2. Cancelamento da geração.
@@ -44,10 +44,17 @@ Vinte e dois testes do conjunto do Editor estão implementados em `Assets/_Game/
 16. Orçamento zero de decoração.
 17. Cancelamento do planejamento de decoração.
 18. Migração JsonUtility do save v1.
-19. Round-trip v2 com campos herdados.
+19. Round-trip v3 com campos herdados e guia de campo.
 20. Rig sem drift ou escala na raiz física.
 21. Inicialização idempotente do rig.
 22. Abertura de cena durante Play retorna sem exceção nem substituição da cena ativa; validação dos comandos retorna falso.
+23. Quatro variantes de cada família aparecem no bosque inicial.
+24. Densidade zero não decora chunks negativos.
+25. Rejeição de orçamento inválido e densidade não finita.
+26. Migração de save v2 preserva a aventura e inicia o guia vazio.
+27. Autoridade impede observar à distância, trocar o comando e repetir XP em outro animal da mesma espécie.
+28. Quatro geometrias de árvore por bioma, meshes/materiais compartilhados e LOD limitado.
+29. Quatro formas de detalhes por família e chapéus de cogumelo sem emissão.
 
 Não há teste de Play Mode executado ou executável Windows. A meta de 60 FPS não foi avaliada. Ausência de erros sintáticos não equivale a compilação de APIs Unity bem-sucedida.
 
@@ -55,9 +62,9 @@ Não há teste de Play Mode executado ou executável Windows. A meta de 60 FPS n
 
 1. Aplicar as regras de rede do rascunho: `packages.unity.com` e `download.packages.unity.com`. Elas foram salvas; a tentativa no runtime atual retornou HTTP 403, antes de qualquer aplicação/publicação.
 2. Disponibilizar Unity 6000.0.85f1 licenciado e resolver UPM. Usar `Tools/unity-check.sh import` e ler o log.
-3. Executar `Tools/unity-check.sh tests`. Confirmar vinte e dois testes executados e nenhum falhando no XML atual.
+3. Executar `Tools/unity-check.sh tests`. Confirmar vinte e nove testes executados e nenhum falhando no XML atual.
 4. Abrir Valley, iniciar Novo jogo, testar câmera/terreno, percorrer os três locais, construir o acampamento, criar a lente, coletar os materiais e restaurar os três altares e confirmar um artefato. Verificar inventário cheio, descarte, mapa e ciclo ambiental.
-5. Sair e usar Continuar; confirmar seed, posição, inventário e objetos consumidos preservados. Testar arquivo inválido sem sobrescrever o save válido de backup.
+5. Percorrer a rota dos seis novos locais, verificar colisões estruturais, observar as seis espécies (incluindo noite), completar o guia e conferir que não há repetição de XP. Sair e usar Continuar; confirmar seed, posição, inventário, observações e objetos consumidos preservados. Testar arquivo inválido sem sobrescrever o save válido de backup.
 6. Fazer build com o módulo Windows e testar o executável em Windows. Medir CPU/GPU, alocações e frames na máquina alvo antes de avaliar a meta de performance.
 
 ## Configuração reutilizável
@@ -125,3 +132,11 @@ A única exceção C# identificada é `InvalidOperationException: This cannot be
 Foi adicionado um teste Unity de regressão que entra no Play, chama a abertura e verifica ausência de exceção e preservação da cena. O total passa para 22 testes do Editor, ainda sem execução aqui. A validação estática cobre a sintaxe e as referências; não substitui a execução desse teste.
 
 O mesmo log contém uma assertion `device.IsInsideFrame()` e um aviso de GUI antes de concluir o carregamento do Editor e antes do primeiro reload para Play. Não há stack associada ao `GameUI` nem evidência suficiente para atribuir essa assertion à interface do jogo. Ela não foi reproduzida ou declarada corrigida. Avisos de importação de shaders Terrain/SpeedTree não utilizados pelo jogo também aparecem, sem falha de shader do jogo identificada.
+
+## Vale vivo e variedade
+
+A suíte atual passou com 25 verificações .NET. O catálogo de habitats real foi amostrado quanto a seed, repetibilidade, quatro espécies diurnas e seis no mix noturno. A observação e o guia completo têm recompensas únicas e atômicas verificadas, incluindo falha com inventário cheio e tentativa posterior. Isso não executa as decisões de IA, Physics ou modelos Unity.
+
+Os planos dos nove chunks iniciais mantêm 1150 árvores, agora divididas em quatro famílias (262/312/250/326), e 1118 detalhes. A distância média ao tronco mais próximo continua 9,35 m antes dos filtros de clareiras/corredores. Os testes .NET verificam limites e cobertura das variantes; a distinção geométrica das 24 árvores tem teste Unity escrito e não executado.
+
+Foram revisados por fonte o diretor de fauna, animação dos animais, transições de alerta/curiosidade, registro/remoção de alvos, integração do scanner/autoridade e migração v3. Novos conjuntos têm colisores estruturais aproximados. Nenhuma dessas verificações estáticas comprova física, aparência, compilação de APIs Unity ou desempenho. O total de 29 testes do Editor continua sem execução neste ambiente; detalhes do conteúdo em LIVING_VALLEY.md.

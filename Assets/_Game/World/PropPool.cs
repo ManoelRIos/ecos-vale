@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -21,9 +22,12 @@ namespace Ecos
             storage.SetParent(parent);
         }
 
-        public GameObject Rent(int biome, int kind, Transform parent)
+        public GameObject Rent(int biome, int kind, Transform parent, int variant = 0)
         {
-            int key = biome * 4 + kind;
+            if (biome < 0 || biome >= 6) throw new ArgumentOutOfRangeException(nameof(biome));
+            if (kind < 0 || kind >= 4) throw new ArgumentOutOfRangeException(nameof(kind));
+            if (variant < 0 || variant >= 4) throw new ArgumentOutOfRangeException(nameof(variant));
+            int key = (biome * 4 + kind) * 4 + variant;
             if (!available.TryGetValue(key, out var list))
                 available[key] = list = new Stack<GameObject>();
             GameObject go = null;
@@ -32,7 +36,7 @@ namespace Ecos
                 go = list.Pop();
                 Count--;
             }
-            if (!go) go = LowPolyFactory.Prop(palette, biome, kind, settings.biomes[biome].foliage);
+            if (!go) go = LowPolyFactory.Prop(palette, biome, kind, settings.biomes[biome].foliage, variant);
             go.name = key.ToString();
             go.transform.SetParent(parent, false);
             go.SetActive(true);
@@ -48,7 +52,7 @@ namespace Ecos
             go.SetActive(false);
             if (Count >= MaxPooledTotal || list.Count >= MaxPooledPerType)
             {
-                Object.Destroy(go);
+                UnityEngine.Object.Destroy(go);
                 return;
             }
             go.transform.SetParent(storage, false);

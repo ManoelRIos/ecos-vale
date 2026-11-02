@@ -157,6 +157,36 @@ namespace Ecos
             return true;
         }
 
+        public static bool ObserveSpecies(ProgressionState state, string species, out string message)
+        {
+            if (!CreatureCatalog.IsSpecies(species)) { message = "Espécie desconhecida."; return false; }
+            if (state.observedSpecies.Contains(species))
+            {
+                message = CreatureCatalog.Name(species) + " já está no seu guia de campo.";
+                return false;
+            }
+            state.observedSpecies.Add(species);
+            GainExperience(state, 12);
+            message = CreatureCatalog.Name(species) + " registrado no guia! +12 experiência.\n" + CreatureCatalog.Description(species);
+            return true;
+        }
+
+        public static int ObservedSpeciesCount(ProgressionState state)
+        {
+            int count = 0;
+            foreach (string id in CreatureCatalog.SpeciesIds) if (state.observedSpecies.Contains(id)) count++;
+            return count;
+        }
+
+        public static bool CompleteFieldGuide(ProgressionState state)
+        {
+            if (state.guideRewarded || ObservedSpeciesCount(state) != CreatureCatalog.SpeciesIds.Length) return false;
+            if (!TryTrade(state.inventory, None, QuestReward, out _)) return false;
+            state.guideRewarded = true;
+            GainExperience(state, 25);
+            return true;
+        }
+
         /// <summary>Preserves v1 discoveries/restorations; upgraded players keep access to their progress.</summary>
         public static void MigrateLegacy(ProgressionState state)
         {

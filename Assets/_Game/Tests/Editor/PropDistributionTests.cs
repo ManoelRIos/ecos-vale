@@ -21,6 +21,7 @@ namespace Ecos.Tests
                 Assert.That(first[i].z, Is.GreaterThanOrEqualTo(0).And.LessThan(128));
                 Assert.That(first[i].kind, Is.InRange(0, 3));
                 Assert.That(first[i].biome, Is.InRange(0, 5));
+                Assert.That(first[i].variant, Is.InRange(0, 3));
             }
         }
 
@@ -55,6 +56,54 @@ namespace Ecos.Tests
                 source.Cancel();
                 Assert.Throws<System.OperationCanceledException>(() =>
                     PropDistribution.Generate(0, 0, 128, 280, 71319, Density, source.Token));
+            }
+        }
+
+        [Test]
+        public void InitialGroveMixesEveryTreeFamilyAndDetailVariant()
+        {
+            var masks = new int[4];
+            var treeFamilies = new int[4];
+            for (int z = -1; z <= 1; z++)
+                for (int x = -1; x <= 1; x++)
+                {
+                    int localTrees = 0;
+                    foreach (var placement in PropDistribution.Generate(x, z, 128, 280, 71319, Density, CancellationToken.None))
+                    {
+                        masks[placement.kind] |= 1 << placement.variant;
+                        if (placement.kind == 0)
+                        {
+                            treeFamilies[placement.variant]++;
+                            localTrees |= 1 << placement.variant;
+                        }
+                    }
+                    Assert.AreEqual(15, localTrees, "Each grove should mix all four tree families rather than repeat a single model.");
+                }
+            foreach (int count in treeFamilies) Assert.Greater(count, 100);
+            foreach (int mask in masks) Assert.AreEqual(15, mask, "All four variants of each decoration category should occur near the hub.");
+        }
+
+        [Test]
+        public void ZeroDensityLeavesNegativeChunksUndecorated()
+        {
+            Assert.IsEmpty(PropDistribution.Generate(-2, -1, 128, 280, 71319, new float[6], CancellationToken.None));
+        }
+
+        [Test]
+        public void InvalidBudgetsAndNonFiniteDensityAreRejected()
+        {
+            Assert.Throws<System.ArgumentOutOfRangeException>(() =>
+                PropDistribution.Generate(0, 0, 128, -1, 71319, Density, CancellationToken.None));
+            Assert.Throws<System.ArgumentOutOfRangeException>(() =>
+                PropDistribution.Generate(0, 0, 128, 1025, 71319, Density, CancellationToken.None));
+            Assert.Throws<System.ArgumentOutOfRangeException>(() =>
+                PropDistribution.Generate(0, 0, 0, 280, 71319, Density, CancellationToken.None));
+            foreach (float invalid in new[] { float.NaN, float.PositiveInfinity, float.NegativeInfinity })
+            {
+                var density = (float[])Density.Clone();
+                density[3] = invalid;
+                Assert.Throws<System.ArgumentException>(() =>
+                    PropDistribution.Generate(-1, -1, 128, 280, 71319, density, CancellationToken.None));
             }
         }
     }

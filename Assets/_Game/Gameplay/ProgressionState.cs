@@ -13,6 +13,8 @@ namespace Ecos
         public List<string> restored = new List<string>();
         public List<string> openedCaches = new List<string>();
         public List<string> readClues = new List<string>();
+        public List<string> observedSpecies = new List<string>();
+        public bool guideRewarded;
         public bool rewarded;
         public bool campBuilt;
         public bool lensCrafted;

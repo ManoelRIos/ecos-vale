@@ -27,6 +27,44 @@ class CoreChecks {
  Check("legacy progress migration preserves inventory and unlocks access",()=>{var s=new ProgressionState();s.inventory.Add("wood",73);s.restored.Add("shrine-1");s.discovered.Add("shrine-1");s.collected.Add("crystal-1");s.openedCaches=null;s.readClues=null;ProgressionRules.MigrateLegacy(s);Assert(s.campBuilt&&s.lensCrafted&&s.inventory.Count("wood")==73,"legacy progress lost");Assert(s.experience==35&&s.readClues!=null&&s.openedCaches!=null&&s.collected.Contains("crystal-1"),"legacy lists/xp");});
  Check("compact grove plans deterministic bounded and dense",()=>{float[] density={1,.85f,1,1,1,1};var a=PropDistribution.Generate(-2,-1,128,280,71319,density,System.Threading.CancellationToken.None);var b=PropDistribution.Generate(-2,-1,128,280,71319,density,System.Threading.CancellationToken.None);Assert(a.Length==b.Length&&a.Length>150,"plan density");for(int j=0;j<a.Length;j++){Assert(a[j].Equals(b[j]),"plan not deterministic");Assert(a[j].x>=0&&a[j].x<128&&a[j].z>=0&&a[j].z<128,"placement bounds");Assert(a[j].kind>=0&&a[j].kind<=3,"kind bounds");float width=a[j].kind==0?3.7f:a[j].kind==1?2.2f:1.5f;Assert(WorldMath.PathDistance(-256+a[j].x,-128+a[j].z)>=width,"trail obstructed");}var points=new List<(float x,float z)>();int details=0;for(int z=-1;z<=1;z++)for(int x=-1;x<=1;x++)foreach(var v in PropDistribution.Generate(x,z,128,280,71319,density,System.Threading.CancellationToken.None)){if(v.kind==0)points.Add((x*128+v.x,z*128+v.z));else details++;}Assert(points.Count>900&&details>700,"sparse initial area");double total=0;foreach(var v in points){double nearest=double.MaxValue;foreach(var w in points){if(v==w)continue;double d=(v.x-w.x)*(v.x-w.x)+(v.z-w.z)*(v.z-w.z);nearest=Math.Min(nearest,d);}total+=Math.Sqrt(nearest);}double spacing=total/points.Count;Assert(spacing>=6&&spacing<12,"trunk spacing "+spacing);Console.WriteLine($"  Initial grove candidates: {points.Count} trees, {details} details; nearest mean {spacing:F2}m before POI clearings");});
  Check("compact decoration cancellation and zero budget",()=>{float[] density={1,1,1,1,1,1};Assert(PropDistribution.Generate(0,0,128,0,7,density,System.Threading.CancellationToken.None).Length==0,"zero budget");using(var c=new System.Threading.CancellationTokenSource()){c.Cancel();bool cancelled=false;try{PropDistribution.Generate(0,0,128,280,7,density,c.Token);}catch(OperationCanceledException){cancelled=true;}Assert(cancelled,"cancel ignored");}});
+ Check("wildlife observations reject unknown species and reward each species once",()=>{
+    var state=new ProgressionState();
+    Assert(!ProgressionRules.ObserveSpecies(state,"dragon",out _)&&state.experience==0&&state.observedSpecies.Count==0,"unknown species accepted");
+    var unique=new HashSet<string>();
+    foreach(string species in CreatureCatalog.SpeciesIds){Assert(unique.Add(species)&&CreatureCatalog.IsSpecies(species),"invalid catalog");Assert(!string.IsNullOrEmpty(CreatureCatalog.Name(species))&&!string.IsNullOrEmpty(CreatureCatalog.Description(species)),"missing field entry");Assert(ProgressionRules.ObserveSpecies(state,species,out _),"observation failed");Assert(!ProgressionRules.ObserveSpecies(state,species,out _),"repeat xp");}
+    Assert(unique.Count==6&&state.experience==72&&ProgressionRules.ObservedSpeciesCount(state)==6,"field guide count/xp");
+ });
+ Check("complete field guide grants its reward exactly once",()=>{
+    var state=new ProgressionState();Assert(!ProgressionRules.CompleteFieldGuide(state),"empty guide rewarded");
+    state.observedSpecies.AddRange(new[]{"fake-a","fake-b","fake-c","fake-d","fake-e","fake-f"});
+    Assert(!ProgressionRules.CompleteFieldGuide(state),"unknown sightings completed guide");state.observedSpecies.Clear();
+    foreach(string species in CreatureCatalog.SpeciesIds)ProgressionRules.ObserveSpecies(state,species,out _);
+    Assert(ProgressionRules.CompleteFieldGuide(state)&&state.guideRewarded&&state.inventory.Count("artifact")==1&&state.experience==97,"guide reward");
+    Assert(!ProgressionRules.CompleteFieldGuide(state)&&state.inventory.Count("artifact")==1&&state.experience==97,"duplicate guide reward");
+ });
+ Check("full field guide defers reward atomically when inventory is full",()=>{
+    var state=new ProgressionState();foreach(string species in CreatureCatalog.SpeciesIds)ProgressionRules.ObserveSpecies(state,species,out _);
+    state.inventory.capacity=1;state.inventory.Add("wood",50);
+    Assert(!ProgressionRules.CompleteFieldGuide(state)&&!state.guideRewarded&&state.experience==72&&state.inventory.Count("wood")==50,"partial guide reward");
+    state.inventory.Remove("wood",50);Assert(ProgressionRules.CompleteFieldGuide(state)&&state.inventory.Count("artifact")==1,"reward retry failed");
+ });
+ Check("groves contain four deterministic silhouettes without obstructing trails",()=>{
+    var variants=new HashSet<int>();float[] density={1,.85f,1,1,1,1};
+    for(int z=-1;z<=1;z++)for(int x=-1;x<=1;x++)foreach(var p in PropDistribution.Generate(x,z,128,280,71319,density,System.Threading.CancellationToken.None)){
+      Assert(p.variant>=0&&p.variant<4,"variant bounds");if(p.kind==0)variants.Add(p.variant);
+    }
+    Assert(variants.Count==4,"repeated tree family");
+ });
+ Check("wildlife habitats are seeded and cover day and night species",()=>{
+    var day=new HashSet<string>();var night=new HashSet<string>();bool changed=false;
+    for(int z=-18;z<=18;z++)for(int x=-18;x<=18;x++){
+      int biome=WorldMath.Biome(x*28,z*28,71319);string a=CreatureCatalog.ChooseSpecies(x,z,71319,biome,false),b=CreatureCatalog.ChooseSpecies(x,z,71319,biome,true);
+      Assert(a==CreatureCatalog.ChooseSpecies(x,z,71319,biome,false)&&b==CreatureCatalog.ChooseSpecies(x,z,71319,biome,true),"habitat not deterministic");
+      Assert(CreatureCatalog.IsSpecies(a)&&CreatureCatalog.IsSpecies(b)&&!CreatureCatalog.IsNocturnal(a),"invalid habitat species");day.Add(a);night.Add(b);
+      changed|=a!=CreatureCatalog.ChooseSpecies(x,z,42,biome,false);
+    }
+    Assert(day.Count==4&&night.Count==6&&changed,"species unreachable or seed ignored");
+ });
  Console.WriteLine($"{passed} checks passed. These compile production pure C# only, not Unity components.");
  }
 }

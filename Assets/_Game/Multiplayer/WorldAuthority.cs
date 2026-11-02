@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Ecos
 {
-    public enum WorldCommandKind { Collect, Restore, BuildCamp, CraftLens, OpenCache, ReadClue }
+    public enum WorldCommandKind { Collect, Restore, BuildCamp, CraftLens, OpenCache, ReadClue, Observe }
 
     public readonly struct WorldCommand
     {
@@ -65,6 +65,8 @@ namespace Ecos
                     return ProgressionRules.CraftLens(state, out message);
                 case WorldCommandKind.OpenCache:
                     return ProgressionRules.OpenCache(state, target.id, out message, ItemCatalog.Limit);
+                case WorldCommandKind.Observe:
+                    return ProgressionRules.ObserveSpecies(state, target.itemId, out message);
                 case WorldCommandKind.ReadClue:
                     bool firstReading = ProgressionRules.ReadClue(state, target.id, out message);
                     if (!string.IsNullOrEmpty(target.loreText))

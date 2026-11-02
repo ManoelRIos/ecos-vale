@@ -13,6 +13,7 @@ namespace Ecos
         public ChunkManager Chunks { get; private set; }
         public WorldClock Clock { get; private set; }
         public Landmarks Sites { get; private set; }
+        public WildlifeDirector Wildlife { get; private set; }
         public bool Playing { get; private set; }
         public bool Menu { get; private set; } = true;
 
@@ -171,6 +172,8 @@ namespace Ecos
             Sites = sites.AddComponent<Landmarks>();
             Sites.Initialize(palette, State);
             authority = new OfflineWorldAuthority(State, Sites.registry);
+            Wildlife = session.AddComponent<WildlifeDirector>();
+            Wildlife.Initialize(this, palette);
             scanner = session.AddComponent<ExplorationScanner>();
             scanner.Initialize(State, Sites, actor.transform, palette);
             Playing = true;
@@ -273,6 +276,12 @@ namespace Ecos
             if (ExplorationQuest.Evaluate(State))
             {
                 Notify("Missão concluída! Recebeu o Artefato do Vale.");
+                Save();
+            }
+
+            if (ProgressionRules.CompleteFieldGuide(State))
+            {
+                Notify("Guia de campo completo! Recebeu um Artefato do Vale e +25 experiência.");
                 Save();
             }
 

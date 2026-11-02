@@ -15,14 +15,16 @@ namespace Ecos
         static readonly string[] Visibility = { "Próxima e aconchegante", "Mais distante" };
         static readonly string[] Quality = { "Suave", "Equilibrada", "Detalhada" };
         static readonly string[] Directions = { "N", "NE", "L", "SE", "S", "SO", "O", "NO" };
+        static readonly string[] LocationLegendIds = { "shrine-", "camp", "path-cache-", "path-journal-", "place" };
+        static readonly string[] LocationLegendLabels = { "Santuários", "Refúgio", "Tesouros", "Fragmentos", "Outros lugares" };
 
         GameBootstrap game;
         GUIStyle title, heading, body, small, eyebrow, action, primary, quiet, field, center, caption, iconButton;
         Texture2D normalTexture, hoverTexture, pressedTexture, primaryTexture, primaryHoverTexture, gradient, map;
-        Vector2 menuScroll, settingsScroll, inventoryScroll, mapCenter;
+        Vector2 menuScroll, settingsScroll, inventoryScroll, itemDetailScroll, guideScroll, mapCenter;
         bool settings, confirmNewGame, mapWasOpen;
         string seedText;
-        int selected = -1, mapSeed, drawnWorldSize;
+        int selected = -1, inventoryTab, mapSeed, drawnWorldSize;
         float mapZoom = 2, drawnZoom;
         Vector2 drawnCenter;
 
@@ -250,6 +252,8 @@ namespace Ecos
                 settings = confirmNewGame = false;
                 menuScroll = Vector2.zero;
                 selected = -1;
+                inventoryTab = 0;
+                guideScroll = Vector2.zero;
                 mapWasOpen = false;
             }
         }
@@ -317,18 +321,21 @@ namespace Ecos
             GUI.Label(compass, direction + "   ·   " + hour.ToString("00") + ":" + minute.ToString("00"), center);
 
             float resourcesWidth = Mathf.Min(335, w * .29f);
-            var resources = new Rect(w - resourcesWidth - 20, 20, resourcesWidth, 101);
+            var resources = new Rect(w - resourcesWidth - 20, 20, resourcesWidth, 128);
             Panel(resources, Amber);
             GUI.Label(new Rect(resources.x + 16, resources.y + 12, resources.width - 32, 25), "VIAJANTE  ·  NÍVEL " + ProgressionRules.Level(state), eyebrow);
             GUI.Label(new Rect(resources.x + 16, resources.y + 43, resources.width - 32, 26), "Madeira " + state.inventory.Count("wood") + "    Pedra " + state.inventory.Count("stone"), small);
             GUI.Label(new Rect(resources.x + 16, resources.y + 69, resources.width - 32, 25), "Cristais " + state.inventory.Count("crystal") + "    Ervas " + state.inventory.Count("herb") + "    XP " + state.experience, small);
+            GUI.Label(new Rect(resources.x + 16, resources.y + 96, resources.width - 32, 24), "Fauna observada  " + ObservedCount() + "/" + CreatureCatalog.SpeciesIds.Length + "    ·    Guia em I", caption);
 
-            string controls = w < 1150 ? "E interagir   ·   F lanterna   ·   I mochila   ·   M mapa   ·   Esc pausa" : "WASD mover   ·   mouse olhar   ·   Shift correr   ·   Espaço pular   ·   E interagir   ·   F lanterna   ·   I mochila   ·   M mapa   ·   Esc pausa";
+            string controls = w < 1150 ? "E interagir / observar   ·   Ctrl agachar   ·   I mochila / guia   ·   M mapa   ·   Esc pausa" : "WASD mover   ·   Shift correr   ·   Espaço pular   ·   Ctrl agachar   ·   E interagir / observar   ·   F lanterna   ·   I mochila / guia   ·   M mapa   ·   Esc";
             GUI.Label(new Rect(25, h - 39, w - 50, 28), controls, caption);
             if (game.Focus && !game.Blocked)
             {
                 string promptText = "[E]  " + game.Focus.Prompt(state);
-                float promptHeight = Mathf.Clamp(center.CalcHeight(new GUIContent(promptText), 442) + 24, 56, 80);
+                if (game.Focus.EffectiveKind == InteractionKind.Observe)
+                    promptText += "\n<size=14>Aproxime-se devagar; Ctrl ajuda a não assustar.</size>";
+                float promptHeight = Mathf.Clamp(center.CalcHeight(new GUIContent(promptText), 442) + 24, 56, 94);
                 var prompt = new Rect(w / 2 - 235, h - 61 - promptHeight, 470, promptHeight);
                 Panel(prompt, Amber);
                 GUI.Label(new Rect(prompt.x + 14, prompt.y + 12, prompt.width - 28, prompt.height - 20), promptText, center);
@@ -345,11 +352,11 @@ namespace Ecos
             {
                 string lens = game.ScanDurationRemaining > 0 ? "Ecos revelados  ·  " + Mathf.CeilToInt(game.ScanDurationRemaining) + "s"
                     : game.ScanCooldownRemaining > 0 ? "A lente se recompõe  ·  " + Mathf.CeilToInt(game.ScanCooldownRemaining) + "s" : "[Q]  Revelar ecos próximos";
-                GUI.Label(new Rect(w - resourcesWidth - 20, 131, resourcesWidth, 40), lens, small);
+                GUI.Label(new Rect(w - resourcesWidth - 20, 158, resourcesWidth, 40), lens, small);
             }
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
             if (UnityEngine.InputSystem.Keyboard.current != null && UnityEngine.InputSystem.Keyboard.current.f3Key.isPressed)
-                GUI.Label(new Rect(w - 370, h - 91, 350, 45), "Chunks " + game.Chunks.ActiveCount + " · props " + game.Chunks.ObjectCount + " · upload " + game.Chunks.lastGenerationMs.ToString("F1") + " ms", caption);
+                GUI.Label(new Rect(w - 420, h - 91, 400, 45), "Chunks " + game.Chunks.ActiveCount + " · props " + game.Chunks.ObjectCount + " · fauna " + (game.Wildlife ? game.Wildlife.ActiveCount : 0) + " · upload " + game.Chunks.lastGenerationMs.ToString("F1") + " ms", caption);
 #endif
         }
 
@@ -359,33 +366,133 @@ namespace Ecos
             float width = Mathf.Min(800, w - 48), height = Mathf.Min(570, h - 56);
             var panel = new Rect(w / 2 - width / 2, h / 2 - height / 2, width, height);
             Panel(panel, Amber);
-            GUI.Label(new Rect(panel.x + 24, panel.y + 18, width - 100, 36), "Sua mochila", heading);
+            GUI.Label(new Rect(panel.x + 24, panel.y + 18, width - 100, 36), inventoryTab == 0 ? "Sua mochila" : "Guia de campo", heading);
             if (GUI.Button(new Rect(panel.xMax - 60, panel.y + 18, 36, 32), "×", iconButton)) game.InventoryOpen = false;
-            GUI.Label(new Rect(panel.x + 24, panel.y + 59, width - 48, 25), game.State.inventory.stacks.Count + " / " + game.State.inventory.capacity + " espaços  ·  " + game.State.readClues.Count + " fragmentos lidos", small);
+            float tabWidth = (width - 58) * .5f;
+            if (GUI.Button(new Rect(panel.x + 24, panel.y + 62, tabWidth, 36), "Itens", inventoryTab == 0 ? primary : quiet)) inventoryTab = 0;
+            if (GUI.Button(new Rect(panel.x + 34 + tabWidth, panel.y + 62, tabWidth, 36), "Guia de campo  ·  " + ObservedCount() + "/" + CreatureCatalog.SpeciesIds.Length, inventoryTab == 1 ? primary : quiet)) inventoryTab = 1;
+            if (inventoryTab == 1)
+            {
+                DrawFieldGuide(panel);
+                return;
+            }
+            GUI.Label(new Rect(panel.x + 24, panel.y + 109, width - 48, 25), game.State.inventory.stacks.Count + " / " + game.State.inventory.capacity + " espaços  ·  " + game.State.readClues.Count + " fragmentos lidos", small);
             float listWidth = width * .50f - 30;
-            var viewport = new Rect(panel.x + 24, panel.y + 103, listWidth, height - 132);
+            var viewport = new Rect(panel.x + 24, panel.y + 151, listWidth, height - 180);
             inventoryScroll = GUI.BeginScrollView(viewport, inventoryScroll, new Rect(0, 0, listWidth - 18, Mathf.Max(viewport.height, game.State.inventory.stacks.Count * 66)), false, false);
             for (int i = 0; i < game.State.inventory.stacks.Count; i++)
             {
                 var stack = game.State.inventory.stacks[i];
                 string text = ItemCatalog.Name(stack.id) + "\n<size=13><color=#AEC7BE>" + stack.count + " na mochila</color></size>";
-                if (GUI.Button(new Rect(0, i * 66, listWidth - 20, 58), text, selected == i ? primary : action)) selected = i;
+                if (GUI.Button(new Rect(0, i * 66, listWidth - 20, 58), text, selected == i ? primary : action))
+                {
+                    selected = i;
+                    itemDetailScroll = Vector2.zero;
+                }
             }
             GUI.EndScrollView();
             if (game.State.inventory.stacks.Count == 0)
                 GUI.Label(new Rect(viewport.x + 14, viewport.y + 25, viewport.width - 28, 110), "Sua mochila está leve.\nProcure recursos e pequenos tesouros ao redor da trilha.", body);
-            var detail = new Rect(panel.x + width * .5f + 12, panel.y + 103, width * .5f - 36, height - 132);
+            var detail = new Rect(panel.x + width * .5f + 12, panel.y + 151, width * .5f - 36, height - 180);
             Fill(detail, new Color(.08f, .15f, .16f, .88f));
             if (selected >= game.State.inventory.stacks.Count) selected = game.State.inventory.stacks.Count - 1;
             if (selected >= 0)
             {
                 var stack = game.State.inventory.stacks[selected];
-                GUI.Label(new Rect(detail.x + 18, detail.y + 19, detail.width - 36, 64), ItemCatalog.Name(stack.id), heading);
-                GUI.Label(new Rect(detail.x + 18, detail.y + 94, detail.width - 36, Mathf.Max(65, detail.height - 188)), ItemCatalog.Description(stack.id), body);
-                if (GUI.Button(new Rect(detail.x + 18, detail.yMax - 65, detail.width - 36, 44), "Descartar uma unidade", quiet)) game.Drop(stack.id);
+                float innerWidth = detail.width - 50;
+                float descriptionHeight = body.CalcHeight(new GUIContent(ItemCatalog.Description(stack.id)), innerWidth);
+                float titleHeight = heading.CalcHeight(new GUIContent(ItemCatalog.Name(stack.id)), innerWidth);
+                float dropY = titleHeight + descriptionHeight + 38;
+                itemDetailScroll = GUI.BeginScrollView(new Rect(detail.x + 14, detail.y + 14, detail.width - 28, detail.height - 28), itemDetailScroll,
+                    new Rect(0, 0, innerWidth, Mathf.Max(detail.height - 28, dropY + 60)), false, false);
+                GUI.Label(new Rect(0, 0, innerWidth, titleHeight), ItemCatalog.Name(stack.id), heading);
+                GUI.Label(new Rect(0, titleHeight + 20, innerWidth, descriptionHeight), ItemCatalog.Description(stack.id), body);
+                if (GUI.Button(new Rect(0, dropY, innerWidth, 44), "Descartar uma unidade", quiet)) game.Drop(stack.id);
+                GUI.EndScrollView();
             }
             else
                 GUI.Label(new Rect(detail.x + 20, detail.y + 25, detail.width - 40, 100), "Selecione um item para conhecer sua história.", body);
+        }
+
+        int ObservedCount()
+        {
+            int count = 0;
+            if (game.State == null || game.State.observedSpecies == null) return count;
+            foreach (string id in CreatureCatalog.SpeciesIds)
+                if (game.State.observedSpecies.Contains(id)) count++;
+            return count;
+        }
+
+        string FieldGuideDescription(string id)
+        {
+            bool observed = game.State.observedSpecies != null && game.State.observedSpecies.Contains(id);
+            return observed ? CreatureCatalog.Description(id)
+                : "Ainda não registrada. Procure movimento no bosque, caminhe devagar e use E ao se aproximar. Ctrl permite chegar sem assustar os animais.";
+        }
+
+        void DrawFieldGuide(Rect panel)
+        {
+            int observedCount = ObservedCount();
+            string progress = game.State.guideRewarded ? "Guia completo! Artefato e experiência recebidos."
+                : observedCount == CreatureCatalog.SpeciesIds.Length ? "Todas registradas. Libere espaço na mochila para receber seu artefato."
+                : "Observe seis espécies: recompensa de 1 artefato e 25 XP. Cada nova espécie concede 12 XP.";
+            float progressHeight = small.CalcHeight(new GUIContent(progress), panel.width - 48);
+            GUI.Label(new Rect(panel.x + 24, panel.y + 111, panel.width - 48, progressHeight), progress, small);
+            float top = 125 + progressHeight;
+            var viewport = new Rect(panel.x + 24, panel.y + top, panel.width - 48, panel.height - top - 24);
+            int columns = panel.width >= 660 ? 2 : 1;
+            float contentWidth = viewport.width - 20;
+            float cardWidth = (contentWidth - (columns - 1) * 12) / columns;
+            int rows = Mathf.CeilToInt(CreatureCatalog.SpeciesIds.Length / (float)columns);
+            float contentHeight = 0;
+            for (int row = 0; row < rows; row++)
+            {
+                float rowHeight = 0;
+                for (int column = 0; column < columns; column++)
+                {
+                    int index = row * columns + column;
+                    if (index >= CreatureCatalog.SpeciesIds.Length) break;
+                    rowHeight = Mathf.Max(rowHeight, small.CalcHeight(new GUIContent(FieldGuideDescription(CreatureCatalog.SpeciesIds[index])), cardWidth - 32) + 93);
+                }
+                contentHeight += rowHeight + 12;
+            }
+            guideScroll = GUI.BeginScrollView(viewport, guideScroll, new Rect(0, 0, contentWidth, contentHeight), false, false);
+            float y = 0;
+            for (int row = 0; row < rows; row++)
+            {
+                float rowHeight = 0;
+                for (int column = 0; column < columns; column++)
+                {
+                    int index = row * columns + column;
+                    if (index >= CreatureCatalog.SpeciesIds.Length) break;
+                    rowHeight = Mathf.Max(rowHeight, small.CalcHeight(new GUIContent(FieldGuideDescription(CreatureCatalog.SpeciesIds[index])), cardWidth - 32) + 93);
+                }
+                for (int column = 0; column < columns; column++)
+                {
+                    int index = row * columns + column;
+                    if (index >= CreatureCatalog.SpeciesIds.Length) break;
+                    string id = CreatureCatalog.SpeciesIds[index];
+                    bool observed = game.State.observedSpecies != null && game.State.observedSpecies.Contains(id);
+                    var card = new Rect(column * (cardWidth + 12), y, cardWidth, rowHeight);
+                    Fill(card, Card);
+                    Fill(new Rect(card.x, card.y, 3, card.height), observed ? Mint : Frame);
+                    GUI.Label(new Rect(card.x + 16, card.y + 14, card.width - 32, 29), observed ? CreatureCatalog.Name(id) : "???  ·  Não registrada", body);
+                    string habit = observed ? (CreatureCatalog.IsNocturnal(id) ? "OBSERVADA  ·  ENCONTROS À NOITE" : "OBSERVADA  ·  ENCONTROS NO BOSQUE") : "UM ENCONTRO AINDA ESPERA POR VOCÊ";
+                    GUI.Label(new Rect(card.x + 16, card.y + 47, card.width - 32, 29), habit, eyebrow);
+                    GUI.Label(new Rect(card.x + 16, card.y + 80, card.width - 32, card.height - 90), FieldGuideDescription(id), small);
+                }
+                y += rowHeight + 12;
+            }
+            GUI.EndScrollView();
+        }
+
+        static Color LocationColor(string id)
+        {
+            if (id == "camp") return Amber;
+            if (id.StartsWith("shrine-")) return Mint;
+            if (id.Contains("cache-")) return new Color(.95f, .70f, .31f);
+            if (id.Contains("journal-")) return new Color(.75f, .61f, .94f);
+            return new Color(.48f, .76f, .94f);
         }
 
         void RebuildMap()
@@ -438,7 +545,7 @@ namespace Ecos
             foreach (var location in Landmarks.Locations)
                 if (game.State.discovered.Contains(location.id))
                 {
-                    Color marker = location.id.StartsWith("shrine-") ? Mint : location.id == "camp" ? Amber : new Color(.83f, .61f, .88f);
+                    Color marker = LocationColor(location.id);
                     DrawMapMarker(canvas, location.position.x, location.position.y, location.title, marker, false);
                 }
             if (legendWidth > 0)
@@ -452,6 +559,16 @@ namespace Ecos
                     float y = canvas.y + 125 + i * 35;
                     Fill(new Rect(x, y + 5, 12, 12), game.Settings.biomes[i].ground);
                     GUI.Label(new Rect(x + 22, y, legendWidth - 22, 34), game.Settings.biomes[i].displayName, caption);
+                }
+                if (canvas.height > 496)
+                {
+                    GUI.Label(new Rect(x, canvas.y + 348, legendWidth, 24), "LUGARES DESCOBERTOS", eyebrow);
+                    for (int i = 0; i < LocationLegendIds.Length; i++)
+                    {
+                        float y = canvas.y + 380 + i * 22;
+                        Fill(new Rect(x, y + 5, 10, 10), LocationColor(LocationLegendIds[i]));
+                        GUI.Label(new Rect(x + 22, y, legendWidth - 22, 24), LocationLegendLabels[i], caption);
+                    }
                 }
             }
             float controlsY = panel.yMax - 43;
