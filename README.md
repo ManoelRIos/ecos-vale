@@ -11,6 +11,8 @@ A versão anterior foi executada pelo usuário no Unity. **Esta revisão foi ver
 3. Execute `C:\Dev\EcosDoVale\ABRIR_ECOS_DO_VALE.cmd`, ou adicione essa pasta pelo Hub. Ela deve conter Assets, Packages e ProjectSettings.
 4. Aguarde a importação. Abra **Ecos → Abrir cena principal**, pressione Play e escolha **Nova jornada**.
 
+Abra a cena com o Play parado. Os comandos de abrir cena, criar assets e reparar renderização ficam desabilitados durante Play, compilação ou importação. Uma chamada direta de abertura durante Play também retorna sem trocar a cena, evitando a exceção `This cannot be used during play mode`.
+
 O atalho confere caminho curto, Editor fixado e Physics 2D; ele recebeu revisão estática, sem execução Windows aqui. Caso use GitHub Desktop, selecione a branch `codex/ecos-do-vale-vertical-slice`, faça Fetch/Pull e abra a mesma pasta do clone na Unity. Vincular GitHub não substitui esse passo.
 
 Se reaparecer magenta, pare Play e use **Ecos → Reparar renderização URP**. O reparo restaura recursos gerados do renderer e pode remover personalizações dessas renderer features. **Ecos → Diagnosticar renderização** mostra pipelines e shaders atuais. O projeto usa materiais procedurais, sem depender de texturas externas.

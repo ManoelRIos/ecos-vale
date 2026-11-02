@@ -1,10 +1,14 @@
 using System;
+using System.Collections;
+using System.Text.RegularExpressions;
 using Ecos.Editor;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
+using UnityEngine.SceneManagement;
+using UnityEngine.TestTools;
 
 namespace Ecos.Tests
 {
@@ -121,6 +125,24 @@ namespace Ecos.Tests
             Assert.AreEqual(.85f, refreshed.renderScale);
             Assert.AreSame(graphics, GraphicsSettings.defaultRenderPipeline);
             Assert.AreSame(quality, QualitySettings.renderPipeline);
+        }
+    }
+
+    public sealed class ProjectSetupPlayStateTests
+    {
+        [UnityTest]
+        public IEnumerator OpeningMainSceneDuringPlayDoesNotThrowOrReplaceTheScene()
+        {
+            yield return new EnterPlayMode();
+
+            var current = SceneManager.GetActiveScene();
+            Assert.IsFalse(ProjectSetup.CanRunEditModeCommands());
+            LogAssert.Expect(LogType.Warning, new Regex("^Ecos: pare o Play Mode"));
+            Assert.DoesNotThrow(ProjectSetup.Open);
+            Assert.AreEqual(current.handle, SceneManager.GetActiveScene().handle);
+            Assert.AreEqual(current.path, SceneManager.GetActiveScene().path);
+
+            yield return new ExitPlayMode();
         }
     }
 }

@@ -312,6 +312,15 @@ namespace Ecos.Editor
             return string.IsNullOrEmpty(value) ? "LowPolyMesh" : value;
         }
 
+        [MenuItem("Ecos/Criar assets e atualizar cena", true)]
+        [MenuItem("Ecos/Reparar renderização URP", true)]
+        [MenuItem("Ecos/Abrir cena principal", true)]
+        public static bool CanRunEditModeCommands()
+        {
+            return !EditorApplication.isPlayingOrWillChangePlaymode
+                && !EditorApplication.isCompiling && !EditorApplication.isUpdating;
+        }
+
         static bool MaterialUsesShader(string path, string shaderName)
         {
             var material = AssetDatabase.LoadAssetAtPath<Material>(path);
@@ -557,6 +566,12 @@ namespace Ecos.Editor
         [MenuItem("Ecos/Abrir cena principal")]
         public static void Open()
         {
+            // Menu validation protects clicks; this also protects direct calls and transitions.
+            if (!CanRunEditModeCommands())
+            {
+                Debug.LogWarning("Ecos: pare o Play Mode e aguarde o fim da compilação/importação antes de abrir a cena principal.");
+                return;
+            }
             if (EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
                 EditorSceneManager.OpenScene(ScenePath);
         }
