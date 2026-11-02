@@ -1,50 +1,39 @@
 # Ecos do Vale
 
-Vertical slice em C# para **Unity 6 LTS 6000.0.85f1**, Windows PC, URP e Input System. Todo o conteúdo visual é feito de primitivas e meshes próprias; nenhum asset pago é necessário.
+Protótipo de exploração em terceira pessoa para **Unity 6.0 LTS 6000.0.85f1**, C#, URP e Input System. Esta revisão concentra a aventura em um vale de **1024 × 1024 m**, com floresta densa, recursos próximos, acampamento, criação de uma lente, pistas e tesouros.
 
-**Estado real:** projeto e assets criados; testes do núcleo C# e verificações estáticas executados. Este ambiente não possui Unity Editor. A importação dos assets, compilação dos componentes Unity, experiência em Play Mode, shaders e build Windows **ainda não foram executados**. Não há executável Windows validado nesta entrega.
+A versão anterior foi executada pelo usuário no Unity. **Esta revisão foi verificada com testes do núcleo C# e checks estáticos; animações, interface, JsonUtility, importação e desempenho ainda precisam de validação no Editor.** Não há build Windows validado desta revisão.
 
-## Abrir e jogar
+## Abrir
 
-1. Instale Unity **6000.0.85f1** pelo Unity Hub, com Windows Build Support, e ative uma licença válida. Unity Personal é uma opção quando aplicável.
-2. Adicione esta pasta como projeto existente. Aguarde a resolução dos pacotes fixados em `Packages/manifest.json`.
-3. Na primeira importação, `ProjectSetup` cria o pipeline URP e o renderer usando as APIs do Editor, e registra a cena no Build Settings. Os dados dos seis biomas, itens, materiais, prefabs visuais e a cena inicial já estão no projeto.
-4. Use **Ecos → Abrir cena principal**, ou abra `Assets/_Game/Scenes/Valley.unity`. Pressione Play e **Novo jogo**.
-5. Caso a configuração automática não ocorra, execute **Ecos → Criar assets e atualizar cena**. A operação preserva os assets existentes. Confira o Console antes de jogar.
+1. Instale Unity **6000.0.85f1** no Hub. Para build, inclua Windows Build Support.
+2. Baixe o [ZIP de nome curto](https://github.com/ManoelRIos/ecos-vale/raw/refs/heads/codex/ecos-do-vale-vertical-slice/Distribution/EcosDoVale.zip) e extraia em **C:\Dev**, preservando a cópia anterior se houver alterações próprias.
+3. Execute `C:\Dev\EcosDoVale\ABRIR_ECOS_DO_VALE.cmd`, ou adicione essa pasta pelo Hub. Ela deve conter Assets, Packages e ProjectSettings.
+4. Aguarde a importação. Abra **Ecos → Abrir cena principal**, pressione Play e escolha **Nova jornada**.
 
-A cena contém um ponto de entrada; o terreno, jogador e ambiente são construídos ao iniciar a sessão. Os prefabs em `Prefabs/` são referências visuais editáveis; a fábrica procedural é usada pelo runtime. Não é necessário montar objetos no Inspector.
+O atalho confere caminho curto, Editor fixado e Physics 2D; ele recebeu revisão estática, sem execução Windows aqui. Caso use GitHub Desktop, selecione a branch `codex/ecos-do-vale-vertical-slice`, faça Fetch/Pull e abra a mesma pasta do clone na Unity. Vincular GitHub não substitui esse passo.
 
-## Atualização de segurança e abertura
+Se reaparecer magenta, pare Play e use **Ecos → Reparar renderização URP**. O reparo restaura recursos gerados do renderer e pode remover personalizações dessas renderer features. **Ecos → Diagnosticar renderização** mostra pipelines e shaders atuais. O projeto usa materiais procedurais, sem depender de texturas externas.
 
-A versão anterior 6000.0.40f1 é afetada pela CVE-2025-59489. Use o Editor 6000.0.85f1 e uma extração nova do ZIP atualizado. Confira o [guia de correção e diagnóstico](Documentation/UNITY_TROUBLESHOOTING.md) se o Hub mostrar Security Alert ou o projeto abrir com erros. Alterar o pin não instala o Editor automaticamente.
+## A aventura
 
-O log de abertura também identificou um módulo nativo ausente: **Physics 2D**, exigido pelos componentes do Netcode 2.0.0 mesmo em um jogo 3D. O manifest atual já inclui essa dependência. Se estiver usando a cópia anterior, habilite Physics 2D nos pacotes Built-in do Package Manager e aguarde recompilar.
+O acampamento fica a poucos passos do início. Os recursos aparecem em pequenos grupos próximos; cada altar tem sua própria necessidade.
 
-## Abrir no Windows com caminho curto
+| Etapa | Ação / custo |
+| --- | --- |
+| Refúgio | Acender a fogueira com 4 madeiras e 3 pedras |
+| Ferramenta | Na bancada, criar a lente com 2 cristais, 3 ervas e 2 pedras |
+| Exploração | Usar Q para revelar até 18 ecos num raio de 42 m por 5 s; recarga de 14 s |
+| Torre da Vigília | Restaurar com 1 cristal e 2 pedras |
+| Cemitério das Lanternas | Restaurar com 1 cristal e 2 ervas |
+| Cabana do Último Eco | Restaurar com 1 cristal e 2 madeiras |
+| Conclusão | Receber o Artefato do Vale e experiência, uma única vez |
 
-Baixe o [ZIP de nome curto](https://github.com/ManoelRIos/ecos-vale/raw/refs/heads/codex/ecos-do-vale-vertical-slice/Distribution/EcosDoVale.zip).
+Além da missão, há **três baús selados**, **três fragmentos de história**, descobertas de localidades e biomas. A lente abre os baús. Descobrir, ler e restaurar concede XP; a cada 40 XP o personagem sobe um nível e amplia a mochila, até 20 espaços. Receitas e recompensas são atômicas: falhar por falta de recursos/espaço não entrega nem consome parcialmente.
 
-Use o ZIP de distribuição **EcosDoVale.zip**, que contém apenas a pasta raiz curta `EcosDoVale`. Extraia em **C:\Dev**, para que o projeto fique em **C:\Dev\EcosDoVale**. Evite os dois níveis de pastas longas com hash gerados ao extrair o ZIP automático do GitHub.
+O mapa marca os locais descobertos. Os três santuários preservam as coordenadas anteriores: `(28,20)`, `(-65,80)` e `(105,-60)`. A fogueira está em `(-12,-9)` e a bancada em `(-6,-14)`.
 
-Feche o Editor e execute **ABRIR_ECOS_DO_VALE.cmd** dentro dessa pasta. Ele recusa caminhos acima de 60 caracteres (uma margem preventiva para os caminhos internos dos pacotes), verifica Physics 2D e o pin 6000.0.85f1, e inicia exatamente essa pasta. Não baixa ferramentas, não altera o Registro e não apaga caches. Se o Editor estiver fora do caminho padrão do Hub, use **Add project from disk** e escolha `C:\Dev\EcosDoVale`. O log dessa abertura fica em `Logs/Ecos-Editor.log`.
-
-Para aproveitar sua cópia existente: feche o Unity, mova a pasta real do projeto para esse caminho curto e **depois renomeie `Library` para `Library_backup`**. Ao reabrir, o Unity recria o cache. Preserve arquivos e alterações próprios. O atalho não faz essa operação automaticamente.
-
-O log mais recente já registra Physics 2D e não contém erros `CS...`, mas mostra 27 arquivos de pacotes ausentes, todos com caminhos de 260 a 288 caracteres. Isso é forte evidência do limite tradicional de caminhos do Windows; as falhas Burst/URP subsequentes apontam para esses mesmos arquivos ausentes. Ainda não foi confirmada uma abertura sem erros após encurtar o caminho.
-
-O atalho recebeu revisão estática; **não foi executado no Windows** neste ambiente. Ele não certifica compilação ou Play Mode. A opção `/check` verifica os arquivos e o tamanho do caminho sem iniciar o Editor.
-
-## Renderização e revisão visual
-
-Se os objetos aparecerem magenta, pare o Play e use **Ecos → Reparar renderização URP**, depois **Ecos → Abrir cena principal** e Play. A versão atual também aplica o pipeline esperado em runtime e preserva essa seleção ao trocar qualidade. O menu **Ecos → Diagnosticar renderização** informa o estado do pipeline e dos shaders.
-
-A revisão inclui céu gradual, névoa menos densa, personagem e árvores com novas silhuetas, abóboras/rochas/cogumelos facetados e texto maior na Game View. Consulte [VISUAL_UPDATE.md](Documentation/VISUAL_UPDATE.md). Essas mudanças ainda precisam de confirmação visual no Unity; não há screenshot ou benchmark validado da nova versão.
-
-## Pequena aventura
-
-Você encontra os **três Ecos do Vale**, recolhe cristais e restaura um altar em cada local. Cada restauração consome um cristal. A terceira concede um **Artefato do Vale**, uma única vez. Há dezoito cristais na área inicial, além de madeira e pedra.
-
-Os três locais estão próximos ao início: Torre da Vigília `(28, 20)`, Cemitério das Lanternas `(-65, 80)` e Cabana do Último Eco `(105, -60)`. A aproximação registra a descoberta no mapa. Os cristais aparecem como objetos azuis luminosos. A missão está ativa desde o início; o HUD informa o progresso.
+## Controles
 
 | Entrada | Ação |
 | --- | --- |
@@ -52,66 +41,56 @@ Os três locais estão próximos ao início: Torre da Vigília `(28, 20)`, Cemit
 | Shift / Espaço / Ctrl | Correr / pular / agachar |
 | Roda do mouse | Zoom da câmera |
 | E / F | Interagir / alternar lanterna |
-| I / M / Esc | Inventário / mapa / menu |
-| F3, apenas Editor/Development | Contadores de chunks, props e tempo de upload |
+| Q | Pulso da lente, após criá-la |
+| I / M / Esc | Mochila / mapa / pausa |
+| F3, apenas Editor/Development | Contadores de desenvolvimento |
 
-## Implementado
+A animação procedural tem respiração, passos baseados no deslocamento real, joelhos/cotovelos, corrida, curvas, salto e aterrissagem. Agachar altera a cápsula sem escalar a raiz física; o personagem verifica espaço para levantar. Ainda exige teste de colisão e apresentação no Editor.
 
-- Personagem com corpo, cabeça, chapéu, mochila e membros animados proceduralmente; câmera com suavização e teste de colisão.
-- Mundo determinístico, seed configurável, FBM de value noise, domain warping, montanhas, vales, canal de rio e trilhas coloridas.
-- Grade lógica de **8192 × 8192 m** (aproximadamente 8 km; escolhida para alinhar 64 chunks de 128 m por eixo). Extensão, resolução, densidade e raio configuráveis.
-- Streaming: até dois workers de dados, cancelamento, cache limitado a 96 chunks, criação/descarte na thread principal e normais contínuas nas bordas. API de união de interesses de múltiplos observadores, utilizada inicialmente com um jogador.
-- Seis biomas com ScriptableObjects, cores, folhagem, densidade, névoa e clima: assombrada, planícies, montanhas, pântano, encantada e vulcânica.
-- Árvores, rochas, abóboras e cogumelos feitos de primitivas/mesh facetada; materiais compartilhados, decoração com pool, LOD de props e frustum culling da Unity.
-- Dia/noite, sol, lua, estrelas estilizadas, lanterna e névoa exponencial. Chuva/neve/cinzas com partículas e transição de intensidade por bioma.
-- Três pontos de interesse distintos, descoberta, coleta validada por distância/ID, inventário com pilhas, descrição e descarte permanente.
-- Missão de três restaurações, recompensa única, menu, HUD, bússola e mapa de biomas/altitude com zoom.
-- Save JSON versionado: seed, posição, inventário, coletas, descobertas, restaurações e hora. Autosave a cada 30 segundos e ao sair; escrita temporária, backup `.bak` e substituição do arquivo existente.
-- Fronteira de comandos `IWorldAuthority`, implementação offline e componente NGO `SessionState` com seed/hora de escrita exclusiva do servidor.
-- Infraestrutura de áudio categorizada, clips e AudioMixer atribuíveis. **Nenhum som é reproduzido sem clips; não há trilha, efeitos ou mixer roteado entregue.**
+## Mundo e apresentação
 
-## Escopo posterior e limitações
+- Mundo lógico de 1 km por lado, 64 chunks de 128 m; seed configurável e seis biomas.
+- Até 280 candidatos de decoração por chunk, filtrados por relevo, trilhas e clareiras. Grade com variação mantém árvores próximas; vegetação rasteira, pedras e cogumelos formam grupos.
+- Na seed padrão, os nove chunks iniciais planejam 1150 árvores e 1108 detalhes, antes das clareiras dos POIs. A distância média da árvore mais próxima nesses candidatos é 9,35 m. Isso é medição de dados, não benchmark de renderização.
+- Dois workers de dados, cache limitado, cancelamento e criação na thread principal. Decoração processada em até 8 candidatos/frame, com orçamento flexível de 2 ms; uma criação individual pode ultrapassá-lo.
+- Padrão: 25 meshes de terreno e nove chunks com decoração; um anel extra de terreno protege o horizonte sem povoar tudo. Raio de decoração ajustável de 1 a 2. Pool limitado a 256 objetos e 48 por tipo.
+- Cores mais saturadas, cogumelos sem emissão no chapéu, brilho discreto na parte inferior e iluminação menos propensa a estourar cores.
+- Menu com cenário 3D próprio, viajante, cabana, lanternas, câmera suave, cards e configurações. HUD apresenta etapas, recursos, nível/XP e lente; inventário/mapa usam a mesma identidade visual.
+- Dia/noite, céu gradual, partículas climáticas e névoa; áudio ainda é infraestrutura sem trilha/efeitos finais.
 
-Esta é a primeira implementação, não o jogo completo descrito na visão. A validação Unity é o próximo passo obrigatório.
+## Saves
 
-- Multiplayer de fato: não há host/client jogável, replicação de personagens, RPCs de interação, lobbies, códigos de convite ou Relay. Os pacotes e a fronteira de autoridade estão preparados; não há serviço pago.
-- Cinemachine está fixado como dependência disponível, mas a câmera funcional é própria. A UI inicial usa IMGUI; migração para UI Toolkit/TMP, navegação por controle e remapeamento de ações ficam para a próxima etapa.
-- O layout climático inicial usa regiões angulares deformadas por ruído para expor os seis biomas perto do início; temperatura/umidade completas, relevo por asset e blending de vegetação ficam pendentes.
-- Água, lagos navegáveis, lava, cavernas exploráveis, pontes e vilarejos completos ainda não existem. O canal de rio é geometria de terreno, sem superfície de água.
-- Há três locais autorais na região inicial. O restante do mundo tem relevo/decoração procedural, mas precisa de distribuição adicional de locais, segredos e recompensas.
-- Névoa não é volumétrica. Clima possui enum para oito tipos; tempestades, relâmpagos e nevascas avançadas não têm efeitos próprios completos.
-- LOD atual é de decoração; não há LOD variável do mesh de terreno nem occlusion culling pré-calculado. Decoração não tem colisores; terreno e estruturas principais têm.
-- Inventário permite descartar destruindo permanentemente a unidade; não gera um saco no chão. Ervas/chaves/itens de missão possuem definições, mas não ciclos de uso/coleta próprios.
-- O mapa é centrado no mundo, com três níveis de zoom; não há pan. O agachamento é simples e requer testes de teto/colisão no Editor.
-- Não há combate, inimigos, sobrevivência ou áudio final. A meta de 1080p/60 FPS **não foi medida**.
+O arquivo continua em `Application.persistentDataPath/ecos-slot1.json`, com backup `.bak`. O formato passou para **v2**: fogueira, lente, XP, baús e fragmentos passam a ser salvos junto ao progresso anterior.
 
-## Validação e builds
+Saves v1 são migrados sem descartar inventário, santuários ou descobertas. Quem já restaurou um santuário mantém acesso ao acampamento/lente. Posições fora dos novos limites retornam à área inicial. Para conhecer a sequência completa desde o começo, escolha Nova jornada; a interface pede confirmação antes de substituir a viagem no próximo save.
 
-Consulte [VALIDATION.md](Documentation/VALIDATION.md) para os resultados realmente obtidos e [ARCHITECTURE.md](Documentation/ARCHITECTURE.md) para os módulos e limites de rede.
+## Testes e ferramentas
 
 ```bash
 python3 -m pip install -r Tools/requirements-validation.txt
 python3 Tools/validate_project.py
+python3 -m unittest discover -s Tools -p 'test_*.py'
 dotnet run --project Tools/CoreChecks.csproj
 ```
 
-Os testes .NET compilam os próprios arquivos de produção `WorldMath.cs` e `InventoryState.cs`. Eles não simulam a Unity nem validam renderização. SDK usado: .NET 8.0.427.
+O teste .NET compila os arquivos reais de ruído, inventário, progressão e distribuição de props. Ele não usa stubs Unity nem valida renderização. Os testes EditMode em `Assets/_Game/Tests/Editor` precisam do Editor.
 
-Com um Editor licenciado, execute a importação, os testes EditMode e o build separadamente:
+Com `UNITY_EDITOR_PATH` apontando para o executável licenciado:
 
 ```bash
-"$UNITY_EDITOR_PATH" -batchmode -nographics -projectPath "$PWD" \
-  -executeMethod Ecos.Editor.ProjectSetup.CreateDefaults -quit -logFile /tmp/ecos-import.log
-"$UNITY_EDITOR_PATH" -batchmode -nographics -projectPath "$PWD" \
-  -runTests -testPlatform EditMode -testResults /tmp/ecos-tests.xml -logFile /tmp/ecos-tests.log
-"$UNITY_EDITOR_PATH" -batchmode -nographics -projectPath "$PWD" \
-  -executeMethod Ecos.Editor.ProjectSetup.BuildWindows -quit -logFile /tmp/ecos-build.log
+bash Tools/unity-check.sh import
+bash Tools/unity-check.sh tests
+bash Tools/unity-check.sh build
 ```
 
-Não use `-quit` no comando do Test Runner. Confira os resultados XML e os logs, além do código de saída. O build depende do módulo Windows; saída padrão `Builds/Windows/EcosDoVale.exe`, substituível por `ECOS_BUILD_OUTPUT`.
+Confira logs e XML atuais. O build Windows depende do módulo apropriado; saída padrão `Builds/Windows/EcosDoVale.exe`. O UPM gera o lockfile transitivo real. Não foi fabricado um packages-lock.json sem resolução do Editor.
 
-O gerenciador de pacotes criará `packages-lock.json` na primeira resolução real. Não foi fabricado um lockfile transitivo sem UPM. O acesso a `packages.unity.com` e `download.packages.unity.com` foi salvo no rascunho de rede do ambiente, mas precisa ser aplicado nas configurações/publicação.
+Para recriar o ZIP num clone Git, adicione arquivos novos ao índice e execute `python3 Tools/package_project.py`. A distribuição usa raiz curta e exclui caches/backups e o próprio ZIP.
 
-Save: `Application.persistentDataPath/ecos-slot1.json`. **Novo jogo** substitui o slot no próximo salvamento. Preserve o arquivo e seu `.bak` antes de testar com progresso importante.
+## Limites atuais
 
-Para reproduzir o ZIP em um clone Git, use `python3 Tools/package_project.py`. O comando usa arquivos presentes no índice Git; adicione arquivos novos antes de empacotar. A pasta Distribution é excluída do conteúdo para evitar ZIPs recursivos.
+Não há conexão host/client jogável, lobby, Relay ou matchmaking. `IWorldAuthority` e o estado NGO são preparação; o jogo atual é offline. Também não há combate, inimigos, água/lava navegáveis, vilarejos completos, música final ou animações humanoides importadas.
+
+A UI usa IMGUI; a vegetação decorativa não possui colisores. O terreno usa resolução uniforme e a decoração possui LOD. Densidade é configuração de nova sessão; o raio de visão pode mudar ao vivo. A meta de 1080p/60 FPS ainda não foi medida. O conteúdo principal concentra-se em aproximadamente 200 m ao redor do acampamento; o restante é floresta procedural.
+
+Veja [COMPACT_ADVENTURE.md](Documentation/COMPACT_ADVENTURE.md), [VALIDATION.md](Documentation/VALIDATION.md) e [ARCHITECTURE.md](Documentation/ARCHITECTURE.md).

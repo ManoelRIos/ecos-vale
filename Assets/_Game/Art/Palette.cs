@@ -33,7 +33,11 @@ namespace Ecos
             if (glow)
             {
                 m.EnableKeyword("_EMISSION");
-                m.SetColor("_EmissionColor", c * 2.5f);
+                // A bright Lit surface plus HDR emission used to clip every channel to white.
+                // Preserve the hue with a low emission budget; lights provide the actual lighting.
+                Color emission = c * .55f;
+                emission.a = 1;
+                m.SetColor("_EmissionColor", emission);
             }
 
             materials[key] = m;
@@ -60,9 +64,15 @@ namespace Ecos
 
         public void Dispose()
         {
-            foreach (var m in materials.Values)
-                Object.Destroy(m);
-            Object.Destroy(terrain);
+            foreach (var m in materials.Values) Release(m);
+            Release(terrain);
+        }
+
+        static void Release(Material material)
+        {
+            if (!material) return;
+            if (Application.isPlaying) Object.Destroy(material);
+            else Object.DestroyImmediate(material);
         }
     }
 }

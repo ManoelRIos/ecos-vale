@@ -4,5 +4,8 @@
     <Compile Include="CoreChecks.cs" />
     <Compile Include="../Assets/_Game/World/WorldMath.cs" Link="WorldMath.cs" />
     <Compile Include="../Assets/_Game/Inventory/InventoryState.cs" Link="InventoryState.cs" />
+    <Compile Include="../Assets/_Game/Gameplay/ProgressionState.cs" Link="ProgressionState.cs" />
+    <Compile Include="../Assets/_Game/Gameplay/ProgressionRules.cs" Link="ProgressionRules.cs" />
+    <Compile Include="../Assets/_Game/World/PropDistribution.cs" Link="PropDistribution.cs" />
   </ItemGroup>
 </Project>

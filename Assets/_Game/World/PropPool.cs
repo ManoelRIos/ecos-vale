@@ -5,10 +5,14 @@ namespace Ecos
 {
     public sealed class PropPool
     {
+        const int MaxPooledTotal = 256;
+        const int MaxPooledPerType = 48;
         readonly Dictionary<int, Stack<GameObject>> available = new Dictionary<int, Stack<GameObject>>();
         readonly Transform storage;
         readonly Palette palette;
         readonly WorldSettings settings;
+        public int Count { get; private set; }
+
         public PropPool(Palette p, WorldSettings s, Transform parent)
         {
             palette = p;
@@ -19,22 +23,37 @@ namespace Ecos
 
         public GameObject Rent(int biome, int kind, Transform parent)
         {
-            int key = biome * 3 + kind;
+            int key = biome * 4 + kind;
             if (!available.TryGetValue(key, out var list))
                 available[key] = list = new Stack<GameObject>();
-            var g = list.Count > 0 ? list.Pop() : LowPolyFactory.Prop(palette, biome, kind, settings.biomes[biome].foliage);
-            g.name = key.ToString();
-            g.transform.SetParent(parent, false);
-            g.SetActive(true);
-            return g;
+            GameObject go = null;
+            while (list.Count > 0 && !go)
+            {
+                go = list.Pop();
+                Count--;
+            }
+            if (!go) go = LowPolyFactory.Prop(palette, biome, kind, settings.biomes[biome].foliage);
+            go.name = key.ToString();
+            go.transform.SetParent(parent, false);
+            go.SetActive(true);
+            return go;
         }
 
-        public void Return(GameObject g)
+        public void Return(GameObject go)
         {
-            int key = int.Parse(g.name);
-            g.SetActive(false);
-            g.transform.SetParent(storage, false);
-            available[key].Push(g);
+            if (!go) return;
+            int key = int.Parse(go.name);
+            if (!available.TryGetValue(key, out var list))
+                available[key] = list = new Stack<GameObject>();
+            go.SetActive(false);
+            if (Count >= MaxPooledTotal || list.Count >= MaxPooledPerType)
+            {
+                Object.Destroy(go);
+                return;
+            }
+            go.transform.SetParent(storage, false);
+            list.Push(go);
+            Count++;
         }
     }
 }

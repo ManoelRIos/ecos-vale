@@ -5,16 +5,16 @@
 | Verificação | Resultado |
 | --- | --- |
 | SDK .NET 8.0.427 instalado de fonte oficial via TLS | Concluído |
-| Compilação e execução de `Tools/CoreChecks.csproj` | **12 verificações passaram** |
-| Parser C# tree-sitter 0.26.0 / grammar 0.23.5 | **30 arquivos sem erro sintático** |
+| Compilação e execução de `Tools/CoreChecks.csproj` | **20 verificações passaram** |
+| Parser C# tree-sitter 0.26.0 / grammar 0.23.5 | **38 arquivos sem erro sintático** |
 | Testes Python de versão e empacotamento | **17 passaram (8 + 9)** |
 | Estrutura, versões diretas e evidências de manifests | Passou |
-| Assets e metadados locais | **66 arquivos de assets; 86 GUIDs únicos** |
+| Assets e metadados locais | **74 arquivos de assets; 94 GUIDs únicos** |
 | Referências locais de GUID, cena/prefab e IDs internos | Passou |
 | `bash -n Tools/setup-cloud.sh Tools/unity-check.sh` | Passou |
-| Script completo `Tools/setup-cloud.sh` | Executado com sucesso; reutilizou SDK e repetiu as 12 verificações |
+| Script completo `Tools/setup-cloud.sh` | Executado com sucesso; reutilizou SDK e executou o núcleo disponível naquela etapa; suíte atual ampliada para 20 |
 
-As verificações .NET compilam os arquivos reais de produção `WorldMath.cs` e `InventoryState.cs`, sem stubs Unity. Cobrem repetibilidade/seed, alturas finitas, seis biomas na área inicial de 1 km, continuidade do ruído, igualdade das alturas nas bordas, intervalo aleatório, empilhamento, atomicidade em overflow/remoção, entradas inválidas, orçamento de três cristais e chão inicial/limites.
+As verificações .NET compilam os arquivos reais de produção `WorldMath.cs`, `InventoryState.cs`, `ProgressionState.cs`, `ProgressionRules.cs` e `PropDistribution.cs`, sem stubs Unity. Cobrem repetibilidade/seed, alturas finitas, seis biomas na área inicial de 1 km, continuidade do ruído, igualdade das alturas nas bordas, intervalo aleatório, empilhamento, atomicidade em overflow/remoção, entradas inválidas, custos completos da campanha, recompensas únicas, migração do progresso, distribuição densa e chão inicial/limites.
 
 A checagem de GUIDs permite somente os shaders URP inspecionados e meshes nativos explícitos como referências externas. Ela verifica que as referências locais existem; não comprova que a Unity importou/renderizou esses assets.
 
@@ -24,7 +24,7 @@ A consulta Git HTTPS, fora do sandbox de comandos, funcionou e confirmou que o r
 
 **Não há Unity Editor neste ambiente.** Portanto, não houve resolução UPM, compilação dos assemblies Unity, compilação de shader, importação nativa dos YAMLs, teste de cena em Play Mode, build Windows ou medição de FPS.
 
-Treze testes EditMode estão implementados em `Assets/_Game/Tests/Editor/WorldTests.cs` e `ProjectSetupTests.cs`, **todos ainda não executados**:
+Vinte e um testes EditMode estão implementados em `Assets/_Game/Tests/Editor/WorldTests.cs`, `ProjectSetupTests.cs`, `PropDistributionTests.cs` e `PlayerVisualAnimatorTests.cs`, **todos ainda não executados**:
 
 1. Igualdade dos vértices, normais e cores de chunks vizinhos.
 2. Cancelamento da geração.
@@ -33,12 +33,20 @@ Treze testes EditMode estão implementados em `Assets/_Game/Tests/Editor/WorldTe
 5. Recompensa da missão uma única vez.
 6. Round-trip JSON do progresso.
 7. Autoridade rejeita distância indevida e coleta duplicada.
-8. Fluxo de três coletas/restaurações pela autoridade até a recompensa.
+8. Fluxo de acampamento, lente e três restaurações pela autoridade até a recompensa.
 9. Criação idempotente do pipeline preservando configurações válidas.
 10. Reparo de renderer ausente preservando o GUID do pipeline.
 11. Reparo de material preservando GUID e cor base.
 12. Atualização explícita de recursos preservando GUIDs e valores básicos de qualidade.
 13. Reutilização dos meshes visuais e faces orientadas para fora, sem triângulos degenerados.
+14. Distribuição determinística e limites em coordenadas negativas.
+15. Densidade do bosque inicial e clareza das trilhas.
+16. Orçamento zero de decoração.
+17. Cancelamento do planejamento de decoração.
+18. Migração JsonUtility do save v1.
+19. Round-trip v2 com campos herdados.
+20. Rig sem drift ou escala na raiz física.
+21. Inicialização idempotente do rig.
 
 Não há teste de Play Mode executado ou executável Windows. A meta de 60 FPS não foi avaliada. Ausência de erros sintáticos não equivale a compilação de APIs Unity bem-sucedida.
 
@@ -46,8 +54,8 @@ Não há teste de Play Mode executado ou executável Windows. A meta de 60 FPS n
 
 1. Aplicar as regras de rede do rascunho: `packages.unity.com` e `download.packages.unity.com`. Elas foram salvas; a tentativa no runtime atual retornou HTTP 403, antes de qualquer aplicação/publicação.
 2. Disponibilizar Unity 6000.0.85f1 licenciado e resolver UPM. Usar `Tools/unity-check.sh import` e ler o log.
-3. Executar `Tools/unity-check.sh tests`. Confirmar treze testes executados e nenhum falhando no XML atual.
-4. Abrir Valley, iniciar Novo jogo, testar câmera/terreno, percorrer os três locais, coletar cristais, restaurar os três altares e confirmar um artefato. Verificar inventário cheio, descarte, mapa e ciclo ambiental.
+3. Executar `Tools/unity-check.sh tests`. Confirmar vinte e um testes executados e nenhum falhando no XML atual.
+4. Abrir Valley, iniciar Novo jogo, testar câmera/terreno, percorrer os três locais, construir o acampamento, criar a lente, coletar os materiais e restaurar os três altares e confirmar um artefato. Verificar inventário cheio, descarte, mapa e ciclo ambiental.
 5. Sair e usar Continuar; confirmar seed, posição, inventário e objetos consumidos preservados. Testar arquivo inválido sem sobrescrever o save válido de backup.
 6. Fazer build com o módulo Windows e testar o executável em Windows. Medir CPU/GPU, alocações e frames na máquina alvo antes de avaliar a meta de performance.
 
@@ -98,3 +106,11 @@ A screenshot do usuário mostra magenta e terreno não legível. O usuário info
 Foram implementados céu gradual, iluminação/névoa revisadas, novo personagem e vegetação facetada por bioma, LOD de copas preservado e melhorias de legibilidade da UI. A verificação numérica de Cone/Trunk/Crown/MushroomCap passou com 14/24/42/48 triângulos, orientação externa e área positiva. Esses checks não renderizam os meshes nem compilam HLSL.
 
 O total de testes EditMode passou para 13, ainda todos sem execução aqui. A compilação completa dos novos scripts, shaders, renderização e desempenho no Editor não foram confirmados. Detalhes em VISUAL_UPDATE.md.
+
+## Revisão compacta e progressão
+
+A suíte .NET atual compila cinco arquivos reais de produção (WorldMath, InventoryState, ProgressionState, ProgressionRules e PropDistribution), além do runner sem stubs Unity. Vinte verificações passaram: inclui campanha completa com orçamento exato, bloqueio da lente antes do acampamento, custos/recompensas atômicos, baús e XP únicos, IDs de santuário, migração de dados, planos determinísticos/densos, trilhas, cancelamento e limites.
+
+Na seed padrão, nove chunks planejaram 1150 árvores e 1108 detalhes, com distância média do tronco mais próximo de 9,35 m antes das clareiras. Essa métrica de dados não comprova FPS. A criação da cena e a reserva de 2 ms são verificações/limites de código, não um benchmark Unity.
+
+A aparência branca dos cogumelos foi tratada reduzindo emissão e retirando brilho dos chapéus. Menu 3D, HUD, rig animado, scanner e JsonUtility foram revisados por fonte e possuem testes de Editor pertinentes. **Não foram executados nesta máquina.** Os 21 testes Unity continuam pendentes e a nova revisão precisa de validação visual/funcional no Editor. A versão anterior foi confirmada funcionando pelo usuário.

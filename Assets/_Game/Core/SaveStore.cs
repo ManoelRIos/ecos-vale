@@ -6,63 +6,109 @@ using UnityEngine;
 namespace Ecos
 {
     [Serializable]
-    public sealed class SaveData
+    public sealed class SaveData : ProgressionState
     {
-        public int version = 1, seed = 71319;
+        public int version = SaveStore.CurrentVersion, seed = 71319;
         public Vector3 position = new Vector3(0, 5, 0);
-        public InventoryState inventory = new InventoryState();
-        public List<string> collected = new List<string>(), discovered = new List<string>(), restored = new List<string>();
-        public bool rewarded;
         public float time = .30f;
     }
 
     public static class SaveStore
     {
+        public const int CurrentVersion = 2;
         public static string PathName => Path.Combine(Application.persistentDataPath, "ecos-slot1.json");
         public static bool Exists => File.Exists(PathName);
 
         public static bool TryLoad(out SaveData data, out string error)
         {
             data = null;
-            error = null;
             try
             {
-                var d = JsonUtility.FromJson<SaveData>(File.ReadAllText(PathName));
-                if (d == null || d.version != 1 || d.inventory == null || d.collected == null || d.discovered == null || d.restored == null || d.inventory.stacks == null || float.IsNaN(d.time) || float.IsInfinity(d.time) || d.time < 0 || d.time >= 1 || d.inventory.capacity < 1 || d.inventory.stacks.Count > d.inventory.capacity || float.IsNaN(d.position.x) || float.IsNaN(d.position.y) || float.IsNaN(d.position.z) || float.IsInfinity(d.position.x) || float.IsInfinity(d.position.y) || float.IsInfinity(d.position.z))
-                    throw new InvalidDataException("Save incompatível ou inválido.");
-                foreach (var s in d.inventory.stacks)
-                    if (s == null || string.IsNullOrEmpty(s.id) || s.count < 1 || s.count > 50)
-                        throw new InvalidDataException("Inventário inválido.");
-                data = d;
-                return true;
+                return TryParse(File.ReadAllText(PathName), out data, out error);
             }
-            catch (Exception e)
+            catch (Exception exception)
             {
-                error = e.Message;
+                error = exception.Message;
                 return false;
             }
         }
 
-        public static bool Write(SaveData d, out string error)
+        public static bool TryParse(string json, out SaveData data, out string error)
+        {
+            data = null;
+            error = null;
+            try
+            {
+                var parsed = JsonUtility.FromJson<SaveData>(json);
+                Prepare(parsed);
+                data = parsed;
+                return true;
+            }
+            catch (Exception exception)
+            {
+                error = exception.Message;
+                return false;
+            }
+        }
+
+        static void Prepare(SaveData data)
+        {
+            if (data == null || (data.version != 1 && data.version != CurrentVersion)
+                || data.inventory == null || data.inventory.stacks == null || data.inventory.capacity < 1
+                || data.inventory.capacity > 128 || data.inventory.stacks.Count > data.inventory.capacity
+                || !Finite(data.position.x) || !Finite(data.position.y) || !Finite(data.position.z)
+                || !Finite(data.time) || data.time < 0 || data.time >= 1
+                || data.experience < 0 || data.experience > 1000000)
+                throw new InvalidDataException("Save incompatível ou inválido.");
+            ValidateIds(data.collected);
+            ValidateIds(data.discovered);
+            ValidateIds(data.restored);
+            foreach (var stack in data.inventory.stacks)
+                if (stack == null || string.IsNullOrEmpty(stack.id) || stack.count < 1 || stack.count > 50)
+                    throw new InvalidDataException("Inventário inválido.");
+            if (data.version == 1)
+            {
+                // v1 had no camp/lens/chests/journals. Existing shrine progress is retained.
+                ProgressionRules.MigrateLegacy(data);
+                data.version = CurrentVersion;
+            }
+            ValidateIds(data.openedCaches);
+            ValidateIds(data.readClues);
+        }
+
+        static bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
+
+        static void ValidateIds(List<string> ids)
+        {
+            if (ids == null || ids.Count > 20000)
+                throw new InvalidDataException("Lista de progresso inválida.");
+            var unique = new HashSet<string>();
+            foreach (string id in ids)
+                if (string.IsNullOrWhiteSpace(id) || !unique.Add(id))
+                    throw new InvalidDataException("Identificador de progresso inválido ou duplicado.");
+        }
+
+        public static bool Write(SaveData data, out string error)
         {
             error = null;
             try
             {
-                string path = PathName, tmp = path + ".tmp";
+                Prepare(data);
+                string path = PathName, temporary = path + ".tmp";
                 Directory.CreateDirectory(Path.GetDirectoryName(path));
-                File.WriteAllText(tmp, JsonUtility.ToJson(d, true));
+                File.WriteAllText(temporary, JsonUtility.ToJson(data, true));
                 if (File.Exists(path))
                 {
                     File.Copy(path, path + ".bak", true);
-                    File.Replace(tmp, path, null);
+                    File.Replace(temporary, path, null);
                 }
                 else
-                    File.Move(tmp, path);
+                    File.Move(temporary, path);
                 return true;
             }
-            catch (Exception e)
+            catch (Exception exception)
             {
-                error = e.Message;
+                error = exception.Message;
                 return false;
             }
         }

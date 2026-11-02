@@ -13,11 +13,13 @@ MonoBehaviour:
   m_Name: WorldSettings
   m_EditorClassIdentifier:
   seed: 71319
-  worldSize: 8192
+  worldSize: 1024
   chunkSize: 128
   resolution: 24
-  viewRadius: 2
-  propsPerChunk: 32
+  viewRadius: 1
+  propsPerChunk: 280
+  propsPerFrame: 8
+  propBudgetMs: 2
   daySeconds: 900
   biomes:
   - {fileID: 11400000, guid: c0c24a548b45560aabc15301b4122149, type: 2}

@@ -14,9 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   index: 0
   displayName: Floresta Assombrada
-  ground: {r: 0.2, g: 0.17, b: 0.28, a: 1}
-  foliage: {r: 0.172, g: 0.1805, b: 0.2485, a: 1}
-  fog: {r: 0.175, g: 0.145, b: 0.255, a: 1}
+  ground: {r: 0.31, g: 0.23, b: 0.42, a: 1}
+  foliage: {r: 0.4, g: 0.23, b: 0.57, a: 1}
+  fog: {r: 0.31, g: 0.24, b: 0.44, a: 1}
   density: 1
   weather: 6
   weatherIntensity: 0.65

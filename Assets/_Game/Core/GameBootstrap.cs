@@ -23,6 +23,10 @@ namespace Ecos
         public Interactable Focus { get; private set; }
 
         Camera menuCamera;
+        GameObject menuBackdrop;
+        ExplorationScanner scanner;
+        public float ScanCooldownRemaining => scanner ? scanner.CooldownRemaining : 0;
+        public float ScanDurationRemaining => scanner ? scanner.DurationRemaining : 0;
         Palette palette;
         GameObject session;
         IWorldAuthority authority;
@@ -30,6 +34,7 @@ namespace Ecos
         float noticeUntil, autosave;
         bool applicationQuitting;
         public bool Blocked => Menu || InventoryOpen || MapOpen;
+        public bool HasNotification => !string.IsNullOrEmpty(Notice) && Time.unscaledTime < noticeUntil;
 
         void Awake()
         {
@@ -47,7 +52,8 @@ namespace Ecos
             menuCamera.clearFlags = CameraClearFlags.SolidColor;
             menuCamera.backgroundColor = new Color(.035f,.025f,.065f);
             NewSeed = Settings.seed;
-            PrepareRendering();
+            if (PrepareRendering())
+                menuBackdrop = MenuBackdrop.Create(transform, menuCamera);
             gameObject.AddComponent<AmbientAudio>();
             gameObject.AddComponent<GameUI>();
         }
@@ -92,6 +98,7 @@ namespace Ecos
                 Destroy(session);
             if (palette != null)
                 palette.Dispose();
+            if (menuBackdrop) menuBackdrop.SetActive(false);
             menuCamera.gameObject.SetActive(false);
             State = state;
             Settings.seed = state.seed;
@@ -117,6 +124,9 @@ namespace Ecos
             Player.settings = Settings;
             float half = Settings.worldSize * .5f - 3;
             Vector3 pos = State.position;
+            // Keep old progress, but return saves outside the new compact world to the hub.
+            if (Mathf.Abs(pos.x) > half || Mathf.Abs(pos.z) > half)
+                pos = new Vector3(-2, 5, -2);
             pos.x = Mathf.Clamp(pos.x, -half, half);
             pos.z = Mathf.Clamp(pos.z, -half, half);
             pos.y = Mathf.Max(pos.y, WorldMath.Height(pos.x, pos.z, State.seed) + 1.5f);
@@ -145,8 +155,11 @@ namespace Ecos
             night.player = actor.transform;
             night.palette = palette;
             var lamp = new GameObject("Lanterna");
-            lamp.transform.SetParent(actor.transform, false);
-            lamp.transform.localPosition = new Vector3(.4f, 1.2f, .3f);
+            Transform heldLantern = null;
+            foreach (var part in actor.GetComponentsInChildren<Transform>())
+                if (part.name == "Luz da lanterna") { heldLantern = part; break; }
+            lamp.transform.SetParent(heldLantern ? heldLantern : actor.transform, false);
+            lamp.transform.localPosition = heldLantern ? Vector3.zero : new Vector3(.4f, 1.2f, .3f);
             torch = lamp.AddComponent<Light>();
             torch.type = LightType.Point;
             torch.color = new Color(1, .53f, .17f);
@@ -158,11 +171,13 @@ namespace Ecos
             Sites = sites.AddComponent<Landmarks>();
             Sites.Initialize(palette, State);
             authority = new OfflineWorldAuthority(State, Sites.registry);
+            scanner = session.AddComponent<ExplorationScanner>();
+            scanner.Initialize(State, Sites, actor.transform, palette);
             Playing = true;
             Menu = false;
             InventoryOpen = MapOpen = false;
             autosave = Time.unscaledTime + 30;
-            Notify("Vozes do Vale: encontre cristais e restaure os três santuários.");
+            Notify("Bem-vindo ao vale! Reúna madeira e pedra para acender a fogueira do acampamento.");
         }
 
         Light CreateLight(string name, Transform parent)
@@ -228,27 +243,32 @@ namespace Ecos
             {
                 if (k.fKey.wasPressedThisFrame)
                     torch.enabled = !torch.enabled;
+                if (k.qKey.wasPressedThisFrame && scanner)
+                {
+                    scanner.Pulse(out string scanMessage);
+                    Notify(scanMessage);
+                }
                 if (Focus && k.eKey.wasPressedThisFrame)
                 {
-                    var command = new WorldCommand(Focus.shrine ? WorldCommandKind.Restore : WorldCommandKind.Collect, Focus.id);
-                    authority.Execute(command, Player.transform.position, out string msg);
+                    var target = Focus;
+                    var command = new WorldCommand(target.CommandKind, target.id);
+                    bool changed = authority.Execute(command, Player.transform.position, out string msg);
+                    if (changed)
+                    {
+                        Sites.RefreshState(State);
+                        Save();
+                    }
                     Notify(msg);
                 }
             }
 
-            for (int i = 0; i < Landmarks.Sites.Length; i++)
-            {
-                var p = Landmarks.Sites[i];
-                if (Vector2.Distance(new Vector2(Player.transform.position.x, Player.transform.position.z), p) < 18)
-                {
-                    string id = "shrine-" + i;
-                    if (!State.discovered.Contains(id))
-                    {
-                        State.discovered.Add(id);
-                        Notify("Local descoberto: " + Landmarks.Names[i]);
-                    }
-                }
-            }
+            Vector2 horizontal = new Vector2(Player.transform.position.x, Player.transform.position.z);
+            foreach (var place in Landmarks.Locations)
+                if (Vector2.Distance(horizontal, place.position) < place.radius && ProgressionRules.Discover(State, place.id))
+                    Notify("Local descoberto: " + place.title + " · +10 experiência");
+            int biome = WorldMath.Biome(horizontal.x, horizontal.y, State.seed);
+            if (ProgressionRules.Discover(State, "biome-" + biome))
+                Notify("Nova região: " + Settings.biomes[biome].displayName + " · +10 experiência");
 
             if (ExplorationQuest.Evaluate(State))
             {
@@ -274,7 +294,7 @@ namespace Ecos
         public void Notify(string message)
         {
             Notice = message;
-            noticeUntil = Time.unscaledTime + 7;
+            noticeUntil = Time.unscaledTime + Mathf.Clamp(message.Length * .045f, 7, 16);
         }
 
         public void Save()
@@ -297,7 +317,11 @@ namespace Ecos
         {
             Save();
             applicationQuitting = true;
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.isPlaying = false;
+#else
             Application.Quit();
+#endif
         }
 
         void OnApplicationQuit()

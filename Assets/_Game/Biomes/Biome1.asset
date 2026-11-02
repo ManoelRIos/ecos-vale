@@ -14,9 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   index: 1
   displayName: Planícies do Sol Esquecido
-  ground: {r: 0.39, g: 0.47, b: 0.19, a: 1}
-  foliage: {r: 0.2955, g: 0.3755, b: 0.19, a: 1}
-  fog: {r: 0.27, g: 0.295, b: 0.21, a: 1}
-  density: 0.5
+  ground: {r: 0.34, g: 0.57, b: 0.2, a: 1}
+  foliage: {r: 0.42, g: 0.65, b: 0.22, a: 1}
+  fog: {r: 0.45, g: 0.58, b: 0.47, a: 1}
+  density: 0.85
   weather: 0
   weatherIntensity: 0.65

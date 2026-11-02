@@ -14,9 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   index: 2
   displayName: Montanhas Congeladas
-  ground: {r: 0.72, g: 0.81, b: 0.87, a: 1}
-  foliage: {r: 0.51, g: 0.5965, b: 0.632, a: 1}
-  fog: {r: 0.435, g: 0.465, b: 0.55, a: 1}
+  ground: {r: 0.56, g: 0.72, b: 0.82, a: 1}
+  foliage: {r: 0.17, g: 0.43, b: 0.47, a: 1}
+  fog: {r: 0.44, g: 0.61, b: 0.75, a: 1}
   density: 1
   weather: 4
   weatherIntensity: 0.65

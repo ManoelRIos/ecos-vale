@@ -14,9 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   index: 5
   displayName: Terras Vulcânicas
-  ground: {r: 0.23, g: 0.17, b: 0.18, a: 1}
-  foliage: {r: 0.1915, g: 0.1805, b: 0.1835, a: 1}
-  fog: {r: 0.19, g: 0.145, b: 0.205, a: 1}
+  ground: {r: 0.37, g: 0.22, b: 0.28, a: 1}
+  foliage: {r: 0.46, g: 0.25, b: 0.24, a: 1}
+  fog: {r: 0.4, g: 0.25, b: 0.34, a: 1}
   density: 1
   weather: 7
   weatherIntensity: 0.65

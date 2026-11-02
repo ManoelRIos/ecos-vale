@@ -14,6 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   id: stone
   displayName: Pedra
-  description: Pedra do vale. Recurso para futuras restaurações.
+  description: Pedra do vale. Usada no acampamento, na lente e na Torre da Vigília.
   category: 0
   maxStack: 50

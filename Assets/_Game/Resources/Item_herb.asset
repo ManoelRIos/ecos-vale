@@ -14,6 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   id: herb
   displayName: Erva
-  description: Definição preparada. Coleta ainda não distribuída.
+  description: Erva aromática do vale. Use na lente de ressonância e no santuário das lanternas.
   category: 1
   maxStack: 50

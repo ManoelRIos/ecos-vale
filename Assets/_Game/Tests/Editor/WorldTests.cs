@@ -140,43 +140,67 @@ namespace Ecos.Tests
         public void CompleteMissionThroughAuthoritativeInteractions()
         {
             var state = new SaveData();
+            state.inventory.Add("wood", 6); state.inventory.Add("stone", 7);
+            state.inventory.Add("herb", 5); state.inventory.Add("crystal", 5);
             var objects = new System.Collections.Generic.List<GameObject>();
             var targets = new System.Collections.Generic.Dictionary<string, Interactable>();
             try
             {
-                for (int i = 0; i < 3; i++)
+                string[] ids = { "camp", "workbench", "shrine-0", "shrine-1", "shrine-2" };
+                for (int i = 0; i < ids.Length; i++)
                 {
-                    var pickup = new GameObject("crystal");
-                    objects.Add(pickup);
-                    var item = pickup.AddComponent<Interactable>();
-                    item.id = "test-pickup-" + i;
-                    item.itemId = "crystal";
-                    targets[item.id] = item;
-                    var shrine = new GameObject("shrine");
-                    objects.Add(shrine);
-                    var altar = shrine.AddComponent<Interactable>();
-                    altar.id = "shrine-" + i;
-                    altar.shrine = true;
-                    targets[altar.id] = altar;
+                    var go = new GameObject(ids[i]); objects.Add(go);
+                    var target = go.AddComponent<Interactable>(); target.id = ids[i];
+                    target.kind = i == 0 ? InteractionKind.Camp : i == 1 ? InteractionKind.Workbench : InteractionKind.Shrine;
+                    targets[target.id] = target;
                 }
-
                 var authority = new OfflineWorldAuthority(state, targets);
+                Assert.IsFalse(authority.Execute(new WorldCommand(WorldCommandKind.CraftLens, "workbench"), Vector3.zero, out _));
+                Assert.IsTrue(authority.Execute(new WorldCommand(WorldCommandKind.BuildCamp, "camp"), Vector3.zero, out _));
+                Assert.IsTrue(authority.Execute(new WorldCommand(WorldCommandKind.CraftLens, "workbench"), Vector3.zero, out _));
                 for (int i = 0; i < 3; i++)
                 {
-                    Assert.IsTrue(authority.Execute(new WorldCommand(WorldCommandKind.Collect, "test-pickup-" + i), Vector3.zero, out _));
                     Assert.IsTrue(authority.Execute(new WorldCommand(WorldCommandKind.Restore, "shrine-" + i), Vector3.zero, out _));
                     Assert.IsFalse(authority.Execute(new WorldCommand(WorldCommandKind.Restore, "shrine-" + i), Vector3.zero, out _));
                 }
-
                 Assert.IsTrue(ExplorationQuest.Evaluate(state));
-                Assert.AreEqual(0, state.inventory.Count("crystal"));
                 Assert.AreEqual(1, state.inventory.Count("artifact"));
+                Assert.AreEqual(0, state.inventory.Count("crystal"));
+                Assert.IsFalse(ExplorationQuest.Evaluate(state));
             }
-            finally
-            {
-                foreach (var go in objects)
-                    Object.DestroyImmediate(go);
-            }
+            finally { foreach (var go in objects) Object.DestroyImmediate(go); }
+        }
+
+        [Test]
+        public void LegacySaveMigratesWithoutLosingProgress()
+        {
+            const string json = "{\"version\":1,\"seed\":42,\"position\":{\"x\":1,\"y\":2,\"z\":3},\"time\":0.4,\"inventory\":{\"capacity\":12,\"stacks\":[{\"id\":\"wood\",\"count\":5}]},\"collected\":[\"crystal-0\"],\"discovered\":[\"shrine-0\"],\"restored\":[\"shrine-0\"],\"rewarded\":false}";
+            Assert.IsTrue(SaveStore.TryParse(json, out var state, out string error), error);
+            Assert.AreEqual(2, state.version);
+            Assert.AreEqual(42, state.seed);
+            Assert.AreEqual(new Vector3(1, 2, 3), state.position);
+            Assert.AreEqual(5, state.inventory.Count("wood"));
+            Assert.IsTrue(state.campBuilt && state.lensCrafted);
+            CollectionAssert.Contains(state.collected, "crystal-0");
+            CollectionAssert.Contains(state.restored, "shrine-0");
+            Assert.IsNotNull(state.openedCaches); Assert.IsNotNull(state.readClues);
+        }
+
+        [Test]
+        public void SaveVersionTwoRetainsInheritedProgressionFields()
+        {
+            var original = new SaveData { campBuilt = true, lensCrafted = true };
+            original.openedCaches.Add("cache-0"); original.readClues.Add("journal-0");
+            ProgressionRules.GainExperience(original, 80);
+            original.inventory.Add("herb", 7);
+            Assert.IsTrue(SaveStore.TryParse(JsonUtility.ToJson(original), out var restored, out string error), error);
+            Assert.AreEqual(2, restored.version);
+            Assert.AreEqual(80, restored.experience);
+            Assert.AreEqual(14, restored.inventory.capacity);
+            Assert.IsTrue(restored.campBuilt && restored.lensCrafted);
+            Assert.AreEqual(7, restored.inventory.Count("herb"));
+            CollectionAssert.Contains(restored.openedCaches, "cache-0");
+            CollectionAssert.Contains(restored.readClues, "journal-0");
         }
     }
 }

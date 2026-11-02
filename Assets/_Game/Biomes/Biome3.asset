@@ -14,9 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   index: 3
   displayName: Pântano Amaldiçoado
-  ground: {r: 0.17, g: 0.31, b: 0.22, a: 1}
-  foliage: {r: 0.1525, g: 0.2715, b: 0.2095, a: 1}
-  fog: {r: 0.16, g: 0.215, b: 0.225, a: 1}
+  ground: {r: 0.23, g: 0.43, b: 0.27, a: 1}
+  foliage: {r: 0.34, g: 0.52, b: 0.24, a: 1}
+  fog: {r: 0.29, g: 0.43, b: 0.35, a: 1}
   density: 1
   weather: 2
   weatherIntensity: 0.65

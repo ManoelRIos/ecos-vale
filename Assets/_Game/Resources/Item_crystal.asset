@@ -14,6 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   id: crystal
   displayName: Cristal de eco
-  description: Uma voz antiga pulsa neste cristal. Restaura um santuário.
+  description: Cristal de eco. Alimenta a lente de ressonância e os três santuários.
   category: 0
   maxStack: 50

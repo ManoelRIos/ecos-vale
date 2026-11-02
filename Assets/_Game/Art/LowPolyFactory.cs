@@ -34,13 +34,13 @@ namespace Ecos
         {
             var g = new GameObject("Viajante");
             var root = g.transform;
-            Shape(p, root, "Casaco", LowPolyMesh.Trunk, new Vector3(0, 1.02f, 0), new Vector3(.63f, .78f, .48f), new Color(.24f, .19f, .36f));
-            p.Part(root, "Capa dos ombros", PrimitiveType.Cube, new Vector3(0, 1.30f, 0), new Vector3(.72f, .18f, .47f), new Color(.30f, .23f, .42f));
+            Shape(p, root, "Casaco", LowPolyMesh.Trunk, new Vector3(0, 1.02f, 0), new Vector3(.63f, .78f, .48f), new Color(.29f, .21f, .47f));
+            p.Part(root, "Capa dos ombros", PrimitiveType.Cube, new Vector3(0, 1.30f, 0), new Vector3(.72f, .18f, .47f), new Color(.40f, .27f, .55f));
             Shape(p, root, "Rosto", LowPolyMesh.Crown, new Vector3(0, 1.59f, .015f), new Vector3(.40f, .43f, .38f), new Color(.78f, .61f, .46f));
             p.Part(root, "Aba do chapéu", PrimitiveType.Cylinder, new Vector3(0, 1.79f, 0), new Vector3(.76f, .035f, .66f), bark);
             var hat = Shape(p, root, "Chapéu pontudo", LowPolyMesh.Cone, new Vector3(.035f, 1.98f, 0), new Vector3(.44f, .42f, .44f), new Color(.16f, .13f, .23f));
             hat.transform.localRotation = Quaternion.Euler(0, 0, -9);
-            p.Part(root, "Lenço", PrimitiveType.Cube, new Vector3(0, 1.40f, .20f), new Vector3(.42f, .10f, .13f), new Color(.8f, .31f, .13f));
+            p.Part(root, "Lenço", PrimitiveType.Cube, new Vector3(0, 1.40f, .20f), new Vector3(.42f, .10f, .13f), new Color(.91f, .32f, .13f));
             p.Part(root, "Mochila", PrimitiveType.Cube, new Vector3(0, 1.12f, -.27f), new Vector3(.40f, .45f, .23f), wood);
             p.Part(root, "Fivela", PrimitiveType.Cube, new Vector3(0, .96f, .25f), new Vector3(.12f, .12f, .04f), new Color(.68f, .48f, .19f));
             for (int side = -1; side <= 1; side += 2)
@@ -138,23 +138,47 @@ namespace Ecos
                 p.Part(root, "Sorriso luminoso", PrimitiveType.Cube, new Vector3(0, .34f, .43f), new Vector3(.30f, .07f, .055f), gold, true);
                 return;
             }
-            Color cap = biome == 5 ? new Color(.92f, .24f, .05f)
-                : biome == 4 ? new Color(.3f, .76f, .75f)
-                : biome == 3 ? new Color(.35f, .59f, .32f)
-                : biome == 2 ? new Color(.65f, .82f, .87f)
-                : new Color(.71f, .42f, .23f);
-            Segment(p, root, "Caule", Vector3.zero, Vector3.up * .65f, .16f, new Color(.67f, .68f, .48f));
-            Shape(p, root, "Chapéu do cogumelo", LowPolyMesh.MushroomCap, new Vector3(0, .65f, 0), new Vector3(1.1f, .7f, 1.1f), cap, biome == 3 || biome == 4 || biome == 5);
-            if (biome == 4)
+            // Saturated painted caps stay non-emissive. The smaller underside/spots glow.
+            Color cap = biome == 5 ? new Color(.78f, .18f, .055f)
+                : biome == 4 ? new Color(.17f, .43f, .78f)
+                : biome == 3 ? new Color(.48f, .19f, .62f)
+                : biome == 2 ? new Color(.13f, .42f, .62f)
+                : new Color(.79f, .27f, .15f);
+            Segment(p, root, "Caule", Vector3.zero, Vector3.up * .65f, .16f, new Color(.49f, .57f, .34f));
+            if (biome == 3 || biome == 4 || biome == 5)
+                Shape(p, root, "Lâminas luminosas", LowPolyMesh.Octahedron, new Vector3(0, .485f, 0),
+                    new Vector3(.79f, .075f, .79f), biome == 5 ? new Color(.93f, .39f, .055f) : new Color(.16f, .68f, .63f), true);
+            Shape(p, root, "Chapéu colorido do cogumelo", LowPolyMesh.MushroomCap, new Vector3(0, .65f, 0),
+                new Vector3(1.1f, .7f, 1.1f), cap);
+            for (int side = -1; side <= 1; side += 2)
+                p.Part(root, "Pinta dourada", PrimitiveType.Cube, new Vector3(side * .18f, .86f, .08f),
+                    Vector3.one * .10f, biome == 2 ? new Color(.93f, .49f, .19f) : new Color(.85f, .61f, .19f));
+        }
+
+        static void Understory(Palette p, Transform root, int biome, Color foliage)
+        {
+            Color leaves = biome == 5 ? new Color(.48f, .23f, .16f)
+                : biome == 2 ? new Color(.17f, .43f, .48f)
+                : Color.Lerp(foliage, new Color(.21f, .55f, .24f), .45f);
+            for (int i = 0; i < 3; i++)
             {
-                p.Part(root, "Pinta", PrimitiveType.Cube, new Vector3(.18f, .88f, .08f), Vector3.one * .12f, new Color(.83f, .96f, .78f));
-                p.Part(root, "Pinta", PrimitiveType.Cube, new Vector3(-.16f, .83f, .15f), Vector3.one * .10f, new Color(.83f, .96f, .78f));
+                var blade = Shape(p, root, "Folha", LowPolyMesh.Octahedron,
+                    new Vector3((i - 1) * .16f, .31f, 0), new Vector3(.16f, .65f, .37f), leaves);
+                blade.transform.localRotation = Quaternion.Euler(0, i * 65, (i - 1) * 18);
             }
+            Color bloom = biome == 0 ? new Color(.92f, .35f, .11f)
+                : biome == 1 ? new Color(.94f, .66f, .16f)
+                : biome == 2 ? new Color(.56f, .27f, .75f)
+                : biome == 3 ? new Color(.77f, .30f, .52f)
+                : biome == 4 ? new Color(.83f, .22f, .55f)
+                : new Color(.93f, .28f, .07f);
+            Shape(p, root, "Flor", LowPolyMesh.Octahedron, new Vector3(.15f, .56f, 0),
+                new Vector3(.26f, .19f, .26f), bloom);
         }
 
         public static GameObject Prop(Palette p, int biome, int kind, Color foliage)
         {
-            var g = new GameObject(kind == 0 ? "Árvore" : "Rocha / vegetação");
+            var g = new GameObject(kind == 0 ? "Árvore" : kind == 3 ? "Flores e folhas" : "Rocha / vegetação");
             var far = new List<Renderer>();
             if (kind == 0) Tree(p, g.transform, biome, foliage, far);
             else if (kind == 1)
@@ -166,10 +190,14 @@ namespace Ecos
                 Shape(p, g.transform, "Fragmento", LowPolyMesh.Octahedron, new Vector3(.73f, .24f, .18f), new Vector3(.8f, .7f, .9f), rockColor * .84f);
                 Shape(p, g.transform, "Musgo / cinza", LowPolyMesh.Octahedron, new Vector3(-.23f, .82f, .05f), new Vector3(.9f, .25f, .8f), biome == 5 ? new Color(.40f, .27f, .22f) : foliage);
             }
+            else if (kind == 3) Understory(p, g.transform, biome, foliage);
             else Plant(p, g.transform, biome);
             var renderers = g.GetComponentsInChildren<Renderer>();
             var lod = g.AddComponent<LODGroup>();
-            lod.SetLODs(new[] { new LOD(kind == 0 ? .045f : .035f, renderers), new LOD(kind == 0 ? .006f : .008f, far.Count > 0 ? far.ToArray() : renderers) });
+            // Short ground cover fades much earlier than trees, keeping the dense forest affordable.
+            var distant = kind == 3 ? new[] { renderers[1], renderers[3] } : far.Count > 0 ? far.ToArray() : renderers;
+            lod.SetLODs(new[] { new LOD(kind == 0 ? .045f : .035f, renderers),
+                new LOD(kind == 0 ? .006f : kind == 3 ? .014f : .008f, distant) });
             lod.RecalculateBounds();
             return g;
         }

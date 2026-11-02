@@ -14,6 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   id: artifact
   displayName: Artefato do Vale
-  description: Recompensa por restaurar os três ecos. O vale se lembra de você.
+  description: Relíquia recuperada em santuários e baús. Um registro da sua jornada pelo vale.
   category: 2
   maxStack: 50

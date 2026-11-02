@@ -13,7 +13,11 @@ ECOS DO VALE - ABERTURA EM CAMINHO CURTO NO WINDOWS
 
 Se os objetos ainda ficarem magenta, use Ecos > Diagnosticar renderizacao
 e confira as mensagens de pipeline e shader dessa sessao.
-Esta revisao inclui novas formas de personagem/arvores, ceu gradual e HUD maior.
+Esta revisao usa mundo compacto de 1024m, floresta densa, animacao articulada,
+menu com cenario 3D e progressao: fogueira -> lente -> tres santuarios.
+Use E na fogueira/bancada e Q apos criar a lente. Consulte README.md.
+Saves v1 sao migrados para v2 sem descartar itens/progresso.
+Escolha Nova jornada para conhecer a sequencia desde o inicio.
 A aparencia final ainda precisa ser validada no Unity.
 
 Se o Editor estiver instalado fora do caminho padrao, use no Hub:
