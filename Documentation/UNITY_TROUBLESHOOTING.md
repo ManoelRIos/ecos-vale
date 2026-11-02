@@ -58,6 +58,31 @@ O log não diferencia cópia antiga, checkout/manifest não sincronizado e estad
 
 A revisão completa dos 29 scripts e das referências de assembly não identificou outro erro C# independente. Isso é revisão de fonte e análise sintática, não compilação Unity. Os avisos de Collections, exemplos HDRP opcionais e suporte de build Windows não devem ser tratados como novas causas C# sem resolver o primeiro bloqueio.
 
+## Terceiro log: importação incompleta em caminhos longos
+
+Este log registra 30 pacotes, incluindo `com.unity.modules.physics2d@1.0.0`, e não contém `error CS...`. O bloqueio anterior de módulo foi superado. O erro atual é distinto: `DirectoryNotFoundException` em 27 arquivos de pacote.
+
+A raiz do projeto tem 130 caracteres por conter duas pastas aninhadas com o nome longo do ZIP. Todos os caminhos ausentes têm 260–288caracteres. Exemplos, sem dados pessoais:
+
+| Arquivo | Tamanho total do caminho |
+| --- | --- |
+| Unity.Collections.LowLevel.ILSupport.dll | 264 caracteres |
+| InputAssetEditorDark.uss | 263 caracteres |
+| ArnoldStandardSurfaceTransparent.shadergraph | 286 caracteres |
+| PhysicalMaterial3DsMaxTransparent.shadergraph | 288 caracteres |
+
+Não há `PathTooLongException` explícita nem reprodução Windows neste ambiente, mas esse padrão é forte evidência do limite tradicional de caminhos. O Burst falha ao resolver a mesma DLL ausente de Collections; o URP falha ao carregar os mesmos shaders já marcados como ausentes. Os stack traces de UIElements são parte dessas falhas, sem outra exceção independente identificada.
+
+**Procedimento de recuperação:**
+
+1. Feche o Unity Editor.
+2. Coloque a pasta real do projeto em **C:\Dev\EcosDoVale** (ela deve conter Assets, Packages e ProjectSettings).
+3. Somente depois de movê-la, renomeie `Library` para `Library_backup`. O cache incompleto fica preservado; os arquivos do projeto não são apagados.
+4. No Hub, adicione esse caminho e abra com 6000.0.85f1. Aguarde a resolução/importação reconstruir o cache.
+5. Verifique o Console e tente a cena novamente. Se houver nova falha, use o novo log dessa abertura.
+
+A entrega agora usa um ZIP curto, com raiz `EcosDoVale`, e o atalho recusa caminhos de projeto maiores que 60 caracteres. Isso é uma prevenção conservadora para os pacotes atuais; não é alteração do limite global do Windows. A verificação recomendada é reimportar o projeto no caminho curto.
+
 ## Limite da verificação
 
 Foram executados testes de política de versão, análise sintática dos scripts e testes do núcleo C#. Os testes EditMode, a importação de assets, shaders, Play Mode e o build continuam sem execução aqui. Consulte `VALIDATION.md`; não considere o projeto compilado somente porque os checks estáticos passaram.

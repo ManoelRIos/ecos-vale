@@ -20,13 +20,19 @@ A versão anterior 6000.0.40f1 é afetada pela CVE-2025-59489. Use o Editor 6000
 
 O log de abertura também identificou um módulo nativo ausente: **Physics 2D**, exigido pelos componentes do Netcode 2.0.0 mesmo em um jogo 3D. O manifest atual já inclui essa dependência. Se estiver usando a cópia anterior, habilite Physics 2D nos pacotes Built-in do Package Manager e aguarde recompilar.
 
-## Abrir a pasta correta no Windows
+## Abrir no Windows com caminho curto
 
-Feche o Editor e extraia o ZIP atualizado em uma **pasta nova**. Dentro dela, execute **ABRIR_ECOS_DO_VALE.cmd**. O atalho confere a presença de Physics 2D no manifest e o pin 6000.0.85f1, e inicia o Editor com o caminho dessa pasta explícito. Ele não baixa ferramentas nem altera arquivos do projeto. Se o Editor estiver fora do caminho padrão do Hub, as instruções exibem como selecionar a pasta manualmente. O log dessa abertura fica em `Logs/Ecos-Editor.log`.
+Baixe o [ZIP de nome curto](https://github.com/ManoelRIos/ecos-vale/raw/refs/heads/codex/ecos-do-vale-vertical-slice/Distribution/EcosDoVale.zip).
 
-O atalho recebeu revisão estática; **não foi executado no Windows** neste ambiente. Ele não prova compilação ou funcionamento do jogo. A opção `/check` verifica os arquivos sem iniciar o Editor.
+Use o ZIP de distribuição **EcosDoVale.zip**, que contém apenas a pasta raiz curta `EcosDoVale`. Extraia em **C:\Dev**, para que o projeto fique em **C:\Dev\EcosDoVale**. Evite os dois níveis de pastas longas com hash gerados ao extrair o ZIP automático do GitHub.
 
-O segundo log fornecido ainda registra 29 pacotes e nenhuma referência ao módulo Physics 2D. Portanto, a sessão registrada continuava sem a correção aplicada. O log não permite distinguir cópia antiga, manifest não sincronizado ou resolução de pacotes persistida. Abrir uma extração nova evita misturar essa sessão com a cópia atualizada. Preserve qualquer trabalho próprio na cópia anterior.
+Feche o Editor e execute **ABRIR_ECOS_DO_VALE.cmd** dentro dessa pasta. Ele recusa caminhos acima de 60 caracteres (uma margem preventiva para os caminhos internos dos pacotes), verifica Physics 2D e o pin 6000.0.85f1, e inicia exatamente essa pasta. Não baixa ferramentas, não altera o Registro e não apaga caches. Se o Editor estiver fora do caminho padrão do Hub, use **Add project from disk** e escolha `C:\Dev\EcosDoVale`. O log dessa abertura fica em `Logs/Ecos-Editor.log`.
+
+Para aproveitar sua cópia existente: feche o Unity, mova a pasta real do projeto para esse caminho curto e **depois renomeie `Library` para `Library_backup`**. Ao reabrir, o Unity recria o cache. Preserve arquivos e alterações próprios. O atalho não faz essa operação automaticamente.
+
+O log mais recente já registra Physics 2D e não contém erros `CS...`, mas mostra 27 arquivos de pacotes ausentes, todos com caminhos de 260 a 288 caracteres. Isso é forte evidência do limite tradicional de caminhos do Windows; as falhas Burst/URP subsequentes apontam para esses mesmos arquivos ausentes. Ainda não foi confirmada uma abertura sem erros após encurtar o caminho.
+
+O atalho recebeu revisão estática; **não foi executado no Windows** neste ambiente. Ele não certifica compilação ou Play Mode. A opção `/check` verifica os arquivos e o tamanho do caminho sem iniciar o Editor.
 
 ## Pequena aventura
 
@@ -101,3 +107,5 @@ Não use `-quit` no comando do Test Runner. Confira os resultados XML e os logs,
 O gerenciador de pacotes criará `packages-lock.json` na primeira resolução real. Não foi fabricado um lockfile transitivo sem UPM. O acesso a `packages.unity.com` e `download.packages.unity.com` foi salvo no rascunho de rede do ambiente, mas precisa ser aplicado nas configurações/publicação.
 
 Save: `Application.persistentDataPath/ecos-slot1.json`. **Novo jogo** substitui o slot no próximo salvamento. Preserve o arquivo e seu `.bak` antes de testar com progresso importante.
+
+Para reproduzir o ZIP em um clone Git, use `python3 Tools/package_project.py`. O comando usa arquivos presentes no índice Git; adicione arquivos novos antes de empacotar. A pasta Distribution é excluída do conteúdo para evitar ZIPs recursivos.

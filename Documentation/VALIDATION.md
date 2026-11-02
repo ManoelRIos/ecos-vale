@@ -7,6 +7,7 @@
 | SDK .NET 8.0.427 instalado de fonte oficial via TLS | Concluído |
 | Compilação e execução de `Tools/CoreChecks.csproj` | **12 verificações passaram** |
 | Parser C# tree-sitter 0.26.0 / grammar 0.23.5 | **29 arquivos sem erro sintático** |
+| Testes Python de versão e empacotamento | **17 passaram (8 + 9)** |
 | Estrutura, versões diretas e evidências de manifests | Passou |
 | Assets e metadados locais | **62 arquivos de assets; 82 GUIDs únicos** |
 | Referências locais de GUID, cena/prefab e IDs internos | Passou |
@@ -78,3 +79,11 @@ A segunda sessão enviada pelo usuário ainda registrava 29 pacotes, sem Physics
 O pacote passou a incluir um atalho Windows que confere a própria pasta e inicia o Editor com `-projectPath` explícito, além de instruções de extração nova. A estrutura do atalho, seus rótulos e verificações anteriores ao lançamento receberam revisão estática. **O atalho não foi executado no Windows.** A tentativa de instalar um PowerShell auxiliar de teste foi rejeitada pela revisão automática por não ser necessária ao diagnóstico; a restrição foi respeitada e nenhuma instalação alternativa foi feita.
 
 A validação estática, os testes de política de versão e os testes do núcleo continuam separados da validação Unity. Não há comprovação de compilação ou Play Mode após a correção na máquina do usuário.
+
+## Terceiro log e correção da entrega para caminhos curtos
+
+A sessão mais recente já contém Physics 2D e 30 pacotes resolvidos, sem erros C# `CS...`. Foram identificados 27 arquivos distintos ausentes, repetidos 58 vezes no log, todos em caminhos de 260–288 caracteres. A raiz aninhada do projeto tem 130 caracteres. Não houve reprodução do limite em Windows; a hipótese é fortemente sustentada por esses comprimentos e pela coincidência dos arquivos usados nos erros Burst/URP.
+
+A distribuição passou a usar `Distribution/EcosDoVale.zip` com uma raiz curta `EcosDoVale`, sem Library, caches ou distribuição recursiva. O gerador `Tools/package_project.py` usa apenas arquivos rastreados no índice Git e valida Editor/Physics 2D antes de empacotar. O atalho recusa raiz acima de 60 caracteres antes de abrir o Editor. A recuperação documentada preserva o cache anterior renomeando Library somente após mover o projeto para um caminho curto.
+
+Os testes do empacotador verificam arquivos necessários, ausência de cache/ZIP recursivo, integridade e reprodução determinística. Isso não equivale à validação do importador Windows nem do Play Mode, que continuam pendentes após esta alteração. O log original do usuário não foi incluído no Git.

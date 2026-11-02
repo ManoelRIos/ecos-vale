@@ -14,5 +14,14 @@
   "user_log_observed_editor_version": "6000.0.85f1",
   "user_log_urp_resolution": "17.0.4 registered successfully",
   "user_log_compile_blocker": "NGO 2.0.0 CS1069: Physics2D built-in module missing",
-  "post_physics2d_fix_unity_compilation_verified": false
+  "post_physics2d_fix_unity_compilation_verified": false,
+  "latest_user_log_physics2d_loaded": true,
+  "latest_user_log_csharp_error_count": 0,
+  "latest_user_log_missing_unique_package_files": 27,
+  "latest_user_log_missing_path_characters": {
+    "min": 260,
+    "max": 288
+  },
+  "latest_user_log_project_root_characters": 130,
+  "short_path_reimport_verified_on_windows": false
 }

@@ -6,6 +6,9 @@ title Ecos do Vale - verificar pasta e abrir
 echo ECOS DO VALE
 echo Pasta deste projeto: "%CD%"
 echo.
+set "ECOS_PROJECT_DIR=%CD%"
+rem Limite preventivo para os caminhos internos dos pacotes no Windows.
+if not "%ECOS_PROJECT_DIR:~60,1%"=="" goto PATH_TOO_LONG
 if not exist "Packages\manifest.json" goto MISSING_PROJECT
 if not exist "ProjectSettings\ProjectVersion.txt" goto MISSING_PROJECT
 if not exist "Assets\_Game\Scenes\Valley.unity" goto MISSING_PROJECT
@@ -25,6 +28,14 @@ echo Log desta abertura: "%CD%\Logs\Ecos-Editor.log"
 start "" "%ECOS_EDITOR%" -projectPath "%CD%" -logFile "%CD%\Logs\Ecos-Editor.log"
 if errorlevel 1 goto START_FAILED
 exit /b 0
+
+:PATH_TOO_LONG
+echo [ERRO] O caminho desta pasta tem mais de 60 caracteres.
+echo O Windows pode falhar ao extrair DLLs e shaders dos pacotes em caminhos longos.
+echo Feche o Unity e coloque o projeto em C:\Dev\EcosDoVale.
+echo Se este projeto ja falhou na importacao, renomeie Library para Library_backup
+echo antes de reabrir, preservando o cache anterior em vez de apaga-lo.
+goto FAILED
 
 :MISSING_PROJECT
 echo [ERRO] Pasta incompleta. Extraia TODO o ZIP antes de executar este arquivo.
