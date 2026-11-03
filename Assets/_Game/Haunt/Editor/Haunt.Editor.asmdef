@@ -1,0 +1,5 @@
+{
+  "name": "Haunt.Editor",
+  "references": ["Ecos.Runtime"],
+  "includePlatforms": ["Editor"]
+}

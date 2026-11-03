@@ -1,0 +1,6 @@
+{
+  "name": "Haunt.Tests",
+  "references": ["Ecos.Runtime", "Haunt.Editor"],
+  "includePlatforms": ["Editor"],
+  "optionalUnityReferences": ["TestAssemblies"]
+}

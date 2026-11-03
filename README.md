@@ -1,106 +1,78 @@
-# Ecos do Vale
+# Ecos da Meia-Noite
 
-Protótipo de exploração em terceira pessoa para **Unity 6.0 LTS 6000.0.85f1**, C#, URP e Input System. Esta revisão dá vida ao vale de **1024 × 1024 m** com árvores de formas diferentes, seis espécies de criaturas, guia de campo e uma rota de descobertas com cenários próprios.
+Primeira versão do novo **roguelike 2D em pixel art para Unity 6.0 LTS 6000.0.85f1**. Uma cripta de Halloween substitui a exploração em terceira pessoa como experiência principal: entrar em salas, enfrentar criaturas e projéteis, derrotar o chefe e visitar um mercado seguro antes de descer ao próximo andar.
 
-A versão anterior foi executada pelo usuário no Unity. **Esta revisão foi verificada com testes do núcleo C# e checks estáticos; animações, interface, JsonUtility, importação e desempenho ainda precisam de validação no Editor.** Não há build Windows validado desta revisão.
+O projeto mantém a infraestrutura Unity existente. A cena antiga `Valley.unity` continua disponível para referência e não entra no build padrão. Os recursos visuais do novo jogo são sprites originais gerados por código, com filtro de ponto; esta etapa não usa arte de Enter the Gungeon nem depende de assets pagos.
 
-## Abrir
+**Validação nesta revisão:** passaram 17 testes Python e 99.935 asserções do núcleo C# do roguelike, incluindo 1.624 andares gerados por seed. A análise estática verifica sintaxe e referências, sem substituir a compilação Unity. O Editor Unity não está instalado aqui: importação, compilação completa Unity, Play Mode, apresentação visual e build Windows ainda precisam de execução no Editor. Não há um executável Windows validado desta versão.
 
-1. Instale Unity **6000.0.85f1** no Hub. Para build, inclua Windows Build Support.
-2. Baixe o [ZIP de nome curto](https://github.com/ManoelRIos/ecos-vale/raw/refs/heads/codex/ecos-do-vale-vertical-slice/Distribution/EcosDoVale.zip) e extraia em **C:\Dev**, preservando a cópia anterior se houver alterações próprias.
-3. Execute `C:\Dev\EcosDoVale\ABRIR_ECOS_DO_VALE.cmd`, ou adicione essa pasta pelo Hub. Ela deve conter Assets, Packages e ProjectSettings.
-4. Aguarde a importação. Abra **Ecos → Abrir cena principal**, pressione Play e escolha **Nova jornada**.
+## Abrir e jogar
 
-Abra a cena com o Play parado. Os comandos de abrir cena, criar assets e reparar renderização ficam desabilitados durante Play, compilação ou importação. Uma chamada direta de abertura durante Play também retorna sem trocar a cena, evitando a exceção `This cannot be used during play mode`.
+[**Baixar o projeto atualizado em ZIP**](https://github.com/ManoelRIos/ecos-vale/raw/refs/heads/codex/ecos-do-vale-vertical-slice/Distribution/EcosDaMeiaNoite.zip)
 
-O atalho confere caminho curto, Editor fixado e Physics 2D; ele recebeu revisão estática, sem execução Windows aqui. Caso use GitHub Desktop, selecione a branch `codex/ecos-do-vale-vertical-slice`, faça Fetch/Pull e abra a mesma pasta do clone na Unity. Vincular GitHub não substitui esse passo.
+1. Instale **Unity 6000.0.85f1** pelo Unity Hub. Para gerar o executável Windows, inclua **Windows Build Support**.
+2. Abra o clone atualizado deste repositório em um caminho curto, por exemplo `C:\Dev\EcosDoVale`. A pasta adicionada ao Hub deve conter `Assets`, `Packages` e `ProjectSettings`.
+3. Aguarde a resolução dos pacotes e a compilação. Com o Play parado, use **Ecos → Abrir roguelike**, ou abra `Assets/_Game/Scenes/Haunt.unity`.
+4. Pressione **Play**. Inicie uma nova partida pelo menu. A seed permite repetir a disposição das salas; uma nova partida pode gerar outra seed.
 
-Se reaparecer magenta, pare Play e use **Ecos → Reparar renderização URP**. O reparo restaura recursos gerados do renderer e pode remover personalizações dessas renderer features. **Ecos → Diagnosticar renderização** mostra pipelines e shaders atuais. O projeto usa materiais procedurais, sem depender de texturas externas.
+O atalho `ABRIR_ECOS_DO_VALE.cmd` continua abrindo este mesmo projeto. O ZIP atualizado é `Distribution/EcosDaMeiaNoite.zip`. Extraia todo o conteúdo e abra a pasta `EcosDoVale` no Hub. O arquivo `Distribution/EcosDoVale.zip` pertence à versão antiga.
 
-## A aventura
+## A primeira versão
 
-O acampamento fica a poucos passos do início. Os recursos aparecem em pequenos grupos próximos; cada altar tem sua própria necessidade.
+- Salas conectadas em uma grade, sem sobreposição, com disposição determinada pela seed. A entrada começa segura; salas de combate fecham as saídas até todos os inimigos morrerem.
+- Movimento em oito direções, mira pelo mouse, disparos e esquiva com invulnerabilidade temporária.
+- Quatro inimigos: abóbora perseguidora, fantasma atirador, cultista com rajadas e morcego veloz.
+- Um chefe por andar, com padrões de projéteis. Três variações alternam conforme a progressão; dificuldade e recompensas aumentam nos andares seguintes.
+- Ao vencer o chefe, um portal leva a uma área de compras separada. Os botões da loja podem ser usados de qualquer ponto do mercado. Moedas compram até 3 pontos de cura, +1 de dano, intervalo entre tiros 15% menor ou +2 de vida máxima. As compras têm custo, limite por visita e não consomem dinheiro se falharem.
+- Sair da loja inicia outro andar, preservando vida, moedas e melhorias. Morrer encerra a partida e permite começar outra.
+- HUD de vida, moedas, andar, chefe e mapa de salas; pausa e reinício pelo menu.
 
-| Etapa | Ação / custo |
+| Controle | Ação |
 | --- | --- |
-| Refúgio | Acender a fogueira com 4 madeiras e 3 pedras |
-| Ferramenta | Na bancada, criar a lente com 2 cristais, 3 ervas e 2 pedras |
-| Exploração | Usar Q para revelar até 18 ecos num raio de 42 m por 5 s; recarga de 14 s |
-| Torre da Vigília | Restaurar com 1 cristal e 2 pedras |
-| Cemitério das Lanternas | Restaurar com 1 cristal e 2 ervas |
-| Cabana do Último Eco | Restaurar com 1 cristal e 2 madeiras |
-| Conclusão | Receber o Artefato do Vale e experiência, uma única vez |
+| WASD | Mover |
+| Mouse | Mirar |
+| Botão esquerdo | Atirar |
+| Espaço / botão direito | Esquivar |
+| Caminhar até uma saída aberta | Trocar de sala |
+| E | Usar portal / sair da loja |
+| M | Alternar mapa |
+| Esc | Pausar / retomar |
 
-Além da missão, há **seis baús selados**, **seis fragmentos de história**, dezesseis localidades e seis biomas. Marcos de pedra e setas ligam uma carroça abandonada, um arco de raízes, um jardim lunar, um mirante, um observatório partido e o refúgio da ponte velha. Cada lugar guarda uma pista ou tesouro e cinco recursos próximos; há 124 coletas fixas no total. A lente abre os baús. Descobrir, ler e restaurar concede XP; a cada 40 XP o personagem sobe um nível e amplia a mochila, até 20 espaços. Receitas e recompensas são atômicas: falhar por falta de recursos/espaço não entrega nem consome parcialmente.
+Esta é uma base de combate e progressão para evoluir. As armas e melhorias são iniciais; arte, animação, áudio, variedade de salas e balanceamento ainda precisam de refinamento. As partidas novas são locais, sem multiplayer e sem persistência de uma run entre sessões. Os saves do vale antigo não são convertidos nem apagados pelo novo modo.
 
-O mapa marca os locais descobertos. Os três santuários preservam as coordenadas anteriores: `(28,20)`, `(-65,80)` e `(105,-60)`. A fogueira está em `(-12,-9)` e a bancada em `(-6,-14)`.
-
-## Criaturas e guia de campo
-
-Coelhos saltam e fogem, cervos pastam, raposas se aproximam por curiosidade e javalis farejam e ficam alertas. À noite, morcegos voam baixo e fagulhas mágicas surgem entre as árvores; a lente atrai sua curiosidade. Os modelos e animações são procedurais, sem assets pagos.
-
-Aproxime-se com **Ctrl** e use **E** para observar. Cada espécie concede **12 XP uma vez**, mesmo que outro animal da mesma espécie seja encontrado depois. Em **I → Guia de campo**, os registros revelam hábitos e descrições. Registrar as seis espécies concede um artefato e 25 XP, uma única vez; se a mochila estiver cheia, a recompensa aguarda espaço.
-
-Os habitats são definidos pela seed, com moradores preferenciais por bioma. Até 18 criaturas ficam ativas por padrão, próximas ao jogador, com criação/retirada gradual; o limite configurável é 24 em `Resources/WildlifeSettings.asset`. Movimento, decisões e encontros são locais/offline. O guia é persistente; posições e estados transitórios dos animais não são salvos.
-
-## Controles
-
-| Entrada | Ação |
-| --- | --- |
-| WASD / mouse | Mover / olhar |
-| Shift / Espaço / Ctrl | Correr / pular / agachar |
-| Roda do mouse | Zoom da câmera |
-| E / F | Interagir ou observar criatura / alternar lanterna |
-| Q | Pulso da lente, após criá-la |
-| I / M / Esc | Mochila e guia de campo / mapa / pausa |
-| F3, apenas Editor/Development | Contadores de desenvolvimento |
-
-A animação procedural tem respiração, passos baseados no deslocamento real, joelhos/cotovelos, corrida, curvas, salto e aterrissagem. Agachar altera a cápsula sem escalar a raiz física; o personagem verifica espaço para levantar. Ainda exige teste de colisão e apresentação no Editor.
-
-## Mundo e apresentação
-
-- Mundo lógico de 1 km por lado, 64 chunks de 128 m; seed configurável e seis biomas.
-- Até 280 candidatos de decoração por chunk, filtrados por relevo, trilhas e clareiras. Cada bioma tem quatro silhuetas de árvore (24 no total). Pequenos bosques misturam famílias locais, com alturas e ramificações diferentes; detalhes formam manchas de flores, samambaias, caniços, arbustos, tocos, troncos e cogumelos.
-- Na seed padrão, os nove chunks iniciais planejam 1150 árvores e 1118 detalhes, antes das clareiras dos POIs e corredores da rota. As quatro famílias de árvore aparecem em 262/312/250/326 candidatos, com distância média da árvore mais próxima de 9,35 m. Isso é medição de dados, não benchmark de renderização.
-- Dois workers de dados, cache limitado, cancelamento e criação na thread principal. Decoração processada em até 8 candidatos/frame, com orçamento flexível de 2 ms; uma criação individual pode ultrapassá-lo.
-- Padrão: 25 meshes de terreno e nove chunks com decoração; um anel extra de terreno protege o horizonte sem povoar tudo. Raio de decoração ajustável de 1 a 2. Pool limitado a 256 objetos e 48 por tipo.
-- Cores mais saturadas, cogumelos sem emissão no chapéu, brilho discreto na parte inferior e iluminação menos propensa a estourar cores.
-- Menu com cenário 3D próprio, viajante, cabana, lanternas, câmera suave, cards e configurações. HUD apresenta etapas, recursos, nível/XP e lente; inventário/mapa usam a mesma identidade visual.
-- Dia/noite, céu gradual, partículas climáticas e névoa; áudio ainda é infraestrutura sem trilha/efeitos finais.
-
-## Saves
-
-O arquivo continua em `Application.persistentDataPath/ecos-slot1.json`, com backup `.bak`. O formato passou para **v3**, acrescentando espécies observadas e recompensa do guia à fogueira, lente, XP, baús, fragmentos e progresso anterior.
-
-Saves v1 e v2 são migrados sem descartar inventário, santuários ou descobertas. Quem já restaurou um santuário em v1 mantém acesso ao acampamento/lente. Posições fora dos limites retornam à área inicial. **Continuar também mostra a nova vegetação, os animais e os novos lugares**; não é necessário apagar o progresso. Nova jornada reinicia a sequência com confirmação antes de substituir a viagem no próximo save.
-
-## Testes e ferramentas
+## Verificações de desenvolvimento
 
 ```bash
 python3 -m pip install -r Tools/requirements-validation.txt
 python3 Tools/validate_project.py
 python3 -m unittest discover -s Tools -p 'test_*.py'
+dotnet run --project Tools/HauntChecks.csproj
 dotnet run --project Tools/CoreChecks.csproj
 ```
 
-O teste .NET compila os arquivos reais de ruído, inventário, progressão, catálogo de criaturas e distribuição de props. Ele não usa stubs Unity nem valida renderização. Os testes em `Assets/_Game/Tests/Editor` precisam do Editor.
+`HauntChecks` compila os arquivos reais do núcleo do roguelike, sem stubs Unity. Verifica conectividade, determinismo e variação de mapas, posição do chefe, compras, recompensas, morte e passagem entre andares. `CoreChecks` cobre o vale legado. Nenhum desses comandos verifica o render ou o comportamento em Play Mode.
 
-Com `UNITY_EDITOR_PATH` apontando para o executável licenciado:
+Os testes Unity ficam em `Assets/_Game/Haunt/Tests/Editor`: cena inicial e configuração do build, integridade dos sprites, reinício após morte, combate/recompensa sem respawn, proteção da esquiva e abertura segura durante Play. Eles verificam objetos e estado, sem validar imagens renderizadas. Os testes de runtime isolam uma cena vazia e restauram a configuração anterior; preservam alterações de cena não salvas, pulando esse grupo com motivo explícito se necessário. Execute pelo Test Runner do Editor. Para rodar checks em lote com um Editor licenciado:
 
 ```bash
+export UNITY_EDITOR_PATH='/caminho/para/Unity'
 bash Tools/unity-check.sh import
+bash Tools/unity-check.sh smoke
 bash Tools/unity-check.sh tests
 bash Tools/unity-check.sh build
 ```
 
-Confira logs e XML atuais. O build Windows depende do módulo apropriado; saída padrão `Builds/Windows/EcosDoVale.exe`. O UPM gera o lockfile transitivo real. Não foi fabricado um packages-lock.json sem resolução do Editor.
+O smoke de importação confirma recursos, bootstrap da cena e geração inicial; ele não entra em Play Mode. Confira os logs e o XML atual da execução dos testes em `/tmp`. Saída padrão do build: `Builds/Windows/EcosDaMeiaNoite.exe`. O lockfile transitivo de pacotes deve ser gerado pelo UPM real durante a importação.
 
-Para recriar o ZIP num clone Git, adicione arquivos novos ao índice e execute `python3 Tools/package_project.py`. A distribuição usa raiz curta e exclui caches/backups e o próprio ZIP.
+Antes de considerar a versão jogável validada, teste no Editor: iniciar e repetir uma seed; entrar em combate; esquivar atravessando projéteis; derrotar cada tipo de inimigo e um chefe; atravessar o portal; comprar na loja; avançar de andar; pausar; morrer e reiniciar. Verifique ainda colisão com paredes/obstáculos, mira em resoluções diferentes e legibilidade das cores.
 
-## Limites atuais
+## Organização
 
-Não há conexão host/client jogável, lobby, Relay ou matchmaking. `IWorldAuthority` e o estado NGO são preparação; o jogo atual é offline. Também não há combate, inimigos, água/lava navegáveis, vilarejos completos, música final ou animações humanoides importadas.
+- `Assets/_Game/Haunt/Core`: geração de andares e estado de partida em C# puro.
+- `Assets/_Game/Haunt/Runtime`: combate, apresentação e interface do novo modo.
+- `Assets/_Game/Haunt/Art`: sprites procedurais e shader sem iluminação.
+- `Assets/_Game/Haunt/Editor`: abertura segura da cena e smoke de importação.
+- `Assets/_Game/Scenes/Haunt.unity`: entrada principal do jogo.
+- Demais pastas de `_Game`: vale legado, preservado.
 
-A UI usa IMGUI; a vegetação decorativa não possui colisores. O terreno usa resolução uniforme e a decoração possui LOD. Densidade é configuração de nova sessão; o raio de visão pode mudar ao vivo. A meta de 1080p/60 FPS ainda não foi medida. Os locais novos ampliam a exploração até cerca de 280 m do acampamento; o restante é floresta procedural. As criaturas usam direção local e verificações simples de terreno/obstáculos, sem NavMesh, combate ou ecossistema persistente.
-
-Veja [LIVING_VALLEY.md](Documentation/LIVING_VALLEY.md), [VALIDATION.md](Documentation/VALIDATION.md) e [ARCHITECTURE.md](Documentation/ARCHITECTURE.md). [COMPACT_ADVENTURE.md](Documentation/COMPACT_ADVENTURE.md) registra a etapa anterior.
+Para consultar a etapa anterior, veja `Documentation/ARCHITECTURE.md` e os documentos do vale. Para recriar uma distribuição de fontes, inclua os arquivos novos no índice Git antes de executar `python3 Tools/package_project.py`; a ferramenta empacota o índice e não gera executáveis.

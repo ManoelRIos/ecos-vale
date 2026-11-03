@@ -135,7 +135,7 @@ namespace Ecos.Editor
                 EnsureScene(world);
                 EnsureBuildScene();
                 PlayerSettings.companyName = "Ecos do Vale";
-                PlayerSettings.productName = "Ecos do Vale";
+                PlayerSettings.productName = "Ecos da Meia-Noite";
                 PlayerSettings.defaultScreenWidth = 1920;
                 PlayerSettings.defaultScreenHeight = 1080;
                 PlayerSettings.runInBackground = true;
@@ -265,10 +265,17 @@ namespace Ecos.Editor
 
         static void EnsureBuildScene()
         {
-            var scenes = new List<EditorBuildSettingsScene>(EditorBuildSettings.scenes);
-            foreach (var scene in scenes)
-                if (scene.path == ScenePath) return;
-            scenes.Add(new EditorBuildSettingsScene(ScenePath, true));
+            // Keep the roguelike as the build entry; retain the valley as an optional legacy scene.
+            const string hauntScene = "Assets/_Game/Scenes/Haunt.unity";
+            if (!File.Exists(hauntScene))
+                throw new IOException("A cena do roguelike está ausente: " + hauntScene);
+            var scenes = new List<EditorBuildSettingsScene>
+            {
+                new EditorBuildSettingsScene(hauntScene, true),
+                new EditorBuildSettingsScene(ScenePath, false)
+            };
+            foreach (var scene in EditorBuildSettings.scenes)
+                if (scene.path != hauntScene && scene.path != ScenePath) scenes.Add(scene);
             EditorBuildSettings.scenes = scenes.ToArray();
         }
 
@@ -581,7 +588,7 @@ namespace Ecos.Editor
             CreateDefaults();
             string output = System.Environment.GetEnvironmentVariable("ECOS_BUILD_OUTPUT");
             if (string.IsNullOrEmpty(output))
-                output = "Builds/Windows/EcosDoVale.exe";
+                output = "Builds/Windows/EcosDaMeiaNoite.exe";
             var result = BuildPipeline.BuildPlayer(EditorBuildSettings.scenes, output, BuildTarget.StandaloneWindows64, BuildOptions.None);
             if (result.summary.result != UnityEditor.Build.Reporting.BuildResult.Succeeded)
                 throw new Exception("Build Windows falhou: " + result.summary.result);

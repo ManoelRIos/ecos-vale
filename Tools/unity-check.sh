@@ -11,7 +11,8 @@ python3 Tools/check_editor_version.py "$editor_version"
 mode=${1:-import}
 case "$mode" in
   import) "$UNITY_EDITOR_PATH" -batchmode -nographics -projectPath "$PWD" -executeMethod Ecos.Editor.ProjectSetup.CreateDefaults -quit -logFile /tmp/ecos-import.log ;;
+  smoke) "$UNITY_EDITOR_PATH" -batchmode -nographics -projectPath "$PWD" -executeMethod Ecos.Haunt.Editor.HauntProject.SmokeCheck -quit -logFile /tmp/haunt-smoke.log ;;
   tests) "$UNITY_EDITOR_PATH" -batchmode -nographics -projectPath "$PWD" -runTests -testPlatform EditMode -testResults /tmp/ecos-tests.xml -logFile /tmp/ecos-tests.log ;;
   build) "$UNITY_EDITOR_PATH" -batchmode -nographics -projectPath "$PWD" -executeMethod Ecos.Editor.ProjectSetup.BuildWindows -quit -logFile /tmp/ecos-build.log ;;
-  *) printf '%s\n' 'Usage: Tools/unity-check.sh [import|tests|build]' >&2; exit 2 ;;
+  *) printf '%s\n' 'Usage: Tools/unity-check.sh [import|smoke|tests|build]' >&2; exit 2 ;;
 esac

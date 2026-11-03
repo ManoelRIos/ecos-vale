@@ -1,0 +1,8 @@
+<Project>
+  <PropertyGroup>
+    <!-- Each executable needs its own restore/build cache and apphost. Sharing
+         Tools/obj can otherwise run the other suite after an incremental build. -->
+    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)obj/$(MSBuildProjectName)/</BaseIntermediateOutputPath>
+    <BaseOutputPath>$(MSBuildThisFileDirectory)bin/$(MSBuildProjectName)/</BaseOutputPath>
+  </PropertyGroup>
+</Project>

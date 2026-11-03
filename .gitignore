@@ -8,6 +8,7 @@ UserSettings/
 .vs/
 *.csproj
 !Tools/CoreChecks.csproj
+!Tools/HauntChecks.csproj
 Tools/bin/
 *.sln
 *.user

@@ -1,48 +1,25 @@
-ECOS DO VALE - ABERTURA EM CAMINHO CURTO NO WINDOWS
+ECOS DA MEIA-NOITE — NOVA VERSAO UNITY
 
-1. Feche o Unity Editor.
-2. Extraia este ZIP em C:\Dev. A pasta do projeto deve ficar:
-   C:\Dev\EcosDoVale
-   Nela devem existir Assets, Packages, ProjectSettings e este arquivo.
-3. Execute ABRIR_ECOS_DO_VALE.cmd dentro dessa pasta.
-   Ele recusa caminhos acima de 60 caracteres e abre a propria pasta.
-   O Editor esperado e Unity 6000.0.85f1, instalado pelo Unity Hub.
-4. Aguarde o Package Manager e a compilacao terminarem.
-5. Fora do Play, use Ecos > Reparar renderizacao URP.
-6. Com o Play parado, use Ecos > Abrir cena principal.
-7. Pressione Play e escolha Nova jornada, ou Continuar para retomar seu save.
-   Os comandos de abrir cena/criar assets/reparar ficam desativados durante
-   Play, compilacao ou importacao. Pare o Play antes de abrir outra cena.
+Este repositorio agora inicia um roguelike 2D de Halloween.
+A cena de exploracao do vale foi preservada como legado.
 
-Se os objetos ainda ficarem magenta, use Ecos > Diagnosticar renderizacao
-e confira as mensagens de pipeline e shader dessa sessao.
-Esta revisao usa mundo compacto de 1024m, 24 formas de arvores, detalhes
-variados, seis especies de criaturas e seis novos cenarios de exploracao.
-Siga os marcos de pedra a partir do acampamento para encontrar a rota.
-Use Ctrl para se aproximar e E para observar; o guia fica em I > Guia de campo.
-Morcegos e fagulhas aparecem a noite. Registrar seis especies da um artefato.
-O ciclo fogueira -> lente -> tres santuarios continua disponivel.
-Use E na fogueira/bancada e Q apos criar a lente. Consulte README.md.
-Saves v1/v2 sao migrados para v3 sem descartar itens/progresso.
-Continuar mostra a nova vegetacao, criaturas e locais; nao precisa recomecar.
-A aparencia final ainda precisa ser validada no Unity.
+1. Instale Unity 6000.0.85f1 pelo Unity Hub.
+2. Adicione a pasta deste projeto, preferindo C:\Dev\EcosDoVale.
+3. Aguarde a resolucao dos pacotes e a compilacao.
+4. Com Play parado, escolha Ecos > Abrir roguelike.
+5. Pressione Play e inicie uma nova partida no menu.
 
-Se o Editor estiver instalado fora do caminho padrao, use no Hub:
-Add project from disk -> C:\Dev\EcosDoVale, com Editor 6000.0.85f1.
+Cena principal: Assets/_Game/Scenes/Haunt.unity
+Controles: WASD, mouse para mirar, esquerdo para atirar,
+Espaco/direito para esquivar, E para portal/sair da loja, M mapa, Esc pausa.
+Caminhe ate uma porta aberta para mudar de sala. Compre nos botoes da loja.
 
-SE QUISER USAR SUA COPIA ATUAL EM VEZ DE EXTRAIR NOVAMENTE:
-Feche o Unity, mova a pasta REAL do projeto (a que contem Assets, Packages
- e ProjectSettings) para C:\Dev\EcosDoVale e renomeie a pasta Library
-para Library_backup antes de abrir. Isso preserva o cache incompleto e
-permite que o Unity o regenere. Preserve quaisquer alteracoes suas.
+Venca o chefe para abrir o portal do mercado. Compre melhorias e
+continue ao proximo andar. Morrer encerra a run; nao ha save da run.
 
-O log mais recente nao mostra erros C# de compilacao. A excecao identificada
-ocorreu ao usar Abrir cena principal durante Play. Esta revisao protege a
-chamada para evitar a tentativa de salvar/trocar a cena nessa situacao.
-Logs anteriores indicaram problemas com caminhos longos. O ZIP mantem a
-raiz curta EcosDoVale para evitar pastas aninhadas com hashes longos.
-
-O log da abertura via atalho fica em Logs/Ecos-Editor.log.
-O atalho nao altera seus arquivos, nao apaga caches e nao muda o Registro
-do Windows. Ele recebeu revisao estatica, mas nao foi executado no Windows.
-A compilacao completa e o Play Mode ainda precisam ser confirmados no Editor.
+O Editor nao esta instalado no ambiente desta revisao. Os testes do
+nucleo C# e checks estaticos nao substituem importacao/Play Mode.
+Nao ha executavel Windows validado desta versao.
+Use o ZIP EcosDaMeiaNoite.zip; extraia tudo antes de abrir no Hub.
+O ZIP EcosDoVale.zip e da versao anterior.
+Veja README.md para instrucoes, testes e limites atuais.
