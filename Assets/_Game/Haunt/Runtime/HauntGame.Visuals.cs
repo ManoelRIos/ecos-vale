@@ -13,6 +13,8 @@ namespace Ecos.Haunt
         readonly List<SpriteRenderer> roomGlows = new List<SpriteRenderer>();
         readonly List<SpriteRenderer> doorGlows = new List<SpriteRenderer>();
         readonly Stack<SpriteRenderer> effectPool = new Stack<SpriteRenderer>();
+        Material glowMaterial;
+        Vector2 cameraPosition;
         SpriteRenderer playerMarker, playerGlow, crosshair;
         float walkDistance, weaponKick, trailTimer, dustTimer, roomBannerTime;
         bool playerMoving;
@@ -22,13 +24,28 @@ namespace Ecos.Haunt
         string PlayerArt => State == null || State.Character == CharacterKind.Hunter ? "player" : State.Character == CharacterKind.Medium ? "medium" : State.Character == CharacterKind.Reaper ? "reaper" : "alchemist";
         Color CharacterAccent => State == null || State.Character == CharacterKind.Hunter ? PlayerAccent : State.Character == CharacterKind.Medium ? new Color(.82f, .58f, 1) : State.Character == CharacterKind.Reaper ? new Color(.6f, .8f, 1) : new Color(.65f, 1, .35f);
         string WeaponArt => State.Weapon == WeaponKind.Scattergun ? "scattergun" : State.Weapon == WeaponKind.Repeater ? "repeater" : State.Weapon == WeaponKind.SoulCannon ? "cannon" : "weapon";
-        string RoomThemeName => InShop || State == null ? "MERCADO DAS ALMAS" : FloorThemes[BossVariant];
+        string RoomThemeName => InShop || State == null ? "MERCADO DAS ALMAS" : FloorThemes[ThemeVariant];
 
         sealed class RoomAnimation
         {
             public SpriteRenderer Sprite;
             public string Id;
             public float Offset;
+        }
+
+        Material GlowMaterial
+        {
+            get
+            {
+                if (!glowMaterial)
+                {
+                    glowMaterial = new Material(art.Material) { name = "Haunt / additive light" };
+                    glowMaterial.SetFloat("_SrcBlend", 5); // SrcAlpha
+                    glowMaterial.SetFloat("_DstBlend", 1); // One
+                    glowMaterial.SetFloat("_Emission", 2.2f);
+                }
+                return glowMaterial;
+            }
         }
 
         static int Depth(float groundY) => 1000 - Mathf.RoundToInt(groundY * 16);
@@ -41,7 +58,7 @@ namespace Ecos.Haunt
             doors.Clear(); doorGlows.Clear(); obstacles.Clear(); roomAnimations.Clear(); roomGlows.Clear(); portal = null;
             int seed = State == null ? 71319 : unchecked(State.Seed * 397 ^ State.Floor * 7919 ^ CurrentRoom.Id * 104729);
             roomRandom = new System.Random(seed);
-            roomTheme = shop ? 0 : BossVariant;
+            roomTheme = shop ? 0 : ThemeVariant;
             Color floorTint = shop ? new Color(.95f, .89f, .78f) : Color.white * Mathf.Lerp(1, .88f, Mathf.Clamp01((State.Floor - 1) / 12f));
             floorTint.a = 1;
             int wallX = Mathf.CeilToInt(HalfWidth), wallY = Mathf.CeilToInt(HalfHeight);
@@ -49,10 +66,14 @@ namespace Ecos.Haunt
                 for (int x = -wallX; x <= wallX; x++)
                 {
                     bool wall = Mathf.Abs(x) == wallX || Mathf.Abs(y) == wallY;
-                    string id = wall ? "wall-theme" + roomTheme : "floor-theme" + roomTheme;
+                    uint tileHash = unchecked((uint)(x * 73856093 ^ y * 19349663 ^ seed));
+                    tileHash ^= tileHash >> 13; tileHash *= 0x85ebca6bu; tileHash ^= tileHash >> 16;
+                    string id = wall ? "wall-theme" + roomTheme : "floor-theme" + roomTheme + "-v" + (tileHash % 4);
                     var tile = MakeSprite(id, new Vector2(x, y), roomRoot.transform, wall ? 300 : -200);
-                    tile.flipX = (x + y) % 2 == 0;
-                    tile.color = wall ? Color.white : floorTint;
+                    tile.flipX = (tileHash & 8) != 0;
+                    tile.flipY = !wall && (tileHash & 16) != 0;
+                    if (!wall) tile.transform.rotation = Quaternion.Euler(0, 0, 90 * ((tileHash >> 5) % 4));
+                    tile.color = wall ? Color.white : Color.Lerp(floorTint, floorTint * .9f, (tileHash % 7) / 7f);
                     if (!wall && (Mathf.Abs(x) == wallX - 1 || Mathf.Abs(y) == wallY - 1)) tile.color = floorTint * .85f;
                 }
             if (shop)
@@ -124,6 +145,23 @@ namespace Ecos.Haunt
                     AnimatedProp("candle", point, Depth(point.y));
                     AddGroundGlow(point, shop ? new Color(1, .7f, .3f) : FloorColors[roomTheme], 3.8f, .17f);
                 }
+            for (int side = -1; side <= 1; side += 2)
+            {
+                foreach (float x in new[] { -10f, -4f, 4f, 10f })
+                {
+                    Vector2 point = new Vector2(x, side * (HalfHeight - .35f));
+                    var relief = MakeSprite("wall-relief" + roomTheme, point + Vector2.up * .75f, roomRoot.transform, Depth(point.y));
+                    relief.color = Color.white;
+                    var castShadow = MakeSprite("shadow", point + new Vector2(.35f, -.4f), roomRoot.transform, -175);
+                    castShadow.transform.localScale = new Vector3(2.4f, 1.3f, 1);
+                }
+                // Elevated hanging object plus offset ground shadow reads as volume.
+                Vector2 anchor = new Vector2(side * 9.8f, 3.8f);
+                var chandelier = AnimatedProp("chandelier", anchor + Vector2.up * 1.25f, Depth(anchor.y));
+                chandelier.transform.localScale = Vector3.one * .85f;
+                MakeSprite("shadow", anchor + new Vector2(.4f, -.4f), roomRoot.transform, -175).transform.localScale = new Vector3(3.6f, 1.7f, 1);
+                AddGroundGlow(anchor, new Color(1, .6f, .24f), 4.2f, .3f);
+            }
             UpdateRoomAmbience(0);
         }
 
@@ -137,6 +175,7 @@ namespace Ecos.Haunt
         void AddGroundGlow(Vector2 position, Color color, float size, float opacity)
         {
             var glow = MakeSprite("glow", position, roomRoot.transform, -170);
+            glow.sharedMaterial = GlowMaterial;
             glow.transform.localScale = Vector3.one * size;
             glow.color = new Color(color.r, color.g, color.b, opacity);
             roomGlows.Add(glow);
@@ -162,7 +201,7 @@ namespace Ecos.Haunt
                 // Time-derived positions keep visual ambience out of the seeded spawn RNG.
                 float t = simulationTime;
                 Vector2 p = new Vector2(Mathf.Sin(t * 5.13f) * 13, Mathf.Cos(t * 3.71f) * 7);
-                Color c = FloorColors[BossVariant]; c.a = .32f;
+                Color c = FloorColors[ThemeVariant]; c.a = .32f;
                 Emit("spark", p, Vector2.up * .25f, c, 1.3f, .16f, 0);
             }
             foreach (var prop in roomAnimations)
@@ -172,7 +211,7 @@ namespace Ecos.Haunt
                 var glow = roomGlows[i];
                 if (!glow) continue;
                 Color color = glow.color;
-                color.a = .15f + .035f * Mathf.Sin(simulationTime * 3.7f + i * 2);
+                color.a = .25f + .045f * Mathf.Sin(simulationTime * 3.7f + i * 2);
                 glow.color = color;
             }
             for (int i = 0; i < doorGlows.Count; i++)
@@ -275,10 +314,21 @@ namespace Ecos.Haunt
                 dustTimer = .13f;
             }
             UpdateRoomAmbience(dt);
-            float height = Mathf.Max(HalfHeight + 2.2f, (HalfWidth + 2) / Mathf.Max(.5f, view.aspect));
-            view.orthographicSize = height;
+            UpdateCamera(dt, false);
+        }
+
+        void UpdateCamera(float dt, bool snap)
+        {
+            view.orthographicSize = CameraSize;
+            Vector2 focus = playerPosition + Vector2.up * .45f;
+            float horizontal = Mathf.Max(0, HalfWidth + 1.5f - CameraSize * Mathf.Max(.5f, view.aspect));
+            float vertical = Mathf.Max(0, HalfHeight + 1.5f - CameraSize);
+            focus.x = Mathf.Clamp(focus.x, -horizontal, horizontal);
+            focus.y = Mathf.Clamp(focus.y, -vertical, vertical);
+            cameraPosition = snap ? focus : Vector2.Lerp(cameraPosition, focus, 1 - Mathf.Exp(-10 * dt));
             Vector2 offset = new Vector2(Mathf.Sin(simulationTime * 143), Mathf.Cos(simulationTime * 157)) * (shake * .2f);
-            view.transform.position = new Vector3(Mathf.Round(offset.x * 32) / 32f, Mathf.Round(offset.y * 32) / 32f + .3f, -20);
+            view.transform.position = new Vector3(Mathf.Round((cameraPosition.x + offset.x) * 32) / 32f,
+                Mathf.Round((cameraPosition.y + offset.y) * 32) / 32f, -20);
         }
 
         void Emit(string id, Vector2 position, Vector2 velocity, Color color, float duration, float scale, float gravity, float spin = 0)
@@ -286,6 +336,7 @@ namespace Ecos.Haunt
             if (sparks.Count >= 320 || !actorsRoot) return;
             var sprite = effectPool.Count > 0 ? effectPool.Pop() : MakeSprite(id, position, actorsRoot.transform, 1300);
             sprite.gameObject.SetActive(true);
+            sprite.sharedMaterial = id == "glow" || id == "spark" || id == "muzzle" ? GlowMaterial : art.Material;
             sprite.sprite = id == "player" && player ? player.sprite : art.Get(id == "player" ? PlayerArt : id);
             sprite.flipX = id == "player" && player && player.flipX;
             sprite.flipY = false;

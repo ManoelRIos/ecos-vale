@@ -58,6 +58,55 @@ static class HauntChecks
         Console.WriteLine($"Maps: {406 * 4} seeded floors checked; {layouts.Count} distinct layouts.");
     }
 
+    static void BossRosters()
+    {
+        int[][] expected = {
+            new[] { 0, 1, 3 }, new[] { 1, 2, 4 }, new[] { 2, 4, 0 },
+            new[] { 3, 1, 0 }, new[] { 4, 3, 2 }
+        };
+        for (int theme = 0; theme < 5; theme++)
+        {
+            int[] candidates = DungeonFloor.BossCandidatesForTheme(theme);
+            Check(candidates.Length == 3 && candidates.Distinct().Count() == 3,
+                "Each theme must have exactly three distinct bosses");
+            Check(candidates.SequenceEqual(expected[theme]), "Theme boss pool changed unexpectedly");
+            candidates[0] = 999;
+            Check(DungeonFloor.BossCandidatesForTheme(theme).SequenceEqual(expected[theme]),
+                "Encounter catalog must be protected from caller mutation");
+            var seen = new HashSet<int>();
+            foreach (int seed in Enumerable.Range(-200, 401).Concat(new[] { int.MinValue, int.MaxValue }))
+                foreach (int number in new[] { theme + 1, theme + 6, theme + 31 })
+                {
+                    var floor = DungeonFloor.Generate(seed, number);
+                    Check(floor.ThemeIndex == theme, "Floor theme must cycle independently of the selected boss");
+                    Check(expected[theme].Contains(floor.BossArchetype), "Generated boss must belong to the theme pool");
+                    Check(DungeonFloor.Generate(seed, number).BossArchetype == floor.BossArchetype,
+                        "Replaying a seed and floor must reproduce the boss");
+                    seen.Add(floor.BossArchetype);
+                }
+            Check(seen.SetEquals(expected[theme]), "Seed variation must reach all three possible bosses");
+        }
+        var normalized = DungeonFloor.Generate(12, 0);
+        var first = DungeonFloor.Generate(12, 1);
+        Check(normalized.ThemeIndex == 0 && normalized.BossArchetype == first.BossArchetype,
+            "Invalid floor normalization must also normalize encounter selection");
+        var late = DungeonFloor.Generate(int.MaxValue, int.MaxValue);
+        Check(DungeonFloor.BossCandidatesForTheme(late.ThemeIndex).Contains(late.BossArchetype),
+            "Extreme seed and floor must produce an eligible boss without overflow");
+
+        // Captured before encounter selection was introduced: this protects existing
+        // shared seeds from accidental changes to room layout or boss-room position.
+        var signatures = new List<string>();
+        foreach (int seed in new[] { int.MinValue, -200, -1, 0, 1, 42, 71319, int.MaxValue })
+            foreach (int number in new[] { 1, 2, 5, 30 })
+                signatures.Add(Signature(DungeonFloor.Generate(seed, number)));
+        string fingerprint = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(string.Join("\n", signatures))));
+        Check(fingerprint == "0F953328F10A398980518CA186AD970A012FA87848478ECD96869569040564E9",
+            "Adding encounter randomness must preserve previously generated room layouts");
+        Console.WriteLine("Boss rosters: three candidates per theme, seeded replay, full pool coverage and preserved maps checked.");
+    }
+
     static void Economy()
     {
         var run = new RunState(71319);
@@ -248,6 +297,7 @@ static class HauntChecks
     public static void Main()
     {
         Maps();
+        BossRosters();
         Economy();
         Geometry();
         CharactersAndArsenal();

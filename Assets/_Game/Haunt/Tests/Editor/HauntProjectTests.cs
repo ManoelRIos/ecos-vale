@@ -64,7 +64,7 @@ namespace Ecos.Haunt.Tests
                     for (int i = 0; i < 240; i++)
                         Assert.AreSame(frames[i % 4], art.Frame(id, i), "Repeated animation must not allocate more textures: " + id);
                 }
-                foreach (string id in new[] { "floor3", "floor4", "floor5", "door-open", "door-locked", "door-boss", "shadow", "player-ring", "enemy-ring", "glow", "rune", "rug", "weapon", "scattergun", "repeater", "cannon", "slash", "dust", "spark", "effect-ring" })
+                foreach (string id in new[] { "chandelier", "exit-arrow", "floor3", "floor4", "floor5", "door-open", "door-locked", "door-boss", "shadow", "player-ring", "enemy-ring", "glow", "rune", "rug", "weapon", "scattergun", "repeater", "cannon", "slash", "dust", "spark", "effect-ring" })
                     Assert.IsNotNull(art.Get(id), id);
             }
         }
@@ -76,7 +76,7 @@ namespace Ecos.Haunt.Tests
             {
                 for (int theme = 0; theme < 5; theme++)
                 {
-                    foreach (string prefix in new[] { "floor-theme", "wall-theme", "decor-theme", "map-theme" })
+                    foreach (string prefix in new[] { "floor-theme", "wall-theme", "decor-theme", "map-theme", "wall-relief" })
                     {
                         string id = prefix + theme;
                         var sprite = art.Get(id);
@@ -91,6 +91,14 @@ namespace Ecos.Haunt.Tests
                         }
                         if (prefix == "map-theme")
                             Assert.Greater(sprite.rect.width, sprite.rect.height, "Atlas miniature should show an arena silhouette: " + id);
+                    }
+                    for (int variant = 0; variant < 4; variant++)
+                    {
+                        string id = "floor-theme" + theme + "-v" + variant;
+                        var tile = art.Get(id);
+                        Assert.AreEqual(16, tile.rect.width, id);
+                        Assert.AreEqual(16, tile.rect.height, id);
+                        Assert.AreSame(tile, art.Get(id), "Floor variants must remain cached: " + id);
                     }
                 }
             }
@@ -194,6 +202,23 @@ namespace Ecos.Haunt.Tests
             var info = typeof(HauntGame).GetField(field, PrivateInstance);
             Assert.IsNotNull(info, "Runtime field missing: " + field);
             info.SetValue(game, value);
+        }
+
+        static void StartFloor(HauntGame game, int seed, int number)
+        {
+            game.BeginRun(seed);
+            game.State.Floor = number;
+            var floor = DungeonFloor.Generate(seed, number);
+            Set(game, "<Floor>k__BackingField", floor);
+            Invoke(game, "EnterRoom", floor.Entrance, Vector2.zero);
+        }
+
+        static bool NearestExit(HauntGame game, out Vector2 destination)
+        {
+            object[] args = { Vector2.zero };
+            bool found = (bool)Invoke(game, "TryNearestExit", args);
+            destination = (Vector2)args[0];
+            return found;
         }
 
         [UnityTest]
@@ -302,8 +327,7 @@ namespace Ecos.Haunt.Tests
                 var game = root.AddComponent<HauntGame>();
                 for (int floor = 1; floor <= 5; floor++)
                 {
-                    game.BeginRun(42);
-                    game.State.Floor = floor;
+                    StartFloor(game, 42, floor);
                     Invoke(game, "EnterRoom", game.Floor.Boss, Vector2.zero);
                     Assert.AreEqual(1, game.LivingEnemies);
                     Invoke(game, "UpdateEnemies", 3f);
@@ -383,16 +407,18 @@ namespace Ecos.Haunt.Tests
             {
                 var game = root.AddComponent<HauntGame>();
                 string[] ids = { "boss", "widow", "bishop", "matriarch", "bell" };
-                for (int floor = 1; floor <= 5; floor++)
+                for (int archetype = 0; archetype < ids.Length; archetype++)
                 {
-                    game.BeginRun(42);
-                    game.State.Floor = floor;
+                    int number = Enumerable.Range(1, 5).First(n => DungeonFloor.BossCandidatesForTheme(n - 1).Contains(archetype));
+                    int seed = Enumerable.Range(0, 2000).First(n => DungeonFloor.Generate(n, number).BossArchetype == archetype);
+                    StartFloor(game, seed, number);
                     Invoke(game, "EnterRoom", game.Floor.Boss, Vector2.zero);
+                    Assert.AreEqual(archetype, game.Floor.BossArchetype);
                     var enemies = (IList)typeof(HauntGame).GetField("enemies", PrivateInstance).GetValue(game);
                     var boss = enemies[0];
                     var type = boss.GetType();
                     var sprite = (SpriteRenderer)type.GetField("Sprite").GetValue(boss);
-                    StringAssert.Contains("/ " + ids[floor - 1] + "/", sprite.sprite.name);
+                    StringAssert.Contains("/ " + ids[archetype] + "/", sprite.sprite.name);
                     type.GetField("Cooldown").SetValue(boss, 0f);
                     Invoke(game, "UpdateBoss", boss, Vector2.down, 0f);
                     int firstVolley = game.ActiveProjectiles;
@@ -400,15 +426,16 @@ namespace Ecos.Haunt.Tests
                     type.GetField("Cooldown").SetValue(boss, 0f);
                     Invoke(game, "UpdateBoss", boss, Vector2.down, 0f);
                     Assert.AreEqual(2, type.GetField("Attack").GetValue(boss));
-                    if (floor > 1)
-                        Assert.AreNotEqual(firstVolley, game.ActiveProjectiles - firstVolley, "Guardian alternates different volleys: " + ids[floor - 1]);
-                    if (floor == 2)
+                    if (archetype > 0)
+                        Assert.AreNotEqual(firstVolley, game.ActiveProjectiles - firstVolley, "Guardian alternates different volleys: " + ids[archetype]);
+                    if (archetype == 1)
                         Assert.Greater((float)type.GetField("DashTime").GetValue(boss), 0, "The Widow's alternate attack starts a charge");
-                    if (floor >= 3)
+                    if (archetype >= 2)
                     {
                         var warnings = (IList)typeof(HauntGame).GetField("warnings", PrivateInstance).GetValue(game);
-                        Assert.Greater(warnings.Count, 0, "The alternate attack must mark the ground: " + ids[floor - 1]);
+                        Assert.Greater(warnings.Count, 0, "The alternate attack must mark the ground: " + ids[archetype]);
                     }
+                    Assert.AreEqual(number - 1, game.Floor.ThemeIndex, "Encounter choice must not replace the floor theme");
                 }
                 yield return null;
                 LogAssert.NoUnexpectedReceived();
@@ -479,6 +506,99 @@ namespace Ecos.Haunt.Tests
                 Invoke(game, "UsePower");
                 Assert.AreEqual(wounded + 2, game.State.Health, "Repeated input cannot heal through cooldown");
                 Assert.AreEqual(0, game.ActiveProjectiles, "The healing power must not spawn an attack");
+                yield return null;
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally { UnityEngine.Object.Destroy(root); }
+        }
+
+        [UnityTest]
+        public IEnumerator CloseCameraFollowsThePlayerWithoutShowingTheEntireArena()
+        {
+            var root = new GameObject("Haunt close camera test");
+            try
+            {
+                var game = root.AddComponent<HauntGame>();
+                game.BeginRun(42);
+                var camera = (Camera)typeof(HauntGame).GetField("view", PrivateInstance).GetValue(game);
+                Invoke(game, "UpdateCamera", 0f, true);
+                Assert.AreEqual(6.3f, camera.orthographicSize, .001f);
+                Assert.Less(camera.orthographicSize * 2, 17, "The close view must crop the full arena height");
+                Vector3 origin = camera.transform.position;
+                Set(game, "playerPosition", new Vector2(9, 5));
+                Invoke(game, "UpdateCamera", 0f, true);
+                Vector3 moved = camera.transform.position;
+                Assert.Greater(moved.x, origin.x, "Camera must follow horizontal travel");
+                Assert.Greater(moved.y, origin.y, "Camera must follow vertical travel");
+                Vector3 screen = camera.WorldToViewportPoint(new Vector3(9, 5, 0));
+                Assert.That(screen.x, Is.InRange(0f, 1f));
+                Assert.That(screen.y, Is.InRange(0f, 1f));
+                Set(game, "playerPosition", new Vector2(-9, -5));
+                Invoke(game, "UpdateCamera", 0f, true);
+                Assert.Less(camera.transform.position.x, moved.x);
+                Assert.Less(camera.transform.position.y, moved.y);
+                yield return null;
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally { UnityEngine.Object.Destroy(root); }
+        }
+
+        [UnityTest]
+        public IEnumerator ExitGuideSelectsNearestDoorAndBossPortalAfterPurification()
+        {
+            var root = new GameObject("Haunt exit guide test");
+            try
+            {
+                var game = root.AddComponent<HauntGame>();
+                game.BeginRun(42);
+                var room = game.Floor.Rooms.First(r => r.Kind == RoomKind.Combat);
+                Invoke(game, "EnterRoom", room, Vector2.zero);
+                Assert.IsFalse(NearestExit(game, out _), "Combat must not display an open-exit guide");
+                Invoke(game, "ClearCombat");
+                room.Cleared = true;
+                Set(game, "playerPosition", new Vector2(7, -3));
+                Assert.IsTrue(NearestExit(game, out Vector2 destination));
+                var doors = ((IList)typeof(HauntGame).GetField("doors", PrivateInstance).GetValue(game)).Cast<SpriteRenderer>().ToArray();
+                Assert.Greater(doors.Length, 0);
+                Vector2 expected = doors.OrderBy(d => Vector2.SqrMagnitude((Vector2)d.transform.position - game.PlayerPosition)).First().transform.position;
+                Assert.Less(Vector2.Distance(expected, destination), .05f, "Guide should choose the physically closest doorway");
+                Invoke(game, "EnterRoom", game.Floor.Boss, Vector2.zero);
+                Invoke(game, "ClearCombat");
+                Invoke(game, "CompleteRoom", true);
+                Set(game, "playerPosition", new Vector2(12, 0));
+                Assert.IsTrue(NearestExit(game, out destination));
+                Assert.Less(Vector2.Distance(new Vector2(0, 1.4f), destination), .05f, "After a boss, the market portal takes priority over a nearby door");
+                Invoke(game, "OpenShop");
+                Assert.IsFalse(NearestExit(game, out _), "A modal shop must not retain the guide");
+                yield return null;
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally { UnityEngine.Object.Destroy(root); }
+        }
+
+        [UnityTest]
+        public IEnumerator ProjectileGlowRecyclesWithItsShot()
+        {
+            var root = new GameObject("Haunt luminous shot test");
+            try
+            {
+                var game = root.AddComponent<HauntGame>();
+                game.BeginRun(42);
+                Invoke(game, "Fire", Vector2.zero, Vector2.right * 17, true, 1);
+                var shots = (IList)typeof(HauntGame).GetField("shots", PrivateInstance).GetValue(game);
+                var shot = shots[0];
+                var glow = (SpriteRenderer)shot.GetType().GetField("Glow").GetValue(shot);
+                Assert.IsNotNull(glow, "A shot must carry its luminous halo");
+                Assert.IsTrue(glow.gameObject.activeInHierarchy);
+                Assert.AreEqual(1f, glow.sharedMaterial.GetFloat("_DstBlend"), "Halo RGB uses additive blending");
+                Invoke(game, "RecycleShot", 0);
+                Assert.IsFalse(glow.gameObject.activeInHierarchy, "Recycling must also hide the halo");
+                Invoke(game, "Fire", Vector2.one, Vector2.up * 12, true, 1);
+                var next = shots[0];
+                Assert.AreSame(glow, next.GetType().GetField("Glow").GetValue(next), "Repeated shots should reuse their halo");
+                Assert.IsTrue(glow.gameObject.activeInHierarchy);
+                Invoke(game, "ClearCombat");
+                Assert.IsFalse(glow.gameObject.activeInHierarchy, "Room cleanup must leave no luminous projectile behind");
                 yield return null;
                 LogAssert.NoUnexpectedReceived();
             }

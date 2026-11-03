@@ -2,6 +2,9 @@ Shader "Haunt/Pixel Sprites"
 {
     Properties
     {
+        _SrcBlend ("Source blend", Float) = 5
+        _DstBlend ("Destination blend", Float) = 10
+        _Emission ("Emission intensity", Float) = 1
         [PerRendererData] _MainTex ("Sprite", 2D) = "white" {}
         _Color ("Tint", Color) = (1,1,1,1)
         // As in URP's sprite shader, keep the legacy tint property for material
@@ -13,7 +16,7 @@ Shader "Haunt/Pixel Sprites"
         Tags { "Queue"="Transparent" "RenderType"="Transparent" "RenderPipeline"="UniversalPipeline" "CanUseSpriteAtlas"="True" }
         Cull Off
         ZWrite Off
-        Blend SrcAlpha OneMinusSrcAlpha, One OneMinusSrcAlpha
+        Blend [_SrcBlend] [_DstBlend], One OneMinusSrcAlpha
         Pass
         {
             Name "PixelSprite"
@@ -43,6 +46,7 @@ Shader "Haunt/Pixel Sprites"
             SAMPLER(sampler_MainTex);
             CBUFFER_START(UnityPerMaterial)
                 half4 _Color;
+                half _Emission;
             CBUFFER_END
 
             Varyings Vert(Attributes input)
@@ -62,7 +66,9 @@ Shader "Haunt/Pixel Sprites"
             }
             half4 Frag(Varyings input) : SV_Target
             {
-                return SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv) * input.color;
+                half4 pixel = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv) * input.color;
+                pixel.rgb *= _Emission;
+                return pixel;
             }
             ENDHLSL
         }

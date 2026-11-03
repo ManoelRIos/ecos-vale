@@ -159,6 +159,7 @@ namespace Ecos.Haunt
                 Text(new Rect(36, 142, 296, 22), enemies.Count > 0 ? enemies.Count + " AMEAÇAS  /  PORTAS SELADAS" : "PURIFICADA  /  SAÍDAS ABERTAS", smallStyle, accent);
                 DrawMap(new Rect(1040, 478, 216, 200), false);
                 DrawDoorLabels();
+                DrawExitGuide();
                 if (roomBannerTime > 0 && !Paused && !State.IsDead)
                     WorldTag(playerPosition, "VOCÊ", Mint, 2.05f, 92);
                 if (CurrentRoom.Kind == RoomKind.Boss && CurrentRoom.Cleared)
@@ -167,6 +168,44 @@ namespace Ecos.Haunt
             Fill(new Rect(0, 692, 1280, 28), Ink);
             Text(new Rect(22, 695, 1018, 25), "WASD mover • Mouse atirar • Espaço esquiva • E interagir • M mapa • Esc pausa • 1–4 armas", smallStyle, Muted);
             Text(new Rect(1056, 695, 220, 25), "SEED " + State.Seed, smallStyle, Muted);
+        }
+
+        // Keep navigation on screen when the closer camera cannot show the doors.
+        // This is a direction cue, not an interactive panel or a pathfinding route.
+        void DrawExitGuide()
+        {
+            if (Paused || showMap || !TryNearestExit(out Vector2 destination)) return;
+            Vector2 from = WorldToHudPoint(playerPosition + Vector2.up * .35f);
+            Vector2 target = WorldToHudPoint(destination + Vector2.up * .35f);
+            Vector2 direction = target - from;
+            if (direction.sqrMagnitude < 1) return;
+            direction.Normalize();
+            Vector2 center = from + direction * 76;
+            // Reserve the left information panels, lower-right atlas and notice strip.
+            center.x = Mathf.Clamp(center.x, 380, 994);
+            center.y = Mathf.Clamp(center.y, 180, 550);
+            float pulse = 1 + .09f * Mathf.Sin(simulationTime * 5);
+            float size = 38 * pulse;
+            Matrix4x4 previous = GUI.matrix;
+            Color previousColor = GUI.color;
+            GUIUtility.RotateAroundPivot(Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg, center);
+            GUI.color = Color.white;
+            DrawIcon(new Rect(center.x - size * .5f, center.y - size * .5f, size, size), "exit-arrow");
+            GUI.matrix = previous;
+            GUI.color = previousColor;
+            bool portalExit = CurrentRoom.Kind == RoomKind.Boss && State.BossDefeated;
+            Rect caption = new Rect(Mathf.Clamp(center.x - 135, 356, 770), center.y + 26, 270, 25);
+            Fill(caption, Ink);
+            Text(new Rect(caption.x + 7, caption.y + 2, caption.width - 14, 22),
+                portalExit ? "PORTAL DO MERCADO" : "SAÍDA MAIS PRÓXIMA", smallStyle, Mint);
+        }
+
+        Vector2 WorldToHudPoint(Vector2 position)
+        {
+            Vector3 screen = view.WorldToScreenPoint(position);
+            float scale = Mathf.Max(.01f, Mathf.Min(Screen.width / 1280f, Screen.height / 720f));
+            return new Vector2((screen.x - (Screen.width - 1280 * scale) * .5f) / scale,
+                (Screen.height - screen.y - (Screen.height - 720 * scale) * .5f) / scale);
         }
 
         void DrawDoorLabels()
@@ -256,14 +295,14 @@ namespace Ecos.Haunt
 
         void DrawMap(Rect rect, bool expanded)
         {
-            Color theme = FloorColors[BossVariant];
+            Color theme = FloorColors[ThemeVariant];
             Color accent = Color.Lerp(theme, Orange, .25f);
             Panel(rect, accent * .65f);
             // Theme motifs sit below the route, so the atlas reads like the current sanctuary.
             if (expanded)
             {
-                DrawIcon(new Rect(rect.x + 18, rect.y + 12, 62, 40), "map-theme" + BossVariant);
-                Text(new Rect(rect.x + 92, rect.y + 12, rect.width - 108, 28), FloorThemes[BossVariant], headingStyle, accent);
+                DrawIcon(new Rect(rect.x + 18, rect.y + 12, 62, 40), "map-theme" + ThemeVariant);
+                Text(new Rect(rect.x + 92, rect.y + 12, rect.width - 108, 28), FloorThemes[ThemeVariant], headingStyle, accent);
                 Text(new Rect(rect.x + 94, rect.y + 40, rect.width - 110, 23), "ATLAS DO ANDAR " + State.Floor, smallStyle, Muted);
             }
             int minX = int.MaxValue, minY = int.MaxValue, maxX = int.MinValue, maxY = int.MinValue;
@@ -303,7 +342,7 @@ namespace Ecos.Haunt
                 Color old = GUI.color;
                 bool known = visited.Contains(room.Id) || room.Kind == RoomKind.Boss;
                 GUI.color = room == CurrentRoom ? Color.white : room.Cleared ? new Color(.8f, 1, .87f) : known ? theme : theme * .58f;
-                DrawIcon(tile, "map-theme" + BossVariant);
+                DrawIcon(tile, "map-theme" + ThemeVariant);
                 GUI.color = old;
                 if (room == CurrentRoom)
                 {

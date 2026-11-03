@@ -31,6 +31,24 @@ namespace Ecos.Haunt
     public sealed class DungeonFloor
     {
         public int Seed, Number;
+        public int ThemeIndex => (Math.Max(1, Number) - 1) % BossPools.Length;
+        public int BossArchetype { get; private set; }
+
+        // Three possible encounters per theme. These archetypes share the current
+        // floor's setting without changing its room graph or ordinary enemy roster.
+        static readonly int[][] BossPools =
+        {
+            new[] { 0, 1, 3 }, new[] { 1, 2, 4 }, new[] { 2, 4, 0 },
+            new[] { 3, 1, 0 }, new[] { 4, 3, 2 }
+        };
+
+        public static int[] BossCandidatesForTheme(int themeIndex)
+        {
+            if (themeIndex < 0 || themeIndex >= BossPools.Length)
+                throw new ArgumentOutOfRangeException(nameof(themeIndex));
+            // Never let callers change the shared encounter catalog.
+            return (int[])BossPools[themeIndex].Clone();
+        }
         public readonly List<DungeonRoom> Rooms = new List<DungeonRoom>();
         public DungeonRoom Entrance, Boss;
 
@@ -51,6 +69,12 @@ namespace Ecos.Haunt
         {
             number = Math.Max(1, number);
             var plan = new DungeonFloor { Seed = seed, Number = number };
+            // A separate salted stream preserves all existing seeded room layouts.
+            // Visual ambience and room generation never advance this encounter RNG.
+            var encounterRandom = new SeededRandom(unchecked((uint)seed * 0x85ebca6bu
+                ^ (uint)number * 0xc2b2ae35u ^ 0x4d595df4u));
+            int[] pool = BossPools[plan.ThemeIndex];
+            plan.BossArchetype = pool[encounterRandom.Next(pool.Length)];
             var random = new SeededRandom(unchecked((uint)seed ^ ((uint)number * 0x9e3779b9u)));
             int count = 7 + Math.Min(number - 1, 4);
             var occupied = new Dictionary<GridPoint, DungeonRoom>();

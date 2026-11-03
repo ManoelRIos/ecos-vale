@@ -21,6 +21,7 @@ namespace Ecos.Haunt
 
         const float HalfWidth = 14.5f, HalfHeight = 8.5f, PlayerRadius = .27f;
         const int MaxShots = 420;
+        const float CameraSize = 6.3f;
         const float RollTime = .24f, RollCooldown = .85f;
         static readonly string[] BossNames = { "O REI DAS ABÓBORAS", "A VIÚVA DO VÉU", "O BISPO DAS CINZAS", "A MATRIARCA DA PESTE", "O SINO DO ABISMO" };
         readonly List<Enemy> enemies = new List<Enemy>();
@@ -43,7 +44,8 @@ namespace Ecos.Haunt
         float noticeTime;
         int roomsCleared, enemiesDefeated;
         CharacterKind selectedCharacter;
-        int BossVariant => (State.Floor - 1) % BossNames.Length;
+        int BossVariant => Floor == null ? 0 : Floor.BossArchetype;
+        int ThemeVariant => Floor == null ? 0 : Floor.ThemeIndex;
         string EnemySprite(int kind) => kind == 4 ? (BossVariant == 1 ? "widow" : BossVariant == 2 ? "bishop" : BossVariant == 3 ? "matriarch" : BossVariant == 4 ? "bell" : "boss") : EnemyArt[kind];
         System.Random roomRandom;
 
@@ -56,7 +58,7 @@ namespace Ecos.Haunt
         }
         sealed class Shot
         {
-            public SpriteRenderer Sprite;
+            public SpriteRenderer Sprite, Glow;
             public Vector2 Position, Velocity;
             public float Life, Radius, TrailTimer;
             public Color Color;
@@ -91,7 +93,7 @@ namespace Ecos.Haunt
             view = cameraObject.AddComponent<Camera>();
             view.tag = "MainCamera";
             view.orthographic = true;
-            view.orthographicSize = 10.4f;
+            view.orthographicSize = CameraSize;
             view.nearClipPlane = .1f;
             view.farClipPlane = 50;
             view.transform.position = new Vector3(0, .3f, -20);
@@ -384,12 +386,13 @@ namespace Ecos.Haunt
                         points.RemoveAt(index);
                         if (Vector2.Distance(point, arrival) < 3) continue;
                         int roll = roomRandom.Next(6);
-                        int themed = BossVariant == 0 ? 0 : BossVariant == 1 ? 1 : BossVariant == 2 ? 2 : BossVariant == 3 ? 5 : 7;
+                        int themed = ThemeVariant == 0 ? 0 : ThemeVariant == 1 ? 1 : ThemeVariant == 2 ? 2 : ThemeVariant == 3 ? 5 : 7;
                         SpawnEnemy(enemies.Count == 0 || roll < 3 ? themed : roll == 3 ? 3 : roll == 4 && State.Floor >= 2 ? 6 : roomRandom.Next(4), point);
                     }
                 }
             }
             UpdateDoorArt();
+            UpdateCamera(0, true);
             UpdatePresentation();
         }
 
@@ -617,15 +620,34 @@ namespace Ecos.Haunt
         void Fire(Vector2 origin, Vector2 velocity, bool friendly, int damage)
         {
             if (shots.Count >= MaxShots) return;
-            SpriteRenderer sprite = shotPool.Count > 0 ? shotPool.Pop() : MakeSprite("bullet-player", origin, actorsRoot.transform, 1250);
+            SpriteRenderer sprite;
+            SpriteRenderer light;
+            if (shotPool.Count > 0)
+            {
+                sprite = shotPool.Pop();
+                light = sprite.transform.GetChild(0).GetComponent<SpriteRenderer>();
+            }
+            else
+            {
+                sprite = MakeSprite("bullet-player", origin, actorsRoot.transform, 1250);
+                light = MakeSprite("glow", origin, sprite.transform, -145);
+                light.sharedMaterial = GlowMaterial;
+            }
             sprite.gameObject.SetActive(true);
             sprite.sprite = art.Get(friendly ? "bullet-player" : "bullet-enemy");
-            sprite.color = friendly ? CharacterAccent : Color.Lerp(HostileAccent, FloorColors[BossVariant], .22f);
+            sprite.color = friendly ? CharacterAccent : Color.Lerp(HostileAccent, FloorColors[ThemeVariant], .22f);
             if (friendly && State.Weapon == WeaponKind.SoulCannon) sprite.color = new Color(.6f, 1, .85f);
             sprite.transform.localScale = Vector3.one * (friendly && State.Weapon == WeaponKind.SoulCannon ? 1.7f : 1);
             sprite.transform.position = Snap(origin + Vector2.up * .38f);
             sprite.transform.rotation = Quaternion.Euler(0, 0, Mathf.Atan2(velocity.y, velocity.x) * Mathf.Rad2Deg);
-            shots.Add(new Shot { Sprite = sprite, Position = origin, Velocity = velocity,
+            light.gameObject.SetActive(true);
+            light.color = new Color(sprite.color.r, sprite.color.g, sprite.color.b, friendly ? .85f : .5f);
+            float haloSize = friendly && State.Weapon == WeaponKind.SoulCannon ? 2.4f : friendly ? 1.2f : .85f;
+            light.transform.rotation = Quaternion.identity;
+            light.transform.position = Snap(origin);
+            // Set world footprint after assigning parent bullet scale.
+            light.transform.localScale = new Vector3(haloSize / sprite.transform.localScale.x, haloSize * .7f / sprite.transform.localScale.y, 1);
+            shots.Add(new Shot { Sprite = sprite, Glow = light, Position = origin, Velocity = velocity,
                 Friendly = friendly, Damage = damage, Life = 6, Radius = friendly ? .10f : .14f,
                 Color = sprite.color, Heavy = friendly && State.Weapon == WeaponKind.SoulCannon, TrailTimer = friendly ? 0 : .02f * (shots.Count % 4) });
             if (!friendly) Emit("muzzle", origin + Vector2.up * .35f, Vector2.zero, HostileAccent, .12f, .5f, 0);
@@ -707,6 +729,8 @@ namespace Ecos.Haunt
                 {
                     shot.Position = next;
                     shot.Sprite.transform.position = Snap(next + Vector2.up * .38f);
+                    shot.Glow.transform.position = Snap(next);
+                    shot.Glow.transform.rotation = Quaternion.identity;
                 }
             }
         }
@@ -748,6 +772,27 @@ namespace Ecos.Haunt
                 Notify("Guardião derrotado! Aproxime-se do portal e pressione E para ir ao Mercado das Almas.");
             }
             else Notify("Sala purificada • moedas recebidas. As portas estão abertas.");
+        }
+
+        bool TryNearestExit(out Vector2 destination)
+        {
+            destination = Vector2.zero;
+            if (!Playing || InShop || State == null || State.IsDead || CurrentRoom == null || !CurrentRoom.Cleared || enemies.Count > 0) return false;
+            if (CurrentRoom.Kind == RoomKind.Boss && State.BossDefeated)
+            {
+                destination = new Vector2(0, 1.4f);
+                return true;
+            }
+            float nearest = float.PositiveInfinity;
+            foreach (int id in CurrentRoom.Neighbors)
+            {
+                var next = Floor.GetRoom(id);
+                Vector2 point = new Vector2((next.Position.X - CurrentRoom.Position.X) * (HalfWidth - .05f),
+                    (next.Position.Y - CurrentRoom.Position.Y) * (HalfHeight - .05f));
+                float distance = (point - playerPosition).sqrMagnitude;
+                if (distance < nearest) { nearest = distance; destination = point; }
+            }
+            return !float.IsPositiveInfinity(nearest);
         }
 
         void CheckDoors()
@@ -870,6 +915,7 @@ namespace Ecos.Haunt
         void OnDestroy()
         {
             Cursor.visible = true;
+            if (glowMaterial) Destroy(glowMaterial);
             if (art != null) art.Dispose();
             if (panelTexture) Destroy(panelTexture);
         }
