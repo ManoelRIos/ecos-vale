@@ -178,6 +178,7 @@ static class HauntChecks
         foreach (CharacterKind character in Enum.GetValues<CharacterKind>())
         {
             var run = new RunState(42, character);
+            if (character == CharacterKind.Alchemist) run.Hurt(2);
             Check(run.Character == character && run.TryUsePower(), "Selected character has ready power");
             Check(!run.TryUsePower(), "Power cannot be spammed");
             run.TickPower(run.PowerDuration - .25f);
@@ -185,6 +186,7 @@ static class HauntChecks
             run.TickPower(-10);
             Check(run.PowerCooldown <= .251f, "Negative elapsed time ignored");
             run.TickPower(.3f);
+            if (character == CharacterKind.Alchemist) run.Hurt(2);
             Check(run.TryUsePower(), "Power becomes available again");
             Check(!run.Equip(WeaponKind.SoulCannon), "Cannot equip unowned weapon");
             run.Coins = 1000;
@@ -212,6 +214,32 @@ static class HauntChecks
             var fresh = new RunState(42, character);
             Check(!fresh.Owns(WeaponKind.SoulCannon) && fresh.PowerCooldown == 0, "Restart clears arsenal and cooldown");
         }
+        Check(new RunState(1, CharacterKind.Hunter).PowerDuration == 9, "Hunter retains nine-second cooldown");
+        Check(new RunState(1, CharacterKind.Medium).PowerDuration == 7, "Medium retains seven-second cooldown");
+        var reaper = new RunState(1, CharacterKind.Reaper);
+        Check(reaper.PowerDuration == 8 && reaper.PowerName == "COLHEITA LUNAR", "Reaper has distinct power");
+        var alchemist = new RunState(1, CharacterKind.Alchemist);
+        Check(alchemist.PowerDuration == 18 && alchemist.PowerName == "ELIXIR VITAL", "Alchemist has distinct power");
+        Check(!alchemist.TryUsePower() && alchemist.PowerCooldown == 0 && alchemist.Health == alchemist.MaxHealth,
+            "Full-health heal is rejected without spending cooldown");
+        alchemist.Hurt(3);
+        Check(alchemist.TryUsePower() && alchemist.Health == 5 && alchemist.PowerCooldown == 18,
+            "Alchemist heal restores exactly two and starts cooldown atomically");
+        alchemist.Hurt(1);
+        int injured = alchemist.Health;
+        Check(!alchemist.TryUsePower() && alchemist.Health == injured && alchemist.PowerCooldown == 18,
+            "Cooldown blocks repeated healing without changing health or timer");
+        alchemist.TickPower(18);
+        Check(alchemist.TryUsePower() && alchemist.Health == alchemist.MaxHealth,
+            "Alchemist can heal again after cooldown");
+        alchemist.TickPower(18);
+        alchemist.Hurt(1);
+        Check(alchemist.TryUsePower() && alchemist.Health == alchemist.MaxHealth,
+            "Alchemist heal saturates at maximum health");
+        alchemist.TickPower(18);
+        alchemist.Hurt(100);
+        Check(!alchemist.TryUsePower() && alchemist.Health == 0 && alchemist.PowerCooldown == 0,
+            "Alchemist cannot revive itself with healing");
         var poor = new RunState(1) { BossDefeated = true, Coins = 1 };
         Check(!poor.TryBuy(ShopItem.SoulCannon, out _) && poor.Coins == 1 && !poor.Owns(WeaponKind.SoulCannon), "Unaffordable weapon purchase is atomic");
         Console.WriteLine("Characters/arsenal: cooldowns, ownership, purchases, persistence and restart checked.");

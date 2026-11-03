@@ -49,7 +49,7 @@ namespace Ecos.Haunt.Tests
         {
             using (var art = new HauntPixelArt())
             {
-                foreach (string id in new[] { "player", "medium", "larva", "sentinel", "acolyte", "matriarch", "bell", "pumpkin", "ghost", "cultist", "bat", "boss", "merchant", "candle", "portal" })
+                foreach (string id in new[] { "player", "medium", "reaper", "alchemist", "widow", "bishop", "larva", "sentinel", "acolyte", "matriarch", "bell", "pumpkin", "ghost", "cultist", "bat", "boss", "merchant", "candle", "portal" })
                 {
                     var frames = new Sprite[4];
                     for (int i = 0; i < 4; i++)
@@ -66,6 +66,33 @@ namespace Ecos.Haunt.Tests
                 }
                 foreach (string id in new[] { "floor3", "floor4", "floor5", "door-open", "door-locked", "door-boss", "shadow", "player-ring", "enemy-ring", "glow", "rune", "rug", "weapon", "scattergun", "repeater", "cannon", "slash", "dust", "spark", "effect-ring" })
                     Assert.IsNotNull(art.Get(id), id);
+            }
+        }
+
+        [Test]
+        public void FloorThemesProvideRoomTilesOrnamentsAndAtlasMiniatures()
+        {
+            using (var art = new HauntPixelArt())
+            {
+                for (int theme = 0; theme < 5; theme++)
+                {
+                    foreach (string prefix in new[] { "floor-theme", "wall-theme", "decor-theme", "map-theme" })
+                    {
+                        string id = prefix + theme;
+                        var sprite = art.Get(id);
+                        Assert.IsNotNull(sprite, id);
+                        Assert.AreSame(sprite, art.Get(id), "Repeated themed lookups must reuse textures: " + id);
+                        Assert.AreEqual(FilterMode.Point, sprite.texture.filterMode, id);
+                        Assert.AreEqual(16, sprite.pixelsPerUnit, id);
+                        if (prefix == "floor-theme" || prefix == "wall-theme")
+                        {
+                            Assert.AreEqual(16, sprite.rect.width, "The one-unit room grid needs 16px tiles: " + id);
+                            Assert.AreEqual(16, sprite.rect.height, id);
+                        }
+                        if (prefix == "map-theme")
+                            Assert.Greater(sprite.rect.width, sprite.rect.height, "Atlas miniature should show an arena silhouette: " + id);
+                    }
+                }
             }
         }
 
@@ -155,11 +182,11 @@ namespace Ecos.Haunt.Tests
             UnityEditor.SessionState.EraseString(SceneSnapshotKey);
         }
 
-        static void Invoke(HauntGame game, string method, params object[] args)
+        static object Invoke(HauntGame game, string method, params object[] args)
         {
             var info = typeof(HauntGame).GetMethod(method, PrivateInstance);
             Assert.IsNotNull(info, "Runtime operation missing: " + method);
-            info.Invoke(game, args);
+            return info.Invoke(game, args);
         }
 
         static void Set(HauntGame game, string field, object value)
@@ -302,6 +329,156 @@ namespace Ecos.Haunt.Tests
                 for (int kind = 5; kind <= 7; kind++) Invoke(game, "SpawnEnemy", kind, new Vector2(kind - 6, 2));
                 Invoke(game, "UpdateEnemies", .01f);
                 Assert.AreEqual(3, game.LivingEnemies, "All new creatures instantiate and simulate");
+                yield return null;
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally { UnityEngine.Object.Destroy(root); }
+        }
+
+        [UnityTest]
+        public IEnumerator LargerArenaBoundsDoorsAndArrivalsShareTheSameGeometry()
+        {
+            var root = new GameObject("Haunt expanded arena test");
+            try
+            {
+                var game = root.AddComponent<HauntGame>();
+                game.BeginRun(42);
+                Vector2 corner = (Vector2)Invoke(game, "Move", Vector2.zero, new Vector2(100, 100), .27f);
+                Assert.AreEqual(14.5f - .27f, corner.x, .001f);
+                Assert.AreEqual(8.5f - .27f, corner.y, .001f);
+                Vector2 opposite = (Vector2)Invoke(game, "Move", Vector2.zero, new Vector2(-100, -100), .27f);
+                Assert.AreEqual(-corner.x, opposite.x, .001f);
+                Assert.AreEqual(-corner.y, opposite.y, .001f);
+                var doors = (IList)typeof(HauntGame).GetField("doors", PrivateInstance).GetValue(game);
+                Assert.AreEqual(game.CurrentRoom.Neighbors.Count, doors.Count);
+                var entrance = game.CurrentRoom;
+                for (int i = 0; i < doors.Count; i++)
+                {
+                    var target = game.Floor.GetRoom(entrance.Neighbors[i]);
+                    Vector2 direction = new Vector2(target.Position.X - entrance.Position.X, target.Position.Y - entrance.Position.Y);
+                    Vector2 position = ((SpriteRenderer)doors[i]).transform.position;
+                    Assert.AreEqual(direction.x * (14.5f - .05f), position.x, .04f);
+                    Assert.AreEqual(direction.y * (8.5f - .05f), position.y, .04f);
+                }
+                var next = game.Floor.GetRoom(entrance.Neighbors[0]);
+                Vector2 exitDirection = new Vector2(next.Position.X - entrance.Position.X, next.Position.Y - entrance.Position.Y);
+                Set(game, "playerPosition", new Vector2(exitDirection.x * 14.1f, exitDirection.y * 8.1f));
+                Invoke(game, "CheckDoors");
+                Assert.AreSame(next, game.CurrentRoom, "The enlarged doorway must still transition rooms");
+                Vector2 arrival = game.PlayerPosition;
+                Assert.AreEqual(-exitDirection.x * (14.5f - 1.4f), arrival.x, .001f);
+                Assert.AreEqual(-exitDirection.y * (8.5f - 1.4f), arrival.y, .001f);
+                Assert.IsFalse((bool)Invoke(game, "Blocked", arrival, .27f), "Arrival must not intersect themed cover");
+                yield return null;
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally { UnityEngine.Object.Destroy(root); }
+        }
+
+        [UnityTest]
+        public IEnumerator RedesignedGuardiansUseDistinctSpritesAndAlternateAttacks()
+        {
+            var root = new GameObject("Haunt guardian identity test");
+            try
+            {
+                var game = root.AddComponent<HauntGame>();
+                string[] ids = { "boss", "widow", "bishop", "matriarch", "bell" };
+                for (int floor = 1; floor <= 5; floor++)
+                {
+                    game.BeginRun(42);
+                    game.State.Floor = floor;
+                    Invoke(game, "EnterRoom", game.Floor.Boss, Vector2.zero);
+                    var enemies = (IList)typeof(HauntGame).GetField("enemies", PrivateInstance).GetValue(game);
+                    var boss = enemies[0];
+                    var type = boss.GetType();
+                    var sprite = (SpriteRenderer)type.GetField("Sprite").GetValue(boss);
+                    StringAssert.Contains("/ " + ids[floor - 1] + "/", sprite.sprite.name);
+                    type.GetField("Cooldown").SetValue(boss, 0f);
+                    Invoke(game, "UpdateBoss", boss, Vector2.down, 0f);
+                    int firstVolley = game.ActiveProjectiles;
+                    Assert.Greater(firstVolley, 0);
+                    type.GetField("Cooldown").SetValue(boss, 0f);
+                    Invoke(game, "UpdateBoss", boss, Vector2.down, 0f);
+                    Assert.AreEqual(2, type.GetField("Attack").GetValue(boss));
+                    if (floor > 1)
+                        Assert.AreNotEqual(firstVolley, game.ActiveProjectiles - firstVolley, "Guardian alternates different volleys: " + ids[floor - 1]);
+                    if (floor == 2)
+                        Assert.Greater((float)type.GetField("DashTime").GetValue(boss), 0, "The Widow's alternate attack starts a charge");
+                    if (floor >= 3)
+                    {
+                        var warnings = (IList)typeof(HauntGame).GetField("warnings", PrivateInstance).GetValue(game);
+                        Assert.Greater(warnings.Count, 0, "The alternate attack must mark the ground: " + ids[floor - 1]);
+                    }
+                }
+                yield return null;
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally { UnityEngine.Object.Destroy(root); }
+        }
+
+        [UnityTest]
+        public IEnumerator GroundAttacksTelegraphBeforeDamageAndCancelWhenCombatEnds()
+        {
+            var root = new GameObject("Haunt ground warning test");
+            try
+            {
+                var game = root.AddComponent<HauntGame>();
+                game.BeginRun(42);
+                var room = game.Floor.Rooms.First(r => r.Kind == RoomKind.Combat);
+                Invoke(game, "EnterRoom", room, Vector2.zero);
+                Invoke(game, "ClearCombat");
+                var warnings = (IList)typeof(HauntGame).GetField("warnings", PrivateInstance).GetValue(game);
+                int health = game.State.Health;
+                Invoke(game, "WarnGround", Vector2.zero, 1.1f);
+                Invoke(game, "UpdateWarnings", 1.09f);
+                Assert.AreEqual(health, game.State.Health, "A marked tile must give the player time to react");
+                Assert.AreEqual(1, warnings.Count);
+                Invoke(game, "UpdateWarnings", .02f);
+                Assert.AreEqual(health - 1, game.State.Health, "Standing in the expired telegraph causes damage");
+                Assert.AreEqual(0, warnings.Count);
+                Set(game, "invincible", 0f);
+                health = game.State.Health;
+                Invoke(game, "WarnGround", Vector2.zero, 1.1f);
+                Invoke(game, "CompleteRoom", false);
+                Invoke(game, "UpdateWarnings", .01f);
+                Assert.AreEqual(0, warnings.Count, "Purification cancels pending ground attacks");
+                Assert.AreEqual(health, game.State.Health);
+                Invoke(game, "WarnGround", Vector2.zero, 1.1f);
+                Invoke(game, "ClearCombat");
+                Assert.AreEqual(0, warnings.Count, "Leaving combat cannot retain an invisible hazard");
+                yield return null;
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally { UnityEngine.Object.Destroy(root); }
+        }
+
+        [UnityTest]
+        public IEnumerator ReaperAndAlchemistHaveDifferentAtomicPowerEffects()
+        {
+            var root = new GameObject("Haunt new character powers test");
+            try
+            {
+                var game = root.AddComponent<HauntGame>();
+                Set(game, "selectedCharacter", CharacterKind.Reaper);
+                game.BeginRun(42);
+                Invoke(game, "UsePower");
+                Assert.AreEqual(12, game.ActiveProjectiles, "The Reaper emits a radial volley");
+                Invoke(game, "HurtPlayer");
+                Assert.AreEqual(game.State.MaxHealth, game.State.Health, "The Reaper has brief protection");
+                Invoke(game, "UsePower");
+                Assert.AreEqual(12, game.ActiveProjectiles, "Cooldown blocks a duplicate radial volley");
+                Set(game, "selectedCharacter", CharacterKind.Alchemist);
+                game.BeginRun(42);
+                Invoke(game, "UsePower");
+                Assert.AreEqual(0, game.State.PowerCooldown, "Full health does not spend the elixir");
+                game.State.Hurt(3);
+                int wounded = game.State.Health;
+                Invoke(game, "UsePower");
+                Assert.AreEqual(wounded + 2, game.State.Health, "Runtime applies exactly one core heal");
+                Assert.AreEqual(18, game.State.PowerCooldown);
+                Invoke(game, "UsePower");
+                Assert.AreEqual(wounded + 2, game.State.Health, "Repeated input cannot heal through cooldown");
+                Assert.AreEqual(0, game.ActiveProjectiles, "The healing power must not spawn an attack");
                 yield return null;
                 LogAssert.NoUnexpectedReceived();
             }

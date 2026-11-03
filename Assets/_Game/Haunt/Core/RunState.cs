@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace Ecos.Haunt
 {
     public enum ShopItem { Heal, Damage, FireRate, MaxHealth, Scattergun, Repeater, SoulCannon }
-    public enum CharacterKind { Hunter, Medium }
+    public enum CharacterKind { Hunter, Medium, Reaper, Alchemist }
     public enum WeaponKind { Pistol, Scattergun, Repeater, SoulCannon }
 
     /// <summary>Run-only progression: purchases survive floors, never a new run.</summary>
@@ -16,8 +16,11 @@ namespace Ecos.Haunt
         public CharacterKind Character { get; }
         public WeaponKind Weapon { get; private set; }
         public float PowerCooldown { get; private set; }
-        public float PowerDuration => Character == CharacterKind.Hunter ? 9f : 7f;
-        public string PowerName => Character == CharacterKind.Hunter ? "PULSO DA AURORA" : "LAMENTO ESPECTRAL";
+        public float PowerDuration => Character == CharacterKind.Hunter ? 9f
+            : Character == CharacterKind.Medium ? 7f : Character == CharacterKind.Reaper ? 8f : 18f;
+        public string PowerName => Character == CharacterKind.Hunter ? "PULSO DA AURORA"
+            : Character == CharacterKind.Medium ? "LAMENTO ESPECTRAL"
+            : Character == CharacterKind.Reaper ? "COLHEITA LUNAR" : "ELIXIR VITAL";
         readonly HashSet<WeaponKind> weapons = new HashSet<WeaponKind> { WeaponKind.Pistol };
         public bool Owns(WeaponKind weapon) => weapons.Contains(weapon);
         public bool Equip(WeaponKind weapon)
@@ -32,6 +35,13 @@ namespace Ecos.Haunt
         public bool TryUsePower()
         {
             if (IsDead || PowerCooldown > 0) return false;
+            // A rejected heal does not spend the power; the accepted heal and cooldown
+            // are committed together so repeated input cannot grant free health.
+            if (Character == CharacterKind.Alchemist)
+            {
+                if (Health >= MaxHealth) return false;
+                Health = Math.Min(MaxHealth, Health + 2);
+            }
             PowerCooldown = PowerDuration;
             return true;
         }

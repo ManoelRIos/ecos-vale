@@ -2,7 +2,7 @@
 
 Roguelike 2D em pixel art para **Unity 6.0 LTS 6000.0.85f1**. Explore uma cripta de Halloween, enfrente criaturas e projéteis, derrote o guardião do andar e visite o Mercado das Almas antes de continuar.
 
-O projeto contém somente este jogo: cena `Haunt.unity`, combate, geração de salas, loja, interface e ferramentas de desenvolvimento. Os sprites são originais, gerados por código e exibidos com filtro de ponto.
+O projeto contém somente este jogo: cena `Haunt.unity`, combate, geração de salas, loja, interface e ferramentas de desenvolvimento. Os sprites são originais, gerados por código e exibidos com filtro de ponto. A prévia abaixo foi regenerada a partir das rotinas de desenho C# desta revisão; ela não é uma captura do Unity.
 
 [**Projeto no GitHub**](https://github.com/ManoelRIos/ecos-vale/tree/codex/ecos-do-vale-vertical-slice)
 
@@ -33,22 +33,25 @@ O shader segue o contrato de cor e espelhamento do SpriteRenderer do URP 17/Unit
 
 ## Personagens e arsenal
 
-Escolha uma das duas almas no menu antes de iniciar:
+Escolha uma das quatro almas no menu antes de iniciar:
 
 - **Caçador da Aurora**: `Q` dissipa projéteis hostis num raio de 5 unidades e concede 0,65 s de proteção. Recarga: 9 s.
 - **Médium do Véu**: `Q` dispara nove projéteis em leque com três vezes o dano base. Recarga: 7 s.
+- **Ceifador Errante**: `Q` lança doze tiros radiais com dano duplo e concede 0,4 s de proteção. Recarga: 8 s.
+- **Alquimista de Cinzas**: `Q` recupera até 2 pontos de vida. Recarga: 18 s; vida cheia não consome o poder.
 
 O mercado vende **bacamarte** (55 almas + escala do andar, cinco projéteis, intervalo ×2,8), **repetidora** (65 + escala, intervalo ×0,55) e **canhão das almas** (80 + escala, dano ×5 e intervalo ×3,5). As armas são permanentes durante a incursão, equipadas na compra e selecionadas por `1–4` ou pelo botão de uma arma já adquirida. Uma nova incursão começa apenas com o revólver.
 
-Os cinco temas são Jardins da Colheita, Galeria dos Véus, Catedral das Cinzas, Ninho da Peste e Abismo dos Sinos. Paleta, decoração, disposição de cobertura e criaturas variam; a corrupção visual aumenta com a profundidade sem apagar os projéteis. O minimapa maior destaca a posição atual; o atlas mostra símbolos para entrada, chefe e salas purificadas. Há partículas ambientes e até 240 efeitos reutilizáveis; os brilhos são sprites, não luzes dinâmicas URP.
+Os cinco temas são Jardins da Colheita, Galeria dos Véus, Catedral das Cinzas, Ninho da Peste e Abismo dos Sinos. Cada um tem pisos, paredes, cobertura e decoração próprios: raízes e madeira, mármore e teias, altares e cinzas, ovos e quitina, obsidiana e sinos; a corrupção visual aumenta com a profundidade sem apagar os projéteis. O mapa usa miniaturas ilustradas com a mesma identidade do andar, corredores e retratos dos guardiões. Cantos verdes identificam a sala atual. Há partículas ambientes, rastros nos disparos, clarões e estilhaços nos impactos e até 320 efeitos reutilizáveis; os brilhos são sprites, não luzes dinâmicas URP.
 
 ## Combate e progressão
 
+- Arenas de **29 × 17 unidades**, cerca de 2,1 vezes a área anterior, com câmera, portas, cobertura e chegadas ajustadas. A ampliação cria mais espaço para manobra; o jogo ainda é solo.
 - Andares com 7–11 salas conectadas por portas, determinadas pela semente. A entrada é segura; as saídas de uma sala de combate ficam seladas até todos os inimigos morrerem.
 - Movimento em oito direções, mira pelo mouse, disparos e esquiva com invulnerabilidade temporária.
 - Sete criaturas: abóbora perseguidora, fantasma atirador, cultista com rajadas, morcego de bote, larva da peste em zigue-zague, sentinela óssea com disparos em cruz e acólito do sino com tiros duplos. A composição favorece criaturas ligadas ao guardião do andar.
-- Um chefe por andar: Rei das Abóboras, Viúva do Véu, Bispo das Cinzas, Matriarca da Peste e Sino do Abismo. A Matriarca alterna velocidades numa espiral com leque; o Sino emite pulsos com rotas de fuga. O ciclo de cinco temas se repete, mantendo o aumento de dificuldade.
-- Após vencer o chefe, um portal leva ao Mercado das Almas. Compre até 3 pontos de cura, +1 de dano, intervalo entre tiros 15% menor ou +2 de vida máxima. Cada item pode ser comprado uma vez por visita; uma compra recusada não consome moedas.
+- Um chefe por andar: Rei das Abóboras, Viúva do Véu, Bispo das Cinzas, Matriarca da Peste e Sino do Abismo. Viúva, Bispo, Matriarca e Sino têm sprites próprios de 56 × 56 pixels, poses de conjuração e dois padrões alternados: a Viúva carrega e lança teias, o Bispo consagra o chão, a Matriarca combina espirais com erupções e o Sino alterna pulsos e faixas. Os ataques de chão são marcados por 1,1 s antes de causar dano; a purificação cancela marcas pendentes. O ciclo de cinco temas se repete, mantendo o aumento de dificuldade.
+- Após vencer o chefe, um portal leva ao Mercado das Almas. A tela da loja substitui o HUD de combate, com abas **Melhorias** e **Armas**, até quatro cartões por vez e botão **Descer ao próximo andar**. Não há compras invisíveis por proximidade nem movimento por trás do painel. Compre até 3 pontos de cura, +1 de dano, intervalo entre tiros 15% menor ou +2 de vida máxima. Cada item pode ser comprado uma vez por visita; uma compra recusada não consome moedas.
 - O próximo andar preserva vida, moedas, armas, personagem e melhorias. Morrer encerra a incursão e permite repetir a semente ou gerar outra.
 - HUD de vida, moedas, andar e chefe; mapa das salas, pausa e reinício.
 
@@ -59,8 +62,8 @@ Os cinco temas são Jardins da Colheita, Galeria dos Véus, Catedral das Cinzas,
 | Botão esquerdo | Atirar |
 | Espaço / botão direito | Esquivar |
 | Caminhar até uma saída aberta | Trocar de sala |
-| E | Usar portal / sair da loja |
-| Botões da loja | Comprar de qualquer ponto do mercado |
+| E | Usar portal após vencer o chefe |
+| Botões da loja | Comprar/equipar nas abas e descer ao próximo andar |
 | Q | Usar poder do personagem |
 | 1 / 2 / 3 / 4 | Revólver / bacamarte / repetidora / canhão, quando adquiridos |
 | M | Alternar mapa |

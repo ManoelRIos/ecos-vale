@@ -4,7 +4,7 @@ O Editor Unity não está disponível neste ambiente. A limpeza do projeto deve 
 
 ## Checks sem Unity
 
-Nesta revisão passaram 24 testes Python, a análise de sintaxe de 12 arquivos C# e 99.978 asserções do núcleo C#, incluindo 1.624 andares gerados. A compilação Unity e os testes do Editor permanecem pendentes.
+Nesta revisão passaram 24 testes Python, a análise de sintaxe de 12 arquivos C# e 100.030 asserções do núcleo C#, incluindo 1.624 andares gerados. A compilação Unity e os testes do Editor permanecem pendentes.
 
 Execute na raiz do projeto:
 
@@ -51,9 +51,20 @@ No Editor, abra **Ecos → Abrir roguelike**, pressione Play e confira:
 8. Legibilidade e mira em janelas de tamanhos diferentes, incluindo 860 × 500.
 9. Sprite do jogador e de cada inimigo visíveis nas duas direções; cores preservadas após dano e esquiva.
 10. Ciclos de quatro quadros de movimento, asas e velas; portas aberta/selada/guardião; rastro, recuo e partículas.
-11. Selecionar as duas almas, conferir sprite e usar Q: pulso remove balas próximas e bloqueia dano brevemente; lamento produz nove tiros. Repetir Q durante recarga não dispara novamente; pausa congela recarga.
-12. Comprar cada arma, conferir cobrança única, alternar com 1–4, atravessar andares e reiniciar. Conferir leque de cinco tiros, repetidora rápida e dano alto do canhão.
-13. Chegar aos andares 4 e 5, conferir Matriarca/Sino, seus padrões e novas criaturas. Conferir minimapa e partículas em cada tema.
-14. Ausência de tiros ao clicar no HUD ou no minimapa, pausa com cursor visível e restauração após reinício.
+11. Selecionar as quatro almas, conferir sprite e usar Q: pulso remove balas próximas e bloqueia dano brevemente; lamento produz nove tiros. Repetir Q durante recarga não dispara novamente; pausa congela recarga.
+12. Conferir Ceifador (12 tiros radiais/proteção) e Alquimista (cura 2; vida cheia não gasta recarga).
+13. Comprar cada arma, conferir cobrança única, alternar com 1–4, atravessar andares e reiniciar. Conferir leque de cinco tiros, repetidora rápida e dano alto do canhão.
+14. Chegar aos andares 4 e 5, conferir Matriarca/Sino, seus padrões e novas criaturas. Conferir minimapa e partículas em cada tema.
+15. Ausência de tiros ao clicar no HUD ou no minimapa, pausa com cursor visível e restauração após reinício.
 
 A compilação completa, o Play Mode, o render e o executável desta limpeza permanecem pendentes até esses checks serem executados no Editor.
+
+## Roteiro adicional: arenas, chefes e loja
+
+- Em cada um dos cinco temas, conferir piso, parede, decoração e miniatura própria do mapa; testar saídas nos quatro lados da arena ampliada e a chegada livre de obstáculos.
+- Conferir poses de conjuração, aura e os dois padrões de cada chefe; sair de um aviso de chão antes de 1,1 s, ficar em outro para verificar dano, e purificar/sair com uma marca pendente para verificar cancelamento.
+- Conferir rastros e impactos em inimigo, parede e cobertura com as quatro armas, sem encobrir a leitura das balas hostis.
+- Na loja, trocar abas, comprar, recusar compra sem saldo, equipar arma adquirida, pausar/retomar e descer pelo botão. Teclas de movimento e E não devem comprar nem mover o jogador atrás do painel; M não deve abrir um mapa oculto.
+- Conferir a câmera, HUD, atlas e cards em 1280×720 e 860×500. Não há coop nesta revisão.
+
+Os testes Unity foram ampliados para geometria, portas/chegadas, identidades dos chefes, alternância de ataques, avisos de chão e poderes novos; permanecem não executados. A prévia PNG apenas mostra os pixels do desenho procedural, sem renderização Unity.

@@ -19,11 +19,12 @@ namespace Ecos.Haunt
         public int ActiveProjectiles => shots.Count;
         public Vector2 PlayerPosition => playerPosition;
 
-        const float HalfWidth = 10.5f, HalfHeight = 5.5f, PlayerRadius = .27f;
+        const float HalfWidth = 14.5f, HalfHeight = 8.5f, PlayerRadius = .27f;
         const int MaxShots = 420;
         const float RollTime = .24f, RollCooldown = .85f;
         static readonly string[] BossNames = { "O REI DAS ABÓBORAS", "A VIÚVA DO VÉU", "O BISPO DAS CINZAS", "A MATRIARCA DA PESTE", "O SINO DO ABISMO" };
         readonly List<Enemy> enemies = new List<Enemy>();
+        readonly List<GroundWarning> warnings = new List<GroundWarning>();
         readonly List<Shot> shots = new List<Shot>();
         readonly List<Rect> obstacles = new List<Rect>();
         readonly List<SpriteRenderer> doors = new List<SpriteRenderer>();
@@ -43,23 +44,32 @@ namespace Ecos.Haunt
         int roomsCleared, enemiesDefeated;
         CharacterKind selectedCharacter;
         int BossVariant => (State.Floor - 1) % BossNames.Length;
-        string EnemySprite(int kind) => kind == 4 ? (BossVariant == 3 ? "matriarch" : BossVariant == 4 ? "bell" : "boss") : EnemyArt[kind];
+        string EnemySprite(int kind) => kind == 4 ? (BossVariant == 1 ? "widow" : BossVariant == 2 ? "bishop" : BossVariant == 3 ? "matriarch" : BossVariant == 4 ? "bell" : "boss") : EnemyArt[kind];
         System.Random roomRandom;
 
         sealed class Enemy
         {
-            public SpriteRenderer Sprite, Shadow, Ring, Telegraph;
+            public SpriteRenderer Sprite, Shadow, Ring, Telegraph, Aura;
             public Vector2 Position, Dash;
-            public int Kind, Health, MaxHealth;
+            public int Kind, Health, MaxHealth, Attack;
             public float Cooldown, Phase, Tell, HurtFlash, DashTime;
         }
         sealed class Shot
         {
             public SpriteRenderer Sprite;
             public Vector2 Position, Velocity;
-            public float Life, Radius;
+            public float Life, Radius, TrailTimer;
+            public Color Color;
+            public bool Heavy;
             public int Damage;
             public bool Friendly;
+        }
+        sealed class GroundWarning
+        {
+            public SpriteRenderer Sprite;
+            public Vector2 Position;
+            public float Remaining, Radius;
+            public Color Color;
         }
         sealed class Spark
         {
@@ -81,7 +91,7 @@ namespace Ecos.Haunt
             view = cameraObject.AddComponent<Camera>();
             view.tag = "MainCamera";
             view.orthographic = true;
-            view.orthographicSize = 7.9f;
+            view.orthographicSize = 10.4f;
             view.nearClipPlane = .1f;
             view.farClipPlane = 50;
             view.transform.position = new Vector3(0, .3f, -20);
@@ -175,7 +185,7 @@ namespace Ecos.Haunt
                 showMap = false;
             }
             if (Paused) { Cursor.visible = true; return; }
-            if (keyboard != null && keyboard.mKey.wasPressedThisFrame) showMap = !showMap;
+            if (!InShop && keyboard != null && keyboard.mKey.wasPressedThisFrame) showMap = !showMap;
             // Clamp large frame gaps so a stalled frame cannot jump across an entire room.
             float dt = Mathf.Min(Time.deltaTime, .05f);
             simulationTime += dt;
@@ -198,6 +208,7 @@ namespace Ecos.Haunt
             }
             UpdatePlayer(keyboard, dt);
             if (!InShop) UpdateEnemies(dt);
+            UpdateWarnings(dt);
             UpdateShots(dt);
             UpdateSparks(dt);
             UpdateVisualMotion(dt);
@@ -214,6 +225,7 @@ namespace Ecos.Haunt
 
         void UpdatePlayer(Keyboard keyboard, float dt)
         {
+            if (InShop) { playerMoving = false; return; }
             Vector2 input = Vector2.zero;
             if (keyboard != null)
             {
@@ -259,25 +271,33 @@ namespace Ecos.Haunt
 
         void UsePower()
         {
-            if (State.Character == CharacterKind.Medium && shots.Count > MaxShots - 9)
+            int needed = State.Character == CharacterKind.Medium ? 9 : State.Character == CharacterKind.Reaper ? 12 : 0;
+            if (shots.Count > MaxShots - needed && needed > 0)
             {
-                Notify("Aguarde espaço para a rajada espectral.");
+                Notify("Aguarde espaço para a rajada.");
                 return;
             }
-            if (!State.TryUsePower()) return;
-            bool hunter = State.Character == CharacterKind.Hunter;
-            // Invalidate shots without modifying collections during their update.
-            if (hunter)
+            if (!State.TryUsePower())
+            {
+                if (State.Character == CharacterKind.Alchemist && State.Health == State.MaxHealth) Notify("Sua vida já está completa.");
+                return;
+            }
+            if (State.Character == CharacterKind.Hunter)
             {
                 foreach (var shot in shots)
                     if (!shot.Friendly && Vector2.Distance(shot.Position, playerPosition) <= 5) shot.Life = 0;
                 invincible = Mathf.Max(invincible, .65f);
             }
-            else
-                for (int i = -4; i <= 4; i++)
-                    Fire(playerPosition + AimDirection() * .48f, Rotate(AimDirection(), i * 9) * 13, true, State.Damage * 3);
-            Color color = hunter ? PlayerAccent : new Color(.8f, .5f, 1);
-            RingEffect(playerPosition, color, hunter ? 5 : 2);
+            else if (State.Character == CharacterKind.Medium)
+                for (int i = -4; i <= 4; i++) Fire(playerPosition + AimDirection() * .48f, Rotate(AimDirection(), i * 9) * 13, true, State.Damage * 3);
+            else if (State.Character == CharacterKind.Reaper)
+            {
+                for (int i = 0; i < 12; i++) Fire(playerPosition, Rotate(Vector2.right, i * 30) * 12, true, State.Damage * 2);
+                invincible = Mathf.Max(invincible, .4f);
+            }
+            // Alchemist healing is applied atomically by RunState.TryUsePower.
+            Color color = CharacterAccent;
+            RingEffect(playerPosition, color, State.Character == CharacterKind.Hunter ? 5 : 2);
             Burst(playerPosition + Vector2.up * .4f, color, 28);
             Notify(State.PowerName);
         }
@@ -348,14 +368,14 @@ namespace Ecos.Haunt
             {
                 if (room.Kind == RoomKind.Boss)
                 {
-                    SpawnEnemy(4, new Vector2(0, 2.4f));
+                    SpawnEnemy(4, new Vector2(0, 3.8f));
                     Notify(BossNames[BossVariant] + " • desvie dos padrões e use as colunas.");
                 }
                 else
                 {
                     // Spawn away from every doorway and from the arrival point.
-                    var points = new List<Vector2> { new Vector2(-6, 2.7f), new Vector2(6, 2.7f),
-                        new Vector2(-6, -2.7f), new Vector2(6, -2.7f), new Vector2(0, 3.5f), new Vector2(0, -3.5f), new Vector2(-7, 0), new Vector2(7, 0) };
+                    var points = new List<Vector2> { new Vector2(-10, 5.5f), new Vector2(10, 5.5f),
+                        new Vector2(-10, -5.5f), new Vector2(10, -5.5f), new Vector2(-3, 6), new Vector2(3, -6), new Vector2(-10, 0), new Vector2(10, 0) };
                     int count = Mathf.Min(8, 3 + State.Floor / 2 + room.Id % 2);
                     while (points.Count > 0 && enemies.Count < count)
                     {
@@ -388,6 +408,9 @@ namespace Ecos.Haunt
             RingEffect(position, HostileAccent, kind == 4 ? 2 : .8f);
             if (kind == 4)
             {
+                enemy.Aura = MakeSprite("glow", position, actorsRoot.transform, -150);
+                enemy.Aura.transform.localScale = Vector3.one * 4;
+                enemy.Aura.color = new Color(FloorColors[BossVariant].r, FloorColors[BossVariant].g, FloorColors[BossVariant].b, .16f);
                 enemy.Sprite.transform.localScale = Vector3.one * 1.15f;
                 if (BossVariant == 1) enemy.Sprite.color = new Color(.65f, 1, .9f);
                 if (BossVariant == 2) enemy.Sprite.color = new Color(1, .6f, .9f);
@@ -485,48 +508,103 @@ namespace Ecos.Haunt
         {
             int variant = BossVariant;
             bool enraged = boss.Health <= boss.MaxHealth / 2;
-            boss.Position = Move(boss.Position, new Vector2(Mathf.Sin(boss.Phase * .7f), Mathf.Cos(boss.Phase)) * (dt * .7f), .8f);
+            if (boss.DashTime > 0)
+            {
+                boss.Position = Move(boss.Position, boss.Dash * (dt * 6.5f), .8f);
+                boss.DashTime -= dt;
+            }
+            else boss.Position = Move(boss.Position, new Vector2(Mathf.Sin(boss.Phase * .7f), Mathf.Cos(boss.Phase)) * (dt * .7f), .8f);
             if (boss.Cooldown > 0) return;
+            bool alternate = boss.Attack++ % 2 == 1;
             int count = enraged ? 20 : 14;
             float offset = boss.Phase * 21;
-            if (variant == 0) // Pumpkin King: rotating rings with space between bullets.
+            if (variant == 0) // Keep the Pumpkin King's readable signature.
             {
                 for (int i = 0; i < count; i++) Fire(boss.Position, Rotate(Vector2.right, offset + 360f * i / count) * 3.5f, false, 1);
                 for (int i = -1; i <= 1; i++) Fire(boss.Position, Rotate(direction, 12 * i) * 5, false, 1);
             }
-            else if (variant == 1) // Widow: wide fans, alternating aim.
+            else if (variant == 1)
             {
-                for (int i = -3; i <= 3; i++)
+                if (alternate) // Veil charge followed by crossed silk fans.
                 {
-                    Fire(boss.Position, Rotate(direction, i * 15 + Mathf.Sin(boss.Phase) * 20) * 4.3f, false, 1);
-                    if (enraged) Fire(boss.Position, Rotate(-direction, i * 15) * 3.3f, false, 1);
+                    boss.Dash = direction; boss.DashTime = .6f;
+                    for (int i = -3; i <= 3; i++)
+                    {
+                        Fire(boss.Position, Rotate(direction, i * 16 + 35) * 4.3f, false, 1);
+                        Fire(boss.Position, Rotate(direction, i * 16 - 35) * 3.3f, false, 1);
+                    }
                 }
+                else for (int arm = 0; arm < 6; arm++)
+                    for (int bead = 0; bead < 3; bead++) Fire(boss.Position, Rotate(Vector2.right, arm * 60 + offset) * (2.8f + bead), false, 1);
             }
-            else if (variant == 2) // Bishop: rotating cross and aimed burst.
+            else if (variant == 2)
             {
                 for (int i = 0; i < 4; i++)
-                    for (int j = -1; j <= 1; j++)
-                        Fire(boss.Position, Rotate(Vector2.right, offset + i * 90 + j * 9) * (enraged ? 4.5f : 3.5f), false, 1);
-                Fire(boss.Position, direction * 6, false, 1);
+                    for (int j = -1; j <= 1; j++) Fire(boss.Position, Rotate(Vector2.right, offset + i * 90 + j * 9) * (enraged ? 4.5f : 3.5f), false, 1);
+                if (alternate) // Consecration: marked ground erupts after a full second.
+                    for (int i = -1; i <= 1; i++) WarnGround(playerPosition + Vector2.right * (i * 2.7f), 1.05f);
+                else Fire(boss.Position, direction * 6, false, 1);
             }
-            else if (variant == 3) // Matriarch: two interleaved spirals and a venom fan.
+            else if (variant == 3)
             {
-                for (int i = 0; i < 10; i++)
-                    Fire(boss.Position, Rotate(Vector2.right, i * 36 + offset) * (i % 2 == 0 ? 3 : 5), false, 1);
-                for (int i = -2; i <= 2; i++) Fire(boss.Position, Rotate(direction, i * 20) * 4.5f, false, 1);
-            }
-            else // Abyssal bell: concentric pulses with a rotating escape sector.
-            {
-                for (int i = 0; i < 18; i++)
+                if (alternate)
                 {
-                    if (i % 6 == Mathf.FloorToInt(boss.Phase) % 6) continue;
+                    for (int i = -2; i <= 2; i++) Fire(boss.Position, Rotate(direction, i * 18) * 5, false, 1);
+                    WarnGround(playerPosition, 1.4f);
+                    WarnGround(playerPosition + new Vector2(3, 2), 1.15f);
+                    WarnGround(playerPosition - new Vector2(3, 2), 1.15f);
+                }
+                else for (int i = 0; i < 14; i++) Fire(boss.Position, Rotate(Vector2.right, i * 360f / 14 + offset) * (i % 2 == 0 ? 3 : 5), false, 1);
+            }
+            else
+            {
+                if (alternate) // Tolling lanes: parallel volleys with room to pass.
+                {
+                    for (int i = -4; i <= 4; i++)
+                        if (i != 0) Fire(new Vector2(boss.Position.x + i * 1.2f, boss.Position.y), Vector2.down * 4.5f, false, 1);
+                    WarnGround(playerPosition, 1.25f);
+                }
+                else for (int i = 0; i < 18; i++)
+                {
+                    if (i % 6 == boss.Attack % 6) continue;
                     Vector2 ray = Rotate(Vector2.right, i * 20 + offset);
                     Fire(boss.Position, ray * 3, false, 1);
                     if (enraged) Fire(boss.Position, ray * 4.6f, false, 1);
                 }
             }
-            Burst(boss.Position, new Color(1, .35f, .2f), 12);
-            boss.Cooldown = enraged ? 1.1f : 1.65f;
+            RingEffect(boss.Position, FloorColors[variant], 2.1f);
+            Burst(boss.Position + Vector2.up * .6f, FloorColors[variant], 16);
+            boss.Cooldown = enraged ? 1.35f : 1.9f;
+        }
+
+        void WarnGround(Vector2 position, float radius)
+        {
+            if (warnings.Count >= 16) return;
+            position.x = Mathf.Clamp(position.x, -HalfWidth + radius, HalfWidth - radius);
+            position.y = Mathf.Clamp(position.y, -HalfHeight + radius, HalfHeight - radius);
+            var marker = MakeSprite("enemy-ring", position, actorsRoot.transform, 40);
+            marker.transform.localScale = new Vector3(radius, radius * 2, 1);
+            var color = new Color(1, .43f, .25f, .9f);
+            marker.color = color;
+            warnings.Add(new GroundWarning { Sprite = marker, Position = position, Remaining = 1.1f, Radius = radius, Color = color });
+        }
+
+        void UpdateWarnings(float dt)
+        {
+            for (int i = warnings.Count - 1; i >= 0; i--)
+            {
+                var warning = warnings[i];
+                warning.Remaining -= dt;
+                warning.Sprite.color = new Color(1, .4f + .2f * Mathf.Sin(warning.Remaining * 25), .15f, .85f);
+                if (warning.Remaining > 0 && !CurrentRoom.Cleared) continue;
+                if (!CurrentRoom.Cleared)
+                {
+                    Impact(warning.Position + Vector2.up * .2f, Vector2.up, warning.Color, true);
+                    if (Vector2.Distance(playerPosition, warning.Position) < warning.Radius + PlayerRadius) HurtPlayer();
+                }
+                Destroy(warning.Sprite.gameObject);
+                warnings.RemoveAt(i);
+            }
         }
 
         static Vector2 Rotate(Vector2 vector, float degrees)
@@ -542,13 +620,14 @@ namespace Ecos.Haunt
             SpriteRenderer sprite = shotPool.Count > 0 ? shotPool.Pop() : MakeSprite("bullet-player", origin, actorsRoot.transform, 1250);
             sprite.gameObject.SetActive(true);
             sprite.sprite = art.Get(friendly ? "bullet-player" : "bullet-enemy");
-            sprite.color = friendly ? (State.Character == CharacterKind.Medium ? new Color(.85f, .6f, 1) : Color.white) : Color.white;
+            sprite.color = friendly ? CharacterAccent : Color.Lerp(HostileAccent, FloorColors[BossVariant], .22f);
             if (friendly && State.Weapon == WeaponKind.SoulCannon) sprite.color = new Color(.6f, 1, .85f);
             sprite.transform.localScale = Vector3.one * (friendly && State.Weapon == WeaponKind.SoulCannon ? 1.7f : 1);
             sprite.transform.position = Snap(origin + Vector2.up * .38f);
             sprite.transform.rotation = Quaternion.Euler(0, 0, Mathf.Atan2(velocity.y, velocity.x) * Mathf.Rad2Deg);
             shots.Add(new Shot { Sprite = sprite, Position = origin, Velocity = velocity,
-                Friendly = friendly, Damage = damage, Life = 4, Radius = friendly ? .10f : .14f });
+                Friendly = friendly, Damage = damage, Life = 6, Radius = friendly ? .10f : .14f,
+                Color = sprite.color, Heavy = friendly && State.Weapon == WeaponKind.SoulCannon, TrailTimer = friendly ? 0 : .02f * (shots.Count % 4) });
             if (!friendly) Emit("muzzle", origin + Vector2.up * .35f, Vector2.zero, HostileAccent, .12f, .5f, 0);
         }
 
@@ -564,6 +643,13 @@ namespace Ecos.Haunt
                 {
                     RecycleShot(i);
                     continue;
+                }
+                shot.TrailTimer -= dt;
+                if (shot.TrailTimer <= 0)
+                {
+                    Emit(shot.Heavy ? "glow" : "spark", old + Vector2.up * .38f, -shot.Velocity.normalized * .35f,
+                        new Color(shot.Color.r, shot.Color.g, shot.Color.b, .5f), shot.Heavy ? .25f : .13f, shot.Heavy ? .65f : .17f, 0);
+                    shot.TrailTimer = shot.Friendly ? .045f : .16f;
                 }
                 // Compare contact fractions, rather than letting collection order decide
                 // which target (or cover behind it) receives the shot.
@@ -594,7 +680,7 @@ namespace Ecos.Haunt
                         var enemy = enemies[targetIndex];
                         enemy.Health -= shot.Damage;
                         enemy.HurtFlash = .09f;
-                        Burst(enemy.Position + Vector2.up * .38f, new Color(1, .48f, .18f), 3);
+                        Impact(enemy.Position + Vector2.up * .38f, -shot.Velocity.normalized, shot.Color, shot.Heavy);
                         if (enemy.Health <= 0)
                         {
                             bool boss = enemy.Kind == 4;
@@ -614,7 +700,7 @@ namespace Ecos.Haunt
                 }
                 if (nearest <= 1)
                 {
-                    if (targetIndex < 0) Burst(Vector2.Lerp(old, next, Mathf.Clamp01(nearest)) + Vector2.up * .38f, shot.Friendly ? PlayerAccent : HostileAccent, 2);
+                    if (targetIndex < 0) Impact(Vector2.Lerp(old, next, Mathf.Clamp01(nearest)) + Vector2.up * .38f, -shot.Velocity.normalized, shot.Color, shot.Heavy);
                     RecycleShot(i);
                 }
                 else
@@ -687,17 +773,19 @@ namespace Ecos.Haunt
                 OpenShop();
                 return;
             }
-            if (InShop && Vector2.Distance(playerPosition, new Vector2(8.4f, 0)) < 1.7f) LeaveShop();
+            if (InShop && Vector2.Distance(playerPosition, new Vector2(HalfWidth - 2, 0)) < 1.7f) LeaveShop();
         }
 
         void OpenShop()
         {
             ClearCombat();
             InShop = true;
+            showMap = false;
+            shopWeapons = false;
             playerPosition = new Vector2(0, -2.7f);
             RollEnd();
             BuildRoom(true);
-            Notify("Mercado das Almas • compre melhorias e armas pelos botões. Troque armas com 1–4. Portal à direita: E.");
+            Notify("Escolha uma categoria. Termine suas compras e clique em Descer ao próximo andar.");
         }
 
         void LeaveShop()
@@ -740,8 +828,11 @@ namespace Ecos.Haunt
 
         void ClearCombat()
         {
+            foreach (var warning in warnings) if (warning.Sprite) Destroy(warning.Sprite.gameObject);
+            warnings.Clear();
             foreach (var enemy in enemies)
             {
+                if (enemy.Aura) Destroy(enemy.Aura.gameObject);
                 if (enemy.Sprite) Destroy(enemy.Sprite.gameObject);
                 if (enemy.Shadow) Destroy(enemy.Shadow.gameObject);
                 if (enemy.Ring) Destroy(enemy.Ring.gameObject);
