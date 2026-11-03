@@ -23,7 +23,7 @@ namespace Ecos.Haunt
         const int MaxShots = 420;
         const float CameraSize = 6.3f;
         const float RollTime = .24f, RollCooldown = .85f;
-        static readonly string[] BossNames = { "O REI DAS ABÓBORAS", "A VIÚVA DO VÉU", "O BISPO DAS CINZAS", "A MATRIARCA DA PESTE", "O SINO DO ABISMO" };
+        static readonly string[] BossNames = { "O REI DAS ABÓBORAS", "A VIÚVA DO VÉU", "O BISPO DAS CINZAS", "A MATRIARCA DA PESTE", "O SINO DO ABISMO", "O CARRASCO DE FERRO", "O ORÁCULO DO BREJO" };
         readonly List<Enemy> enemies = new List<Enemy>();
         readonly List<GroundWarning> warnings = new List<GroundWarning>();
         readonly List<Shot> shots = new List<Shot>();
@@ -49,7 +49,10 @@ namespace Ecos.Haunt
         CharacterKind selectedCharacter;
         int BossVariant => Floor == null ? 0 : Floor.BossArchetype;
         int ThemeVariant => Floor == null ? 0 : Floor.ThemeIndex;
-        string EnemySprite(int kind) => kind == 4 ? (BossVariant == 1 ? "widow" : BossVariant == 2 ? "bishop" : BossVariant == 3 ? "matriarch" : BossVariant == 4 ? "bell" : "boss") : EnemyArt[kind];
+        Color BossAccent => BossVariant == 5 ? new Color(1, .53f, .28f)
+            : BossVariant == 6 ? new Color(.48f, 1, .65f) : FloorColors[BossVariant];
+        string EnemySprite(int kind) => kind == 4 ? (BossVariant == 1 ? "widow" : BossVariant == 2 ? "bishop" : BossVariant == 3 ? "matriarch" : BossVariant == 4 ? "bell" : BossVariant == 5 ? "iron-executioner" : BossVariant == 6 ? "bog-oracle" : "boss")
+            : kind == 12 ? "lantern-wisp" : kind == 13 ? "mushroom-brute" : kind == 14 ? "clockwork-imp" : EnemyArt[kind];
         System.Random roomRandom;
 
         sealed class Enemy
@@ -130,6 +133,7 @@ namespace Ecos.Haunt
             if (!string.IsNullOrEmpty(renderingFailure)) return;
             PauseAudio(false);
             ClearActors();
+            ResetRoomProps();
             State = new RunState(seed, selectedCharacter);
             Floor = DungeonFloor.Generate(seed, State.Floor);
             CurrentRoom = Floor.Entrance;
@@ -172,34 +176,36 @@ namespace Ecos.Haunt
 
         void Update()
         {
+            PollControlInput();
+            UpdateMusic(Time.unscaledDeltaTime);
             var keyboard = Keyboard.current;
             float realDelta = Time.unscaledDeltaTime;
             noticeTime = Mathf.Max(0, noticeTime - realDelta);
             if (!Playing)
             {
-                Cursor.visible = true;
+                Cursor.visible = !UsingController;
                 simulationTime += Mathf.Min(realDelta, .05f);
                 UpdateRoomAmbience(Mathf.Min(realDelta, .05f));
-                if (keyboard != null && keyboard.enterKey.wasPressedThisFrame) StartFromMenu();
+                if (!ControlsConsumed && keyboard != null && keyboard.enterKey.wasPressedThisFrame) StartFromMenu();
                 return;
             }
             if (State.IsDead)
             {
                 StopBeam();
-                Cursor.visible = true;
+                Cursor.visible = !UsingController;
                 flash = Mathf.Max(0, flash - realDelta);
                 UpdateSparks(Mathf.Min(realDelta, .05f));
                 return;
             }
-            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
+            if (PausePressed())
             {
                 if (shopMenuOpen) { CloseMerchant(); return; }
                 Paused = !Paused;
                 showMap = false;
             }
-            if (Paused) { PauseAudio(true); StopBeam(); Cursor.visible = true; return; }
+            if (Paused) { PauseAudio(true); StopBeam(); Cursor.visible = !UsingController; return; }
             PauseAudio(false);
-            if (!InShop && keyboard != null && keyboard.mKey.wasPressedThisFrame) showMap = !showMap;
+            if (!InShop && MapPressed()) showMap = !showMap;
             // Clamp large frame gaps so a stalled frame cannot jump across an entire room.
             float dt = Mathf.Min(Time.deltaTime, .05f);
             simulationTime += dt;
@@ -212,21 +218,13 @@ namespace Ecos.Haunt
             shotCooldown -= dt;
             muzzleTime -= dt;
             State.TickPower(dt);
-            if (keyboard != null)
-            {
-                if (keyboard.digit1Key.wasPressedThisFrame) State.Equip(State.StartingWeapon);
-                if (keyboard.digit2Key.wasPressedThisFrame) State.Equip(WeaponKind.Stapler);
-                if (keyboard.digit3Key.wasPressedThisFrame) State.Equip(WeaponKind.Banana);
-                if (keyboard.digit4Key.wasPressedThisFrame) State.Equip(WeaponKind.SpinningTop);
-                if (keyboard.digit5Key.wasPressedThisFrame) State.Equip(WeaponKind.MirrorDisc);
-                if (keyboard.digit6Key.wasPressedThisFrame) State.Equip(WeaponKind.RayLantern);
-                if (keyboard.digit7Key.wasPressedThisFrame) State.Equip(WeaponKind.BoneFlute);
-                if (!InShop && keyboard.qKey.wasPressedThisFrame) UsePower();
-            }
+            UpdateWeaponSelection(keyboard);
+            if (!InShop && PowerPressed()) UsePower();
             UpdatePlayer(keyboard, dt);
             if (!InShop) UpdateEnemies(dt);
             UpdateWarnings(dt);
             UpdateShots(dt);
+            UpdateRoomProps(dt);
             UpdateSparks(dt);
             UpdateVisualMotion(dt);
             if (State.IsDead)
@@ -240,26 +238,17 @@ namespace Ecos.Haunt
             UpdatePresentation();
             if (InShop && !shopMenuOpen && Mouse.current != null && Mouse.current.leftButton.wasReleasedThisFrame)
                 TryOpenMerchantAt(view.ScreenToWorldPoint(Mouse.current.position.ReadValue()));
-            if (keyboard != null && keyboard.eKey.wasPressedThisFrame) Interact();
+            if (InteractPressed()) Interact();
             if (!InShop && enemies.Count == 0 && doorGrace <= 0) CheckDoors();
         }
 
         void UpdatePlayer(Keyboard keyboard, float dt)
         {
             if (shopMenuOpen) { StopBeam(); playerMoving = false; return; }
-            Vector2 input = Vector2.zero;
-            if (keyboard != null)
-            {
-                input.x = (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed ? 1 : 0)
-                    - (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed ? 1 : 0);
-                input.y = (keyboard.wKey.isPressed || keyboard.upArrowKey.isPressed ? 1 : 0)
-                    - (keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed ? 1 : 0);
-            }
+            Vector2 input = MovementInput(keyboard);
             Vector2 previousPosition = playerPosition;
             if (input.sqrMagnitude > 0) lastMove = input.normalized;
-            var mouse = Mouse.current;
-            bool dodge = (keyboard != null && keyboard.spaceKey.wasPressedThisFrame)
-                || (mouse != null && mouse.rightButton.wasPressedThisFrame);
+            bool dodge = DodgePressed();
             if (dodge && rollReady <= 0 && rollRemaining <= 0)
             {
                 rollRemaining = RollTime;
@@ -274,11 +263,11 @@ namespace Ecos.Haunt
                 rollRemaining = Mathf.Max(0, rollRemaining - dt);
                 if (rollRemaining <= 0) RollEnd();
             }
-            else playerPosition = Move(playerPosition, Vector2.ClampMagnitude(input, 1) * (5.1f * dt), PlayerRadius);
+            else playerPosition = Move(playerPosition, input * (5.1f * State.MoveSpeedMultiplier * RoomMovementMultiplier(playerPosition) * dt), PlayerRadius);
             playerMoving = Vector2.Distance(previousPosition, playerPosition) > .001f;
             walkDistance += Vector2.Distance(previousPosition, playerPosition);
             ResolvePitFall();
-            UpdateWeaponTrigger(AimDirection(), !InShop && !PointerOverInterface() && mouse != null && mouse.leftButton.isPressed && rollRemaining <= 0 && !State.IsDead, dt);
+            UpdateWeaponTrigger(AimDirection(), !InShop && !PointerOverInterface() && FireHeld() && rollRemaining <= 0 && !State.IsDead, dt);
         }
 
         void UsePower()
@@ -294,6 +283,7 @@ namespace Ecos.Haunt
                 if (State.Character == CharacterKind.Alchemist && State.Health == State.MaxHealth) Notify("Sua vida já está completa.");
                 return;
             }
+            PlaySound(SoundCue.MagicShot, .75f);
             if (State.Character == CharacterKind.Hunter)
             {
                 foreach (var shot in shots)
@@ -317,9 +307,9 @@ namespace Ecos.Haunt
         Vector2 AimDirection()
         {
             var mouse = Mouse.current;
-            if (mouse == null) return lastMove;
+            if (mouse == null) return ControllerAimOr(lastMove);
             Vector2 delta = (Vector2)view.ScreenToWorldPoint(mouse.position.ReadValue()) - (playerPosition + Vector2.up * .35f);
-            return delta.sqrMagnitude > .001f ? delta.normalized : lastMove;
+            return ControllerAimOr(delta.sqrMagnitude > .001f ? delta.normalized : lastMove);
         }
 
         void RollEnd()
@@ -394,23 +384,74 @@ namespace Ecos.Haunt
         void SpawnWave()
         {
             PlaySound(SoundCue.Wave, .6f);
-            var points = new List<Vector2> { new Vector2(-10, 5.5f), new Vector2(10, 5.5f), new Vector2(-10, -5.5f), new Vector2(10, -5.5f), new Vector2(-3, 6), new Vector2(3, -6), new Vector2(-10, 0), new Vector2(10, 0) };
-            int count = Mathf.Min(6, 3 + State.Floor / 3 + CurrentRoom.WavesCleared + CurrentRoom.Id % 2);
-            while (points.Count > 0 && enemies.Count < count)
+            // Each profile changes roles and formation, rather than just adding health.
+            var points = new List<Vector2>
             {
-                int index = roomRandom.Next(points.Count);
-                Vector2 point = points[index]; points.RemoveAt(index);
-                if (Vector2.Distance(point, playerPosition) < 3 || Blocked(point, .65f) || IsPit(point)) continue;
-                int[] themed = { 0, 1, 2, 5, 7 };
-                int roll = roomRandom.Next(6);
-                int kind = roll < 2 ? themed[ThemeVariant] : roll == 2 ? 8 : roll == 3 ? 9 : roll == 4 ? 10 : new[] { 0, 1, 2, 3, 5, 6, 7 }[roomRandom.Next(7)];
-                SpawnEnemy(kind, point);
+                new Vector2(-11, 5), new Vector2(-7, 6), new Vector2(0, 6),
+                new Vector2(7, 6), new Vector2(11, 5), new Vector2(11, 0),
+                new Vector2(11, -5), new Vector2(7, -6), new Vector2(0, -6),
+                new Vector2(-7, -6), new Vector2(-11, -5), new Vector2(-11, 0)
+            };
+            int wave = CurrentRoom.WavesCleared;
+            int density = Mathf.Min(2, (State.Floor - 1) / 3);
+            int count = CurrentRoom.Encounter == EncounterKind.Swarm ? 6 + density + wave / 2
+                : CurrentRoom.Encounter == EncounterKind.Elite ? 4 + density
+                : 5 + density + wave / 2;
+            int spawned = 0;
+            while (points.Count > 0 && spawned < count)
+            {
+                int index;
+                if (CurrentRoom.Encounter == EncounterKind.Crossfire)
+                    index = (wave * 3 + spawned * 4) % points.Count;
+                else if (CurrentRoom.Encounter == EncounterKind.Ambush)
+                    index = (wave * 4 + spawned * 2 + roomRandom.Next(2)) % points.Count;
+                else index = roomRandom.Next(points.Count);
+                Vector2 point = points[index];
+                points.RemoveAt(index);
+                if (Vector2.Distance(point, playerPosition) < 3 || Blocked(point, .65f) || PitTouches(point, .55f)) continue;
+                SpawnEnemy(EncounterEnemy(spawned, wave), point);
+                spawned++;
             }
-            if (enemies.Count == 0) SpawnEnemy(8, new Vector2(playerPosition.x < 0 ? 10 : -10, 0));
-            if (CurrentRoom.HasMiniBoss && CurrentRoom.WavesCleared == CurrentRoom.TotalWaves - 1)
-                SpawnEnemy(11, new Vector2(0, playerPosition.y < 0 ? 5 : -5));
+            if (spawned == 0)
+            {
+                // Search the open perimeter instead of placing an enemy on the player.
+                for (int i = 0; i < 16; i++)
+                {
+                    Vector2 point = Rotate(Vector2.right, i * 22.5f);
+                    point = new Vector2(point.x * 11, point.y * 6);
+                    if (Vector2.Distance(point, playerPosition) < 3 || Blocked(point, .65f) || PitTouches(point, .55f)) continue;
+                    SpawnEnemy(8, point);
+                    break;
+                }
+            }
+            if (CurrentRoom.HasMiniBoss && wave == CurrentRoom.TotalWaves - 1)
+            {
+                Vector2 position = new Vector2(0, playerPosition.y < 0 ? 5 : -5);
+                if (!Blocked(position, .8f) && !PitTouches(position, .8f)) SpawnEnemy(11, position);
+            }
             roomBannerTime = 2;
             UpdateDoorArt();
+        }
+
+        int EncounterEnemy(int index, int wave)
+        {
+            int[] signature = { 0, 12, 14, 13, 7 };
+            if (index == 0) return signature[ThemeVariant];
+            switch (CurrentRoom.Encounter)
+            {
+                case EncounterKind.Swarm:
+                    int[] swarm = { 0, 3, 5, 9 };
+                    return index % 3 == 0 ? signature[ThemeVariant] : swarm[(index + wave) % swarm.Length];
+                case EncounterKind.Crossfire:
+                    int[] shooters = { 1, 2, 6, 8, 12, 14 };
+                    return shooters[(index + wave + ThemeVariant) % shooters.Length];
+                case EncounterKind.Elite:
+                    int[] guards = { 13, 6, 10, 12, 14 };
+                    return guards[(index + wave) % guards.Length];
+                default:
+                    int[] ambushers = { 3, 10, 14, 5, 12 };
+                    return ambushers[(index + wave + ThemeVariant) % ambushers.Length];
+            }
         }
 
         bool IsPit(Vector2 point)
@@ -444,7 +485,8 @@ namespace Ecos.Haunt
 
         Vector2 MoveEnemy(Enemy enemy, Vector2 delta, float radius)
         {
-            if (enemy.Kind == 1 || enemy.Kind == 3) return Move(enemy.Position, delta, radius);
+            if (enemy.Kind == 1 || enemy.Kind == 3 || enemy.Kind == 12) return Move(enemy.Position, delta, radius);
+            delta *= RoomMovementMultiplier(enemy.Position);
             Vector2 origin = enemy.Position;
             int count = Mathf.Max(1, Mathf.CeilToInt(delta.magnitude / .12f));
             Vector2 step = delta / count;
@@ -460,9 +502,13 @@ namespace Ecos.Haunt
 
         void SpawnEnemy(int kind, Vector2 position)
         {
-            int health = kind == 11 ? 24 + State.Floor * 5 : kind == 4 ? 65 + State.Floor * 18 : (kind == 0 ? 5 : kind == 3 ? 2 : 4) + State.Floor;
+            int depth = Mathf.Min(12, Mathf.Max(1, State.Floor));
+            int health = kind == 11 ? 18 + depth * 5 : kind == 4 ? 50 + depth * 12
+                : (kind == 13 ? 8 : kind == 0 || kind == 6 ? 4 : kind == 3 || kind == 5 ? 2 : 3) + (depth - 1) / 3;
+            if (kind != 4 && kind != 11 && kind != 13 && CurrentRoom.Encounter == EncounterKind.Swarm)
+                health = Mathf.Max(2, health - 1);
             var enemy = new Enemy { Kind = kind, Position = position, Health = health, MaxHealth = health,
-                SpawnRemaining = .9f, Cooldown = 1.2f + (float)roomRandom.NextDouble(), Phase = (float)roomRandom.NextDouble() * 6 };
+                SpawnRemaining = .9f, Cooldown = .45f + (float)roomRandom.NextDouble() * .65f, Phase = (float)roomRandom.NextDouble() * 6 };
             enemy.Sprite = MakeSprite(EnemySprite(kind), position, actorsRoot.transform, Depth(position.y));
             enemy.Shadow = MakeSprite("shadow", position, actorsRoot.transform, 0);
             enemy.Shadow.transform.localScale = new Vector3(kind == 4 || kind == 11 ? 3 : 1.5f, kind == 4 || kind == 11 ? 1.4f : .7f, 1);
@@ -476,7 +522,7 @@ namespace Ecos.Haunt
             {
                 enemy.Aura = MakeSprite("glow", position, actorsRoot.transform, -150);
                 enemy.Aura.transform.localScale = Vector3.one * 4;
-                enemy.Aura.color = new Color(FloorColors[BossVariant].r, FloorColors[BossVariant].g, FloorColors[BossVariant].b, .16f);
+                enemy.Aura.color = new Color(BossAccent.r, BossAccent.g, BossAccent.b, .16f);
                 enemy.Sprite.transform.localScale = Vector3.one * 1.15f;
                 if (BossVariant == 1) enemy.Sprite.color = new Color(.65f, 1, .9f);
                 if (BossVariant == 2) enemy.Sprite.color = new Color(1, .6f, .9f);
@@ -502,7 +548,7 @@ namespace Ecos.Haunt
                 float distance = towards.magnitude;
                 Vector2 direction = distance > .01f ? towards / distance : Vector2.down;
                 if (enemy.Kind == 0) // Jack-o'-lantern: persistent melee pressure.
-                    enemy.Position = MoveEnemy(enemy, direction * (1.7f * dt), .35f);
+                    enemy.Position = MoveEnemy(enemy, direction * (2.35f * dt), .35f);
                 else if (enemy.Kind == 1) // Wisp: strafes and sends aimed shots.
                 {
                     Vector2 strafe = new Vector2(-direction.y, direction.x) * Mathf.Sin(enemy.Phase * 1.4f);
@@ -510,8 +556,8 @@ namespace Ecos.Haunt
                     enemy.Position = MoveEnemy(enemy, motion * (1.1f * dt), .3f);
                     if (enemy.Cooldown <= 0 && !CoverBetween(enemy.Position, playerPosition))
                     {
-                        Fire(enemy.Position, direction * 4.5f, false, 1);
-                        enemy.Cooldown = Mathf.Max(1.0f, 2.0f - State.Floor * .08f);
+                        FireHostile(enemy.Position, direction * 4.5f);
+                        enemy.Cooldown = Mathf.Max(.95f, 1.7f - State.Floor * .06f);
                     }
                 }
                 else if (enemy.Kind == 2) // Cultist: readable three-shot fan.
@@ -519,8 +565,8 @@ namespace Ecos.Haunt
                     if (distance > 6) enemy.Position = MoveEnemy(enemy, direction * dt, .35f);
                     if (enemy.Cooldown <= 0)
                     {
-                        for (int i = -1; i <= 1; i++) Fire(enemy.Position, Rotate(direction, i * 17) * 4, false, 1);
-                        enemy.Cooldown = 2.5f;
+                        for (int i = -1; i <= 1; i++) FireHostile(enemy.Position, Rotate(direction, i * 17) * 4);
+                        enemy.Cooldown = 2.1f;
                     }
                 }
                 else if (enemy.Kind == 3) // Bat: telegraph then rush along a fixed line.
@@ -541,14 +587,14 @@ namespace Ecos.Haunt
                             enemy.Tell = 0;
                         }
                     }
-                    else enemy.Position = MoveEnemy(enemy, direction * (1.2f * dt), .25f);
+                    else enemy.Position = MoveEnemy(enemy, direction * (1.8f * dt), .25f);
                 }
                 else if (enemy.Kind == 5) // Plague larva: zigzag pursuit, short venom spread.
                 {
                     enemy.Position = MoveEnemy(enemy, (direction + new Vector2(-direction.y, direction.x) * Mathf.Sin(enemy.Phase * 5) * .6f) * (2.2f * dt), .3f);
                     if (enemy.Cooldown <= 0 && distance < 5)
                     {
-                        for (int i = -1; i <= 1; i++) Fire(enemy.Position, Rotate(direction, i * 28) * 3.5f, false, 1);
+                        for (int i = -1; i <= 1; i++) FireHostile(enemy.Position, Rotate(direction, i * 28) * 3.5f);
                         enemy.Cooldown = 3;
                     }
                 }
@@ -556,7 +602,7 @@ namespace Ecos.Haunt
                 {
                     if (enemy.Cooldown <= 0)
                     {
-                        for (int i = 0; i < 4; i++) Fire(enemy.Position, Rotate(direction, i * 90) * 4, false, 1);
+                        for (int i = 0; i < 4; i++) FireHostile(enemy.Position, Rotate(direction, i * 90) * 4);
                         enemy.Cooldown = 2.7f;
                     }
                 }
@@ -565,8 +611,8 @@ namespace Ecos.Haunt
                     if (distance > 3) enemy.Position = MoveEnemy(enemy, direction * (1.4f * dt), .35f);
                     if (enemy.Cooldown <= 0)
                     {
-                        Fire(enemy.Position, Rotate(direction, -8) * 5.5f, false, 1);
-                        Fire(enemy.Position, Rotate(direction, 8) * 5.5f, false, 1);
+                        FireHostile(enemy.Position, Rotate(direction, -8) * 5.5f);
+                        FireHostile(enemy.Position, Rotate(direction, 8) * 5.5f);
                         enemy.Cooldown = 1.8f;
                     }
                 }
@@ -575,8 +621,8 @@ namespace Ecos.Haunt
                     enemy.Position = MoveEnemy(enemy, direction * dt, .35f);
                     if (enemy.Cooldown <= 0)
                     {
-                        Fire(enemy.Position, direction * 5.5f, false, 1);
-                        enemy.Cooldown = 2;
+                        FireHostile(enemy.Position, direction * 5.5f);
+                        enemy.Cooldown = 1.65f;
                     }
                 }
                 else if (enemy.Kind == 9)
@@ -585,7 +631,7 @@ namespace Ecos.Haunt
                     enemy.Position = MoveEnemy(enemy, direction * (hop * dt * 3), .35f);
                     if (enemy.Cooldown <= 0)
                     {
-                        for (int i = 0; i < 6; i++) Fire(enemy.Position, Rotate(Vector2.right, i * 60) * 3, false, 1);
+                        for (int i = 0; i < 6; i++) FireHostile(enemy.Position, Rotate(Vector2.right, i * 60) * 3);
                         enemy.Cooldown = 3;
                     }
                 }
@@ -607,16 +653,89 @@ namespace Ecos.Haunt
                     enemy.Position = MoveEnemy(enemy, direction * (dt * .65f), .65f);
                     if (enemy.Cooldown <= 0)
                     {
-                        for (int i = -2; i <= 2; i++) Fire(enemy.Position, Rotate(direction, i * 17) * 4.5f, false, 1);
+                        for (int i = -2; i <= 2; i++) FireHostile(enemy.Position, Rotate(direction, i * 17) * 4.5f);
                         WarnGround(playerPosition, .85f);
                         enemy.Cooldown = 2.8f;
                     }
                 }
+                else if (enemy.Kind == 12) // Lantern wisp: orbiting pairs leave the aim line open.
+                {
+                    Vector2 orbit = new Vector2(-direction.y, direction.x) * (enemy.Attack % 2 == 0 ? 1 : -1);
+                    Vector2 motion = orbit + direction * (distance > 5.5f ? .75f : distance < 3.2f ? -1 : 0);
+                    enemy.Position = MoveEnemy(enemy, motion * (dt * 1.75f), .3f);
+                    if (enemy.Cooldown <= 0 && !CoverBetween(enemy.Position, playerPosition))
+                    {
+                        FireHostile(enemy.Position, Rotate(direction, -17) * 5.2f, 1, enemy.Kind);
+                        FireHostile(enemy.Position, Rotate(direction, 17) * 5.2f, 1, enemy.Kind);
+                        enemy.Attack++;
+                        enemy.Cooldown = 1.6f;
+                    }
+                }
+                else if (enemy.Kind == 13) // Fungus brute: deliberate slam with a full ground warning.
+                {
+                    if (enemy.DashTime > 0)
+                    {
+                        enemy.Position = MoveEnemy(enemy, enemy.Dash * (dt * 5.8f), .55f);
+                        enemy.DashTime = Mathf.Max(0, enemy.DashTime - dt);
+                    }
+                    else if (enemy.Cooldown <= 0)
+                    {
+                        enemy.Dash = direction;
+                        enemy.DashTime = .42f;
+                        WarnGround(playerPosition, 1.05f);
+                        for (int i = 0; i < 6; i++) FireHostile(enemy.Position, Rotate(Vector2.right, i * 60 + 30) * 2.8f, 1, enemy.Kind);
+                        enemy.Cooldown = 3.0f;
+                    }
+                    else if (enemy.Cooldown > .65f)
+                        enemy.Position = MoveEnemy(enemy, direction * (dt * 1.35f), .55f);
+                }
+                else if (enemy.Kind == 14) // Clockwork imp: quick lateral movement and narrow needle bursts.
+                {
+                    Vector2 side = new Vector2(-direction.y, direction.x) * (enemy.Attack % 2 == 0 ? 1 : -1);
+                    Vector2 motion = direction * (distance > 6 ? .8f : distance < 3 ? -1 : 0) + side * .7f;
+                    if (enemy.Cooldown > .4f) enemy.Position = MoveEnemy(enemy, motion * (dt * 2.1f), .3f);
+                    if (enemy.Cooldown <= 0 && !CoverBetween(enemy.Position, playerPosition))
+                    {
+                        FireHostile(enemy.Position, direction * 6.3f, 1, enemy.Kind);
+                        FireHostile(enemy.Position, Rotate(direction, enemy.Attack % 2 == 0 ? 12 : -12) * 5.3f, 1, enemy.Kind);
+                        enemy.Attack++;
+                        enemy.Cooldown = 1.45f;
+                    }
+                }
                 else UpdateBoss(enemy, direction, dt);
-                if (enemy.Kind != 3 || enemy.Cooldown > .5f) enemy.Tell = enemy.Cooldown < .45f ? .45f - enemy.Cooldown : 0;
-                if (distance < (enemy.Kind == 4 || enemy.Kind == 11 ? .95f : .6f)) HurtPlayer();
+                SeparateEnemy(enemy, dt);
+                if (enemy.Kind != 3 || enemy.Cooldown > .5f) enemy.Tell = enemy.Cooldown < .55f ? .55f - enemy.Cooldown : 0;
+                if (Vector2.Distance(enemy.Position, playerPosition) < (enemy.Kind == 4 || enemy.Kind == 11 ? .95f : enemy.Kind == 13 ? .78f : .6f)) HurtPlayer();
                 PresentEnemy(enemy, direction);
             }
+        }
+
+        void SeparateEnemy(Enemy enemy, float dt)
+        {
+            if (enemy.Kind == 4 || enemy.DashTime > 0) return;
+            Vector2 separation = Vector2.zero;
+            foreach (var other in enemies)
+            {
+                if (other == enemy || other.SpawnRemaining > 0) continue;
+                Vector2 away = enemy.Position - other.Position;
+                float squared = away.sqrMagnitude;
+                if (squared > .001f && squared < .85f * .85f)
+                    separation += away.normalized * (1 - Mathf.Sqrt(squared) / .85f);
+            }
+            if (separation.sqrMagnitude > .001f)
+                enemy.Position = MoveEnemy(enemy, Vector2.ClampMagnitude(separation, 1) * (dt * 1.8f), enemy.Kind == 13 || enemy.Kind == 11 ? .55f : .3f);
+        }
+
+        void FireHostile(Vector2 position, Vector2 velocity, int damage = 1, int kind = 0)
+        {
+            // Leave capacity for the player even during dense boss patterns.
+            if (shots.Count >= MaxShots - 72) return;
+            int active = 0;
+            foreach (var shot in shots)
+                if (!shot.Friendly && shot.Life > 0 && ++active >= 140) return;
+            int before = shots.Count;
+            Fire(position, velocity, false, damage);
+            if (shots.Count > before) StyleLastHostileShot(kind);
         }
 
         void UpdateBoss(Enemy boss, Vector2 direction, float dt)
@@ -630,13 +749,14 @@ namespace Ecos.Haunt
             }
             else boss.Position = Move(boss.Position, new Vector2(Mathf.Sin(boss.Phase * .7f), Mathf.Cos(boss.Phase)) * (dt * .7f), .8f);
             if (boss.Cooldown > 0) return;
-            bool alternate = boss.Attack++ % 2 == 1;
+            int pattern = boss.Attack++;
+            bool alternate = pattern % 2 == 1;
             int count = enraged ? 20 : 14;
             float offset = boss.Phase * 21;
             if (variant == 0) // Keep the Pumpkin King's readable signature.
             {
-                for (int i = 0; i < count; i++) Fire(boss.Position, Rotate(Vector2.right, offset + 360f * i / count) * 3.5f, false, 1);
-                for (int i = -1; i <= 1; i++) Fire(boss.Position, Rotate(direction, 12 * i) * 5, false, 1);
+                for (int i = 0; i < count; i++) FireHostile(boss.Position, Rotate(Vector2.right, offset + 360f * i / count) * 3.5f);
+                for (int i = -1; i <= 1; i++) FireHostile(boss.Position, Rotate(direction, 12 * i) * 5);
             }
             else if (variant == 1)
             {
@@ -645,50 +765,97 @@ namespace Ecos.Haunt
                     boss.Dash = direction; boss.DashTime = .6f;
                     for (int i = -3; i <= 3; i++)
                     {
-                        Fire(boss.Position, Rotate(direction, i * 16 + 35) * 4.3f, false, 1);
-                        Fire(boss.Position, Rotate(direction, i * 16 - 35) * 3.3f, false, 1);
+                        FireHostile(boss.Position, Rotate(direction, i * 16 + 35) * 4.3f);
+                        FireHostile(boss.Position, Rotate(direction, i * 16 - 35) * 3.3f);
                     }
                 }
                 else for (int arm = 0; arm < 6; arm++)
-                    for (int bead = 0; bead < 3; bead++) Fire(boss.Position, Rotate(Vector2.right, arm * 60 + offset) * (2.8f + bead), false, 1);
+                    for (int bead = 0; bead < 3; bead++) FireHostile(boss.Position, Rotate(Vector2.right, arm * 60 + offset) * (2.8f + bead));
             }
             else if (variant == 2)
             {
                 for (int i = 0; i < 4; i++)
-                    for (int j = -1; j <= 1; j++) Fire(boss.Position, Rotate(Vector2.right, offset + i * 90 + j * 9) * (enraged ? 4.5f : 3.5f), false, 1);
+                    for (int j = -1; j <= 1; j++) FireHostile(boss.Position, Rotate(Vector2.right, offset + i * 90 + j * 9) * (enraged ? 4.5f : 3.5f));
                 if (alternate) // Consecration: marked ground erupts after a full second.
                     for (int i = -1; i <= 1; i++) WarnGround(playerPosition + Vector2.right * (i * 2.7f), 1.05f);
-                else Fire(boss.Position, direction * 6, false, 1);
+                else FireHostile(boss.Position, direction * 6);
             }
             else if (variant == 3)
             {
                 if (alternate)
                 {
-                    for (int i = -2; i <= 2; i++) Fire(boss.Position, Rotate(direction, i * 18) * 5, false, 1);
+                    for (int i = -2; i <= 2; i++) FireHostile(boss.Position, Rotate(direction, i * 18) * 5);
                     WarnGround(playerPosition, 1.4f);
                     WarnGround(playerPosition + new Vector2(3, 2), 1.15f);
                     WarnGround(playerPosition - new Vector2(3, 2), 1.15f);
                 }
-                else for (int i = 0; i < 14; i++) Fire(boss.Position, Rotate(Vector2.right, i * 360f / 14 + offset) * (i % 2 == 0 ? 3 : 5), false, 1);
+                else for (int i = 0; i < 14; i++) FireHostile(boss.Position, Rotate(Vector2.right, i * 360f / 14 + offset) * (i % 2 == 0 ? 3 : 5));
             }
-            else
+            else if (variant == 4)
             {
                 if (alternate) // Tolling lanes: parallel volleys with room to pass.
                 {
                     for (int i = -4; i <= 4; i++)
-                        if (i != 0) Fire(new Vector2(boss.Position.x + i * 1.2f, boss.Position.y), Vector2.down * 4.5f, false, 1);
+                        if (i != 0) FireHostile(new Vector2(boss.Position.x + i * 1.2f, boss.Position.y), Vector2.down * 4.5f);
                     WarnGround(playerPosition, 1.25f);
                 }
                 else for (int i = 0; i < 18; i++)
                 {
                     if (i % 6 == boss.Attack % 6) continue;
                     Vector2 ray = Rotate(Vector2.right, i * 20 + offset);
-                    Fire(boss.Position, ray * 3, false, 1);
-                    if (enraged) Fire(boss.Position, ray * 4.6f, false, 1);
+                    FireHostile(boss.Position, ray * 3);
+                    if (enraged) FireHostile(boss.Position, ray * 4.6f);
                 }
             }
-            RingEffect(boss.Position, FloorColors[variant], 2.1f);
-            Burst(boss.Position + Vector2.up * .6f, FloorColors[variant], 16);
+            else if (variant == 5) // Iron executioner: charge, chain grid, then an axe-shaped fan.
+            {
+                switch (pattern % 3)
+                {
+                    case 0:
+                        boss.Dash = direction;
+                        boss.DashTime = enraged ? .8f : .6f;
+                        for (int i = -3; i <= 3; i++)
+                            if (i != 0) FireHostile(boss.Position, Rotate(direction, i * 20) * 3.7f);
+                        break;
+                    case 1:
+                        for (int i = -2; i <= 2; i++)
+                        {
+                            Vector2 chain = pattern % 2 == 0 ? Vector2.right : Vector2.up;
+                            WarnGround(playerPosition + chain * (i * 2.6f), .85f);
+                        }
+                        break;
+                    default:
+                        for (int i = -5; i <= 5; i++)
+                            if (i != 0) FireHostile(boss.Position, Rotate(direction, i * 13) * (enraged ? 4.8f : 3.8f));
+                        WarnGround(boss.Position, 1.5f);
+                        break;
+                }
+            }
+            else // Bog oracle: blooming rings, growing roots and a three-headed serpent fan.
+            {
+                switch (pattern % 3)
+                {
+                    case 0:
+                        for (int i = 0; i < 16; i++)
+                        {
+                            if (i % 8 == pattern % 8 || i % 8 == (pattern + 1) % 8) continue;
+                            FireHostile(boss.Position, Rotate(Vector2.right, i * 22.5f + offset) * (i % 2 == 0 ? 2.8f : 4.0f));
+                        }
+                        break;
+                    case 1:
+                        WarnGround(playerPosition, 1.0f);
+                        for (int i = 0; i < (enraged ? 5 : 3); i++)
+                            WarnGround(playerPosition + Rotate(Vector2.right, i * 72 + offset) * 2.7f, .8f);
+                        break;
+                    default:
+                        for (int head = -1; head <= 1; head++)
+                            for (int bead = 0; bead < 3; bead++)
+                                FireHostile(boss.Position, Rotate(direction, head * 28 + bead * 7 - 7) * (3.2f + bead * .65f));
+                        break;
+                }
+            }
+            RingEffect(boss.Position, BossAccent, 2.1f);
+            Burst(boss.Position + Vector2.up * .6f, BossAccent, 16);
             boss.Cooldown = enraged ? 1.35f : 1.9f;
         }
 
@@ -880,11 +1047,13 @@ namespace Ecos.Haunt
             if (!InShop || !shopMenuOpen || !Playing || Paused || State.IsDead) return;
             bool bought = State.TryBuy(item, out string message);
             if (bought) PlaySound(SoundCue.Purchase);
+            if (bought && (item == ShopItem.GiantRounds || item == ShopItem.CharacterRelic || item == ShopItem.QuickBoots))
+                PlaySound(SoundCue.RelicPickup, .7f);
             if (bought) { RingEffect(playerPosition, PlayerAccent, 1.5f); Burst(playerPosition + Vector2.up, new Color(1, .75f, .2f), 10); }
             Notify(message);
         }
 
-        static Vector2 ShopPosition(int index) => new Vector2(-6 + (index % 3) * 6, index < 3 ? -.8f : -4.5f);
+        static Vector2 ShopPosition(int index) => new Vector2(-3.5f + index * 7, -1.8f);
 
         SpriteRenderer MakeSprite(string id, Vector2 position, Transform parent, int order)
         {
@@ -939,6 +1108,7 @@ namespace Ecos.Haunt
         {
             PauseAudio(false);
             ClearActors();
+            ResetRoomProps();
             Playing = Paused = InShop = shopMenuOpen = false;
             State = null; Floor = null; CurrentRoom = null;
             BuildRoom(true);

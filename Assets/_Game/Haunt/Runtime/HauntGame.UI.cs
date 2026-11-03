@@ -112,9 +112,11 @@ namespace Ecos.Haunt
             Text(new Rect(86, 399, 440, 24), "SEMENTE / VAZIO = ALEATORIA", smallStyle, Muted);
             seedText = GUI.TextField(new Rect(87, 433, 435, 44), seedText, 11, fieldStyle);
             Text(new Rect(99, 446, 411, 20), seedText, smallStyle, Color.white);
-            if (Button(new Rect(87, 495, 435, 56), "INICIAR INCURSÃO     →", Orange)) StartFromMenu();
-            Text(new Rect(87, 571, 440, 32), "ENTER para começar", smallStyle, Muted);
-            Text(new Rect(87, 623, 455, 52), "WASD / MOUSE  M MAPA\nQ PODER  1-7 ARMAS\nESPACO PULO / ESQUIVA", smallStyle, Color.white);
+            if (Button(new Rect(87, 495, 435, 56), "INICIAR INCURSÃO     →", Orange, controllerActive)) StartFromMenu();
+            Text(new Rect(87, 571, 455, 32), controllerActive ? "DIRECIONAL ALMA / X JOGAR" : "ENTER PARA COMECAR", smallStyle, Muted);
+            Text(new Rect(87, 623, 455, 62), controllerActive
+                ? "ANALOGICOS MOVER / MIRAR\nR2 TIRO / L2 ESQUIVA / QUADRADO PODER\nL1 R1 ARMAS / OPTIONS PAUSA"
+                : "WASD / MOUSE  M MAPA\nQ PODER  1-0 ARMAS\nESPACO PULO / ESQUIVA", smallStyle, Color.white);
 
             Panel(new Rect(598, 65, 604, 560), new Color(.35f, .25f, .45f));
             Text(new Rect(624, 88, 550, 36), "ESCOLHA SUA ALMA", headingStyle, Mint);
@@ -126,7 +128,7 @@ namespace Ecos.Haunt
                 Panel(new Rect(x, y, 276, 218), chosen ? Mint : new Color(.27f, .23f, .35f));
                 Text(new Rect(x + 14, y + 10, 251, 26), CharacterNames[i], smallStyle, chosen ? Mint : Orange);
                 DrawIcon(new Rect(x + 14, y + 48, 65, 95), CharacterIcons[i]);
-                Text(new Rect(x + 93, y + 45, 169, 96), CharacterPowers[i], smallStyle, Color.white);
+                Text(new Rect(x + 93, y + 45, 169, 96), controllerActive ? CharacterPowers[i].Replace("Q ", "QUADRADO\n") : CharacterPowers[i], smallStyle, Color.white);
                 Text(new Rect(x + 14, y + 148, 248, 22),
                     RunState.WeaponName(RunState.StartingWeaponFor((CharacterKind)i)), smallStyle, Mint);
                 if (Button(new Rect(x + 14, y + 176, 248, 29), chosen ? "SELECIONADO" : "SELECIONAR", chosen ? Mint : Muted))
@@ -151,8 +153,8 @@ namespace Ecos.Haunt
                 if (!Paused && !State.IsDead && !shopMenuOpen)
                 {
                     if (Vector2.Distance(playerPosition, MerchantPosition) < 2.8f)
-                        WorldTag(MerchantPosition, "[E] CONVERSAR", Mint, 1.7f, 200);
-                    ShopItem[] displayed = { ShopItem.Stapler, ShopItem.Banana, ShopItem.SpinningTop, ShopItem.MirrorDisc, ShopItem.RayLantern, ShopItem.BoneFlute };
+                        WorldTag(MerchantPosition, controllerActive ? "[X] CONVERSAR" : "[E] CONVERSAR", Mint, 1.7f, 200);
+                    ShopItem[] displayed = State.ShopWeapons;
                     for (int i = 0; i < displayed.Length; i++)
                     {
                         Vector2 position = ShopPosition(i);
@@ -161,12 +163,12 @@ namespace Ecos.Haunt
                     }
                     Vector2 exit = new Vector2(HalfWidth - 2, 0);
                     if (Vector2.Distance(playerPosition, exit) < 3.1f)
-                        WorldTag(exit, "[E] DESCER", Mint, 1.7f, 180);
+                        WorldTag(exit, controllerActive ? "[X] DESCER" : "[E] DESCER", Mint, 1.7f, 180);
                 }
                 return;
             }
             HudText(new Rect(24, detailsY + 27, 330, 25), RunState.WeaponName(State.Weapon), smallStyle, Mint);
-            HudText(new Rect(24, detailsY + 54, 330, 43), "Q · " + State.PowerName
+            HudText(new Rect(24, detailsY + 54, 330, 43), (controllerActive ? "QUADRADO · " : "Q · ") + State.PowerName
                 + (State.PowerCooldown <= 0 ? " · PRONTO" : " · " + Mathf.CeilToInt(State.PowerCooldown) + "s"), smallStyle,
                 State.PowerCooldown <= 0 ? Mint : Muted);
             HudText(new Rect(1010, 18, 246, 25), "ANDAR " + State.Floor, hudStyle, Orange);
@@ -195,7 +197,7 @@ namespace Ecos.Haunt
             DrawDoorLabels();
             DrawExitGuide();
             if (CurrentRoom.Kind == RoomKind.Boss && CurrentRoom.Cleared && !Paused && !State.IsDead)
-                WorldTag(new Vector2(0, 1.4f), "[E] MERCADO", Mint);
+                WorldTag(new Vector2(0, 1.4f), controllerActive ? "[X] MERCADO" : "[E] MERCADO", Mint);
         }
 
         void DrawBossHealth(Enemy boss)
@@ -269,6 +271,83 @@ namespace Ecos.Haunt
         // Only modal screens capture input. HUD labels and both atlas sizes are passive.
         bool PointerOverInterface() => !Playing || Paused || State.IsDead || (InShop && shopMenuOpen);
 
+        static readonly ShopItem[] RelicItems = { ShopItem.GiantRounds, ShopItem.CharacterRelic, ShopItem.QuickBoots,
+            ShopItem.Heal, ShopItem.Damage, ShopItem.FireRate, ShopItem.MaxHealth };
+
+        ShopItem[] ShopItems() => shopWeapons ? State.ShopWeapons : RelicItems;
+
+        static string ShopItemIcon(ShopItem item)
+        {
+            switch (item)
+            {
+                case ShopItem.Stapler: return "stapler";
+                case ShopItem.Banana: return "banana-gun";
+                case ShopItem.SpinningTop: return "spinning-top";
+                case ShopItem.MirrorDisc: return "mirror-disc";
+                case ShopItem.RayLantern: return "ray-lantern";
+                case ShopItem.BoneFlute: return "bone-flute";
+                case ShopItem.Scattergun: return "scattergun";
+                case ShopItem.Repeater: return "repeater";
+                case ShopItem.SoulCannon: return "cannon";
+                case ShopItem.Umbrella: return "umbrella-gun";
+                case ShopItem.HiveLauncher: return "hive-launcher";
+                case ShopItem.BoxingGlove: return "boxing-glove";
+                case ShopItem.GiantRounds: return "giant-rounds";
+                case ShopItem.CharacterRelic: return "character-relic";
+                case ShopItem.QuickBoots: return "quick-boots";
+                case ShopItem.Damage: return "weapon";
+                case ShopItem.FireRate: return "muzzle";
+                default: return "heart";
+            }
+        }
+
+        string ShopItemName(ShopItem item)
+        {
+            if (RunState.TryWeaponForItem(item, out WeaponKind weapon)) return RunState.WeaponName(weapon);
+            switch (item)
+            {
+                case ShopItem.GiantRounds: return "BALAS GIGANTES";
+                case ShopItem.CharacterRelic: return State.CharacterRelicName;
+                case ShopItem.QuickBoots: return "BOTAS LIGEIRAS";
+                case ShopItem.Damage: return "POLVORA";
+                case ShopItem.FireRate: return "GATILHO";
+                case ShopItem.MaxHealth: return "CORACAO";
+                default: return "TONICO";
+            }
+        }
+
+        string ShopItemStat(ShopItem item)
+        {
+            switch (item)
+            {
+                case ShopItem.Stapler: return "TIRO DUPLO";
+                case ShopItem.Banana: return "TIRO CURVO";
+                case ShopItem.SpinningTop: return "GIRO PERFURANTE";
+                case ShopItem.MirrorDisc: return "RICOCHETE";
+                case ShopItem.RayLantern: return "RAIO CONTINUO";
+                case ShopItem.BoneFlute: return "LEQUE DE OSSOS";
+                case ShopItem.Scattergun: return "LEQUE DE CHUMBO";
+                case ShopItem.Repeater: return "RAJADA VELOZ";
+                case ShopItem.SoulCannon: return "IMPACTO PESADO";
+                case ShopItem.Umbrella: return "LEQUE RICOCHETE";
+                case ShopItem.HiveLauncher: return "FERROES GUIADOS";
+                case ShopItem.BoxingGlove: return "SOCO QUE EMPURRA";
+                case ShopItem.GiantRounds: return "TAMANHO DA BALA +30%";
+                case ShopItem.CharacterRelic: return State.CharacterRelicDescription;
+                case ShopItem.QuickBoots: return "MOVIMENTO +12,5%";
+                case ShopItem.Damage: return "DANO +1";
+                case ShopItem.FireRate: return "INTERVALO -15%";
+                case ShopItem.MaxHealth: return "VIDA MAX +2";
+                default: return "CURA +3";
+            }
+        }
+
+        void ActivateShopItem(ShopItem item)
+        {
+            if (RunState.TryWeaponForItem(item, out WeaponKind weapon) && State.Owns(weapon)) State.Equip(weapon);
+            else Buy(item);
+        }
+
         void DrawShop()
         {
             Fill(new Rect(0, 0, 1280, 720), new Color(.015f, .01f, .03f, .45f));
@@ -276,75 +355,59 @@ namespace Ecos.Haunt
             Text(new Rect(232, 104, 590, 28), "MERCADO DAS ALMAS", headingStyle, Orange);
             DrawIcon(new Rect(848, 99, 28, 28), "coin");
             Text(new Rect(886, 104, 155, 28), State.Coins.ToString(), headingStyle, Orange, TextAnchor.UpperRight);
-            for (int heart = 0; heart < State.MaxHealth; heart++)
-            {
-                Color previous = GUI.color;
-                GUI.color = heart < State.Health ? Color.white : new Color(.35f, .29f, .38f);
-                DrawIcon(new Rect(650 + (heart % 10) * 15, heart < 10 ? 102 : 119, 12, 13), "heart");
-                GUI.color = previous;
-            }
             bool enabled = GUI.enabled;
             GUI.enabled = !Paused && !State.IsDead;
-            if (Button(new Rect(232, 154, 384, 42), "RELIQUIAS", shopWeapons ? Muted : Mint)) shopWeapons = false;
-            if (Button(new Rect(632, 154, 384, 42), "ARMAS", shopWeapons ? Mint : Muted)) shopWeapons = true;
-            ShopItem[] items = shopWeapons
-                ? new[] { ShopItem.Stapler, ShopItem.Banana, ShopItem.SpinningTop, ShopItem.MirrorDisc, ShopItem.RayLantern, ShopItem.BoneFlute }
-                : new[] { ShopItem.Heal, ShopItem.Damage, ShopItem.FireRate, ShopItem.MaxHealth };
-            string[] names = shopWeapons
-                ? new[] { "GRAMPEADOR", "BANANA", "PIAO DO CAOS", "DISCO ESPELHO", "LANTERNA DE RAIOS", "FLAUTA DE OSSOS" }
-                : new[] { "TONICO", "POLVORA", "GATILHO", "CORACAO" };
-            string[] icons = shopWeapons
-                ? new[] { "stapler", "banana-gun", "spinning-top", "mirror-disc", "ray-lantern", "bone-flute" }
-                : new[] { "heart", "weapon", "muzzle", "heart" };
-            string[] stats = shopWeapons
-                ? new[] { "GRAMPO DUPLO", "TIRO CURVO", "GIRO CONTINUO", "RICOCHETE", "RAIO CONTINUO", "LEQUE DE OSSOS" }
-                : new[] { "CURA +3", "DANO +1", "RECARGA -15%", "VIDA MAX +2" };
-            float cardWidth = shopWeapons ? 248 : 180;
-            float stride = shopWeapons ? 272 : 196;
-            int pages = shopWeapons ? (items.Length + 2) / 3 : 1;
+            if (Button(new Rect(232, 154, 384, 42), "RELIQUIAS", shopWeapons ? Muted : Mint))
+            { shopWeapons = false; shopWeaponPage = shopChoice = 0; }
+            if (Button(new Rect(632, 154, 384, 42), "ARMAS", shopWeapons ? Mint : Muted))
+            { shopWeapons = true; shopWeaponPage = shopChoice = 0; }
+            ShopItem[] items = ShopItems();
+            int pages = Mathf.Max(1, (items.Length + 2) / 3);
             shopWeaponPage = Mathf.Clamp(shopWeaponPage, 0, pages - 1);
-            int first = shopWeapons ? shopWeaponPage * 3 : 0;
-            int count = shopWeapons ? Mathf.Min(3, items.Length - first) : items.Length;
+            int first = shopWeaponPage * 3;
+            int count = Mathf.Min(3, items.Length - first);
+            shopChoice = Mathf.Clamp(shopChoice, 0, count);
+            const float cardWidth = 248, stride = 272;
+            float origin = 232 + (3 - count) * stride * .5f;
             for (int card = 0; card < count; card++)
             {
-                int i = first + card;
-                float x = 232 + card * stride;
-                ShopItem item = items[i];
+                float x = origin + card * stride;
+                ShopItem item = items[first + card];
                 bool weaponItem = RunState.TryWeaponForItem(item, out WeaponKind weapon);
                 bool owned = weaponItem && State.Owns(weapon);
                 bool equipped = owned && State.Weapon == weapon;
                 bool sold = !weaponItem && State.Sold(item);
                 bool affordable = State.Coins >= State.Price(item);
-                DrawIcon(new Rect(x + 20, 226, cardWidth - 40, 108), icons[i]);
-                Text(new Rect(x + 6, 352, cardWidth - 12, 40), names[i], smallStyle, Orange, TextAnchor.UpperCenter);
-                Text(new Rect(x + 6, 404, cardWidth - 12, 40), stats[i], smallStyle, Muted, TextAnchor.UpperCenter);
-                DrawIcon(new Rect(x + cardWidth * .5f - 39, 448, 24, 26), "coin");
-                Text(new Rect(x + cardWidth * .5f - 7, 454, 72, 22), State.Price(item).ToString(), smallStyle, Orange);
+                DrawIcon(new Rect(x + 20, 226, cardWidth - 40, 108), ShopItemIcon(item));
+                Text(new Rect(x + 6, 352, cardWidth - 12, 40), ShopItemName(item), smallStyle, Orange, TextAnchor.UpperCenter);
+                Text(new Rect(x + 6, 402, cardWidth - 12, 42), ShopItemStat(item), smallStyle, Muted, TextAnchor.UpperCenter);
+                DrawIcon(new Rect(x + cardWidth * .5f - 39, 450, 24, 26), "coin");
+                Text(new Rect(x + cardWidth * .5f - 7, 456, 72, 22), State.Price(item).ToString(), smallStyle, Orange);
                 bool canBuy = GUI.enabled;
                 GUI.enabled = canBuy && !sold && !equipped && (owned || affordable);
                 string action = equipped ? "EM MAOS" : owned ? "EQUIPAR" : sold ? "ESGOTADO" : "COMPRAR";
-                if (Button(new Rect(x + 6, 494, cardWidth - 12, 38), action, owned ? Mint : affordable ? Orange : Muted))
-                {
-                    if (owned) State.Equip(weapon);
-                    else Buy(item);
-                }
+                if (Button(new Rect(x + 6, 494, cardWidth - 12, 38), action, owned ? Mint : affordable ? Orange : Muted,
+                    controllerActive && shopChoice == card)) ActivateShopItem(item);
                 GUI.enabled = canBuy;
             }
-            if (noticeTime > 0)
-                Text(new Rect(234, 558, shopWeapons ? 540 : 802, 36), notice, smallStyle, Mint);
-            if (shopWeapons)
+            if (count == 0)
+                Text(new Rect(260, 328, 760, 60), "TODO O ARSENAL JA ACOMPANHA VOCE", bodyStyle, Mint, TextAnchor.MiddleCenter);
+            if (noticeTime > 0) Text(new Rect(234, 553, 560, 39), notice, smallStyle, Mint);
+            if (pages > 1)
             {
                 bool canPage = GUI.enabled;
                 GUI.enabled = canPage && shopWeaponPage > 0;
-                if (Button(new Rect(810, 554, 56, 30), "<", Muted)) shopWeaponPage--;
+                if (Button(new Rect(810, 554, 56, 30), "<", Muted)) { shopWeaponPage--; shopChoice = 0; }
                 GUI.enabled = canPage;
                 Text(new Rect(876, 560, 90, 22), (shopWeaponPage + 1) + " / " + pages, smallStyle, Mint, TextAnchor.UpperCenter);
                 GUI.enabled = canPage && shopWeaponPage < pages - 1;
-                if (Button(new Rect(980, 554, 56, 30), ">", Muted)) shopWeaponPage++;
+                if (Button(new Rect(980, 554, 56, 30), ">", Muted)) { shopWeaponPage++; shopChoice = 0; }
                 GUI.enabled = canPage;
             }
-            Text(new Rect(234, 614, 570, 22), "1 ARMA PROPRIA  2-7 LOJA", smallStyle, Muted);
-            if (Button(new Rect(884, 604, 160, 38), "FECHAR", Mint)) CloseMerchant();
+            Text(new Rect(234, 607, 624, 38), controllerActive
+                ? "DIRECIONAL ITEM / X COMPRAR\nL1 R1 ABA / TRIANGULO PAGINA / CIRCULO SAIR"
+                : shopWeapons ? "NOVA SELECAO A CADA ANDAR" : "RELIQUIAS DURAM ESTA INCURSAO", smallStyle, Muted);
+            if (Button(new Rect(884, 604, 160, 38), "FECHAR", Mint, controllerActive && shopChoice == count)) CloseMerchant();
             GUI.enabled = enabled;
         }
 
@@ -417,10 +480,10 @@ namespace Ecos.Haunt
             Panel(new Rect(410, 170, 460, 390), Orange);
             Text(new Rect(445, 197, 390, 45), "A NOITE ESPERA", headingStyle, Orange);
             Text(new Rect(445, 255, 390, 50), "INCURSAO PAUSADA", bodyStyle, Color.white);
-            if (Button(new Rect(445, 330, 390, 52), "CONTINUAR", Mint)) Paused = false;
-            if (Button(new Rect(445, 401, 390, 48), "ENCERRAR INCURSÃO", new Color(.65f, .58f, .73f))) ReturnToMenu();
-            if (Button(new Rect(445, 465, 390, 36), soundEnabled ? "SOM: LIGADO" : "SOM: DESLIGADO", Muted)) SetSoundEnabled(!soundEnabled);
-            Text(new Rect(445, 525, 390, 23), "ESC para voltar", smallStyle, Muted);
+            if (Button(new Rect(445, 330, 390, 52), "CONTINUAR", Mint, controllerActive && pauseChoice == 0)) Paused = false;
+            if (Button(new Rect(445, 401, 390, 48), "ENCERRAR INCURSÃO", new Color(.65f, .58f, .73f), controllerActive && pauseChoice == 1)) ReturnToMenu();
+            if (Button(new Rect(445, 465, 390, 36), soundEnabled ? "SOM: LIGADO" : "SOM: DESLIGADO", Muted, controllerActive && pauseChoice == 2)) SetSoundEnabled(!soundEnabled);
+            Text(new Rect(445, 525, 390, 23), controllerActive ? "X CONFIRMAR / CIRCULO VOLTAR" : "ESC PARA VOLTAR", smallStyle, Muted);
         }
 
         void DrawDeath()
@@ -429,9 +492,9 @@ namespace Ecos.Haunt
             Panel(new Rect(355, 132, 570, 450), new Color(.7f, .22f, .32f));
             Text(new Rect(392, 165, 500, 44), "A CRIPTA VENCEU", headingStyle, new Color(1, .4f, .4f));
             Text(new Rect(392, 232, 490, 80), "ANDAR " + State.Floor + "\nSALAS " + roomsCleared + "  INIMIGOS " + enemiesDefeated + "\nSEMENTE " + State.Seed, bodyStyle, Color.white);
-            if (Button(new Rect(392, 342, 496, 54), "NOVA INCURSÃO  /  NOVA SEMENTE", Orange)) BeginRun(System.Guid.NewGuid().GetHashCode());
-            if (Button(new Rect(392, 415, 496, 44), "REPETIR ESTA SEMENTE", Mint)) BeginRun(State.Seed);
-            if (Button(new Rect(392, 479, 496, 44), "VOLTAR AO MENU", new Color(.65f, .58f, .73f))) ReturnToMenu();
+            if (Button(new Rect(392, 342, 496, 54), "NOVA INCURSÃO  /  NOVA SEMENTE", Orange, controllerActive && deathChoice == 0)) BeginRun(System.Guid.NewGuid().GetHashCode());
+            if (Button(new Rect(392, 415, 496, 44), "REPETIR ESTA SEMENTE", Mint, controllerActive && deathChoice == 1)) BeginRun(State.Seed);
+            if (Button(new Rect(392, 479, 496, 44), "VOLTAR AO MENU", new Color(.65f, .58f, .73f), controllerActive && deathChoice == 2)) ReturnToMenu();
         }
 
         void WorldTag(Vector2 world, string label, Color color, float rise = 1.3f, float width = 248)
@@ -487,9 +550,14 @@ namespace Ecos.Haunt
             pixelText.Draw(rect, text, pixelSize, color, alignment ?? style.alignment, style.wordWrap);
         }
 
-        bool Button(Rect rect, string label, Color background)
+        bool Button(Rect rect, string label, Color background, bool focused = false)
         {
             // Stepped corners and two-pixel highlights share the sprite grid.
+            if (focused)
+            {
+                Fill(new Rect(rect.x - 4, rect.y - 4, rect.width + 8, rect.height + 8), Mint);
+                Fill(new Rect(rect.x - 2, rect.y - 2, rect.width + 4, rect.height + 4), Ink);
+            }
             Color face = GUI.enabled ? background : Color.Lerp(Ink, background, .3f);
             Color light = Color.Lerp(face, Color.white, .28f);
             Color shade = Color.Lerp(face, Color.black, .45f);

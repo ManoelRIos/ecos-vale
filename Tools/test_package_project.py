@@ -34,6 +34,8 @@ class PackageProjectTests(unittest.TestCase):
                          'Assets/_Game/Haunt/Runtime/HauntPixelText.cs',
                          'Assets/_Game/Haunt/Runtime/HauntGame.Weapons.cs',
                          'Assets/_Game/Haunt/Runtime/HauntGame.Audio.cs',
+                         'Assets/_Game/Haunt/Runtime/HauntGame.Input.cs',
+                         'Assets/_Game/Haunt/Runtime/HauntGame.Environment.cs',
                          'Assets/_Game/Haunt/Art/HauntPixelArt.cs',
                          'Assets/_Game/Haunt/Core/DungeonFloor.cs',
                          'Assets/_Game/Haunt/Core/RunState.cs',

@@ -10,7 +10,7 @@ static class HauntChecks
     }
 
     static string Signature(DungeonFloor floor) => string.Join(";", floor.Rooms.Select(r =>
-        $"{r.Id},{r.Position.X},{r.Position.Y},{r.Kind},{r.HasMiniBoss}:{string.Join(",", r.Neighbors)}"));
+        $"{r.Id},{r.Position.X},{r.Position.Y},{r.Kind},{r.HasMiniBoss},{r.Encounter}:{string.Join(",", r.Neighbors)}"));
 
     static void Maps()
     {
@@ -38,6 +38,8 @@ static class HauntChecks
                     Check(room.WavesCleared == 0, "New room must start without completed waves");
                     Check(room.TotalWaves == (room.Kind == RoomKind.Combat ? 3 : 1), "Combat rooms require three waves");
                     Check(!room.HasMiniBoss || room.Kind == RoomKind.Combat, "Miniboss must accompany a combat room");
+                    Check(Enum.IsDefined(room.Encounter), "Encounter profile must be valid");
+                    Check(!room.HasMiniBoss || room.Encounter == EncounterKind.Elite, "Miniboss rooms use the elite profile");
                     Check(room.Neighbors.Count == room.Neighbors.Distinct().Count(), "Duplicate neighbor");
                     foreach (int adjacent in room.Neighbors)
                     {
@@ -55,6 +57,8 @@ static class HauntChecks
                 Check(distances[floor.Boss.Id] >= 2, "Boss too close to entrance");
                 Check(floor.Rooms.Sum(r => r.Neighbors.Count) == 2 * (floor.Rooms.Count - 1), "Map should be a tree");
                 Check(Signature(floor) == Signature(DungeonFloor.Generate(seed, number)), "Seed replay mismatch");
+                Check(floor.Rooms.Where(room => room.Kind == RoomKind.Combat).Select(room => room.Encounter).Distinct().Count() >= 3,
+                    "Each floor needs at least three combat profiles");
                 layouts.Add(Signature(floor));
             }
         Check(layouts.Count > 1000, "Different seeds need different layouts");
@@ -76,8 +80,8 @@ static class HauntChecks
     static void BossRosters()
     {
         int[][] expected = {
-            new[] { 0, 1, 3 }, new[] { 1, 2, 4 }, new[] { 2, 4, 0 },
-            new[] { 3, 1, 0 }, new[] { 4, 3, 2 }
+            new[] { 0, 1, 5 }, new[] { 1, 2, 6 }, new[] { 2, 4, 5 },
+            new[] { 3, 6, 0 }, new[] { 4, 5, 6 }
         };
         for (int theme = 0; theme < 5; theme++)
         {
@@ -257,14 +261,21 @@ static class HauntChecks
             run.Coins = 1000;
             Check(!run.TryBuy(ShopItem.Scattergun, out _) && run.Coins == 1000, "Weapon shop boss gate");
             run.BossDefeated = true;
-            foreach (var item in new[] { ShopItem.Scattergun, ShopItem.Repeater, ShopItem.SoulCannon })
+            for (int visit = 0; visit < 12 && run.ShopWeapons.Length > 0; visit++)
             {
-                int before = run.Coins;
-                int price = run.Price(item);
-                Check(run.TryBuy(item, out _) && run.Coins == before - price, "Weapon purchase charges once");
-                Check(run.Owns(run.Weapon) && run.Weapon != WeaponKind.Pistol, "Purchase equips owned weapon");
-                Check(!run.TryBuy(item, out _), "Duplicate weapon purchase rejected");
+                foreach (ShopItem item in run.ShopWeapons)
+                {
+                    run.Coins = 10000;
+                    int before = run.Coins;
+                    int price = run.Price(item);
+                    Check(run.TryBuy(item, out _) && run.Coins == before - price, "Stocked weapon purchase charges once");
+                    Check(run.Owns(run.Weapon) && run.Weapon != WeaponKind.Pistol, "Purchase equips owned weapon");
+                    Check(!run.TryBuy(item, out _), "Duplicate weapon purchase rejected");
+                }
+                run.NextFloor();
+                run.BossDefeated = true;
             }
+            Check(run.ShopWeapons.Length == 0, "Stock is exhausted after every catalog weapon is owned");
             run.NextFloor();
             Check(run.Character == character && run.Owns(WeaponKind.SoulCannon), "Character and arsenal persist across floors");
             run.BossDefeated = true;
@@ -318,15 +329,28 @@ static class HauntChecks
         Console.WriteLine("Characters/arsenal: cooldowns, ownership, purchases, persistence and restart checked.");
     }
 
+    static RunState Offering(ShopItem item, CharacterKind character = CharacterKind.Hunter)
+    {
+        for (int seed = 0; seed < 1000; seed++)
+        {
+            var run = new RunState(seed, character) { BossDefeated = true, Coins = 10000 };
+            if (run.IsOffered(item)) return run;
+        }
+        throw new Exception("No seeded shop offers " + item);
+    }
+
     static void CuriousShopWeapons()
     {
-        ShopItem[] items = { ShopItem.Stapler, ShopItem.Banana, ShopItem.SpinningTop, ShopItem.MirrorDisc, ShopItem.RayLantern, ShopItem.BoneFlute };
-        WeaponKind[] weapons = { WeaponKind.Stapler, WeaponKind.Banana, WeaponKind.SpinningTop, WeaponKind.MirrorDisc, WeaponKind.RayLantern, WeaponKind.BoneFlute };
-        string[] names = { "GRAMPEADOR", "BANANA", "PIAO DO CAOS", "DISCO ESPELHO", "LANTERNA DE RAIOS", "FLAUTA DE OSSOS" };
-        int[] basePrices = { 55, 65, 80, 70, 90, 75 };
-        float[] multipliers = { 1.4f, 2.2f, 3.5f, 1.7f, .6f, 2f };
-        var run = new RunState(71319) { Coins = 1000 };
-        foreach (var item in new[] { ShopItem.Heal, ShopItem.Damage, ShopItem.FireRate, ShopItem.MaxHealth, (ShopItem)(-1), (ShopItem)999 })
+        ShopItem[] items = { ShopItem.Stapler, ShopItem.Banana, ShopItem.SpinningTop, ShopItem.MirrorDisc, ShopItem.RayLantern,
+            ShopItem.BoneFlute, ShopItem.Umbrella, ShopItem.HiveLauncher, ShopItem.BoxingGlove };
+        WeaponKind[] weapons = { WeaponKind.Stapler, WeaponKind.Banana, WeaponKind.SpinningTop, WeaponKind.MirrorDisc, WeaponKind.RayLantern,
+            WeaponKind.BoneFlute, WeaponKind.Umbrella, WeaponKind.HiveLauncher, WeaponKind.BoxingGlove };
+        string[] names = { "GRAMPEADOR", "BANANA", "PIAO DO CAOS", "DISCO ESPELHO", "LANTERNA DE RAIOS", "FLAUTA DE OSSOS",
+            "GUARDA-CHUVA", "COLMEIA DE BOLSO", "LUVA DE BOXE" };
+        int[] basePrices = { 55, 65, 80, 70, 90, 75, 65, 85, 75 };
+        float[] multipliers = { 1.4f, 2.2f, 3.5f, 1.7f, .6f, 2f, 2.1f, 1.15f, 2.6f };
+        foreach (var item in new[] { ShopItem.Heal, ShopItem.Damage, ShopItem.FireRate, ShopItem.MaxHealth,
+            ShopItem.GiantRounds, ShopItem.CharacterRelic, ShopItem.QuickBoots, (ShopItem)(-1), (ShopItem)999 })
             Check(!RunState.TryWeaponForItem(item, out _), "Upgrades and invalid items cannot map to weapons");
         Check(RunState.TryWeaponForItem(ShopItem.Scattergun, out var scattergun) && scattergun == WeaponKind.Scattergun
             && RunState.TryWeaponForItem(ShopItem.Repeater, out var repeater) && repeater == WeaponKind.Repeater
@@ -334,16 +358,15 @@ static class HauntChecks
             "Legacy shop weapons retain explicit mapping");
         for (int i = 0; i < items.Length; i++)
         {
+            var run = Offering(items[i]);
             Check(RunState.TryWeaponForItem(items[i], out var mapped) && mapped == weapons[i], "Shop item maps to its matching weapon");
             Check(RunState.WeaponName(weapons[i]) == names[i], "Curious weapons need their own displayed names");
             Check(run.Price(items[i]) == basePrices[i], "Curious weapon initial price");
             Check(!run.Owns(weapons[i]) && !run.Equip(weapons[i]), "Curious weapons must be acquired before equipping");
-            Check(!run.TryBuy(items[i], out _) && run.Coins == 1000 && !run.Sold(items[i]),
+            run.BossDefeated = false;
+            Check(!run.TryBuy(items[i], out _) && run.Coins == 10000 && !run.Sold(items[i]),
                 "Curious weapon purchase must respect the boss gate without mutation");
-        }
-        run.BossDefeated = true;
-        for (int i = 0; i < items.Length; i++)
-        {
+            run.BossDefeated = true;
             int before = run.Coins;
             Check(run.TryBuy(items[i], out _) && run.Coins == before - basePrices[i], "Curious weapon purchase charges the listed price");
             Check(run.Owns(weapons[i]) && run.Weapon == weapons[i] && run.Sold(items[i]), "Curious weapon purchase grants and equips the matching item");
@@ -351,45 +374,124 @@ static class HauntChecks
             before = run.Coins;
             Check(!run.TryBuy(items[i], out _) && run.Coins == before && run.Weapon == weapons[i],
                 "Duplicate purchase must preserve money and equipment");
-        }
-        run.NextFloor();
-        Check(run.Floor == 2 && run.Weapon == WeaponKind.BoneFlute, "Equipped curious weapon persists into the next floor");
-        run.BossDefeated = true;
-        var cadences = new HashSet<float>();
-        for (int i = 0; i < items.Length; i++)
-        {
-            Check(!run.Sold(items[i]) && run.Owns(weapons[i]), "Visit stock resets without deleting owned curious weapons");
+            run.NextFloor();
+            Check(run.Floor == 2 && run.Weapon == weapons[i] && run.Owns(weapons[i]) && !run.Sold(items[i]),
+                "Owned and equipped weapons persist while visit stock resets");
+            run.BossDefeated = true;
             Check(run.Price(items[i]) == basePrices[i] + 3, "Curious weapons use normal floor price scaling");
-            int before = run.Coins;
-            Check(!run.TryBuy(items[i], out _) && run.Coins == before, "Later visits cannot charge for already owned curious weapons");
-            Check(run.Equip(weapons[i]) && run.Weapon == weapons[i], "Owned curious weapons can be reequipped");
-            Check(cadences.Add(run.WeaponInterval), "Curious weapon cadences remain distinct");
+            Check(!run.IsOffered(items[i]) && !run.TryBuy(items[i], out _) && run.Coins == before,
+                "Owned weapons cannot occupy or charge a later visit's stock");
+            Check(run.Equip(weapons[i]), "Owned curious weapons can be reequipped");
+            float interval = run.WeaponInterval;
+            Check(run.TryBuy(ShopItem.FireRate, out _) && run.WeaponInterval < interval, "Fire-rate upgrades affect curious weapons");
+            int savedCoins = run.Coins;
+            Check(!run.TryBuy((ShopItem)999, out _) && !run.TryBuy((ShopItem)(-1), out _)
+                && run.Coins == savedCoins && run.Weapon == weapons[i], "Invalid items cannot charge or alter equipment");
+            Check(!run.Equip((WeaponKind)999) && run.Weapon == weapons[i], "Invalid weapon cannot be equipped");
+            var fresh = new RunState(run.Seed);
+            Check(!fresh.Owns(weapons[i]) && fresh.Weapon == fresh.StartingWeapon, "Restart clears acquired weapons");
+            var poor = Offering(items[i]);
+            poor.Coins = basePrices[i] - 1;
+            Check(!poor.TryBuy(items[i], out _) && poor.Coins == basePrices[i] - 1 && !poor.Owns(weapons[i])
+                && !poor.Sold(items[i]) && poor.Weapon == poor.StartingWeapon, "Unaffordable curious weapon purchase is atomic");
+            run.Hurt(100);
+            Check(!run.Equip(weapons[i]) && !run.TryBuy(items[i], out _) && run.Coins == savedCoins,
+                "Dead runs cannot equip or purchase curious weapons");
         }
-        run.Equip(WeaponKind.Stapler);
-        float interval = run.WeaponInterval;
-        Check(run.TryBuy(ShopItem.FireRate, out _) && run.WeaponInterval < interval, "Fire-rate upgrades affect curious weapons");
-        int savedCoins = run.Coins;
-        WeaponKind savedWeapon = run.Weapon;
-        Check(!run.TryBuy((ShopItem)999, out _) && !run.TryBuy((ShopItem)(-1), out _)
-            && run.Coins == savedCoins && run.Weapon == savedWeapon, "Invalid items cannot charge or alter equipment");
-        Check(!run.Equip((WeaponKind)999) && run.Weapon == savedWeapon, "Invalid weapon cannot be equipped");
         bool rejectedName = false;
         try { RunState.WeaponName((WeaponKind)999); }
         catch (ArgumentOutOfRangeException) { rejectedName = true; }
         Check(rejectedName, "Unknown weapon name must not masquerade as a soul cannon");
-        var fresh = new RunState(run.Seed);
-        foreach (var weapon in weapons) Check(!fresh.Owns(weapon), "Restart removes curious weapon ownership");
-        Check(fresh.Weapon == fresh.StartingWeapon, "Restart returns to the character's initial weapon");
-        for (int i = 0; i < items.Length; i++)
+        Console.WriteLine("Curious weapons: nine original objects, prices, stocked purchases, cadence and persistence checked.");
+    }
+
+    static void ShopStockAndRelics()
+    {
+        var catalog = Enum.GetValues<ShopItem>().Where(item => RunState.TryWeaponForItem(item, out _)).ToArray();
+        var seen = new HashSet<ShopItem>();
+        var stockSizes = new HashSet<int>();
+        foreach (int seed in Enumerable.Range(-200, 401).Concat(new[] { int.MinValue, int.MaxValue }))
+            foreach (int number in new[] { 1, 2, 9, int.MaxValue })
+            {
+                var run = new RunState(seed) { Floor = number, BossDefeated = true, Coins = 10000 };
+                ShopItem[] stock = run.ShopWeapons;
+                Check(stock.Length >= 1 && stock.Length <= 2, "A fresh visit displays only one or two weapons");
+                Check(stock.Distinct().Count() == stock.Length, "Shop displays never repeat one weapon");
+                Check(stock.SequenceEqual(new RunState(seed) { Floor = number }.ShopWeapons), "Stock must replay across processes and machines");
+                Check(stock.All(item => run.IsOffered(item) && RunState.TryWeaponForItem(item, out _)), "Only weapon items occupy display cases");
+                foreach (var item in stock) seen.Add(item);
+                stockSizes.Add(stock.Length);
+                ShopItem first = stock[0];
+                stock[0] = (ShopItem)999;
+                Check(run.ShopWeapons[0] == first, "Stock snapshots cannot mutate the live shop");
+                var absent = catalog.First(item => !run.IsOffered(item));
+                Check(!run.TryBuy(absent, out _) && run.Coins == 10000 && !run.Sold(absent)
+                    && run.Weapon == run.StartingWeapon, "An unstocked purchase must be rejected atomically");
+                ShopItem[] stable = run.ShopWeapons;
+                Check(run.TryBuy(first, out _), "Displayed weapon can be bought");
+                Check(stable.SequenceEqual(run.ShopWeapons), "Buying never rerolls other display cases");
+                run.NextFloor();
+                Check(!run.ShopWeapons.Contains(first), "New visits prefer unowned weapons");
+            }
+        Check(seen.SetEquals(catalog) && stockSizes.SetEquals(new[] { 1, 2 }), "Seed variation reaches the entire weapon catalog and both shop sizes");
+        Check(!new RunState(1).IsOffered((ShopItem)999), "Invalid item is never offered");
+        foreach (CharacterKind character in Enum.GetValues<CharacterKind>())
         {
-            var poor = new RunState(1) { BossDefeated = true, Coins = basePrices[i] - 1 };
-            Check(!poor.TryBuy(items[i], out _) && poor.Coins == basePrices[i] - 1 && !poor.Owns(weapons[i])
-                && !poor.Sold(items[i]) && poor.Weapon == poor.StartingWeapon, "Unaffordable curious weapon purchase is atomic");
+            var run = new RunState(42, character) { BossDefeated = true, Coins = 10000 };
+            float basePower = run.PowerDuration;
+            Check(run.ProjectileScale == 1 && run.MoveSpeedMultiplier == 1 && !run.HasCharacterRelic
+                && run.ProjectileDamageBonus == 0, "A fresh character starts without passive relics");
+            Check(run.TryBuy(ShopItem.GiantRounds, out _) && Math.Abs(run.ProjectileScale - 1.3f) < .00001f,
+                "Giant rounds grow projectiles without changing player damage or movement");
+            Check(run.TryBuy(ShopItem.QuickBoots, out _) && Math.Abs(run.MoveSpeedMultiplier - 1.125f) < .00001f,
+                "Boots increase movement separately from projectiles");
+            Check(run.TryBuy(ShopItem.CharacterRelic, out _) && run.HasCharacterRelic,
+                "A character can buy its own relic");
+            int coins = run.Coins;
+            Check(!run.TryBuy(ShopItem.CharacterRelic, out _) && run.Coins == coins,
+                "A character relic cannot charge twice");
+            Check(run.CharacterRelicName.All(letter => letter < 128 && !char.IsLower(letter)), "Character relic names use pixel-safe letters");
+            if (character == CharacterKind.Hunter || character == CharacterKind.Reaper)
+                Check(run.ProjectileDamageBonus == 1 && run.PowerDuration == basePower, "Hunter and Reaper relics increase projectile damage");
+            if (character == CharacterKind.Medium)
+                Check(Math.Abs(run.PowerDuration - basePower * .7f) < .00001f && run.ProjectileDamageBonus == 0,
+                    "Medium relic shortens the power cooldown");
+            if (character == CharacterKind.Alchemist)
+            {
+                run.Hurt(4);
+                Check(run.TryUsePower() && run.Health == 5 && Math.Abs(run.PowerCooldown - basePower * .85f) < .00001f,
+                    "Alchemist relic heals three and shortens its cooldown");
+            }
+            run.NextFloor();
+            run.BossDefeated = true;
+            run.Coins = 10000;
+            Check(run.HasCharacterRelic && Math.Abs(run.ProjectileScale - 1.3f) < .00001f,
+                "Passive relics persist across floors");
+            Check(run.TryBuy(ShopItem.GiantRounds, out _) && Math.Abs(run.ProjectileScale - 1.6f) < .00001f,
+                "Second giant-round relic reaches its cap");
+            Check(run.TryBuy(ShopItem.QuickBoots, out _) && Math.Abs(run.MoveSpeedMultiplier - 1.25f) < .00001f,
+                "Second boots relic reaches its cap");
+            run.NextFloor();
+            run.BossDefeated = true;
+            coins = run.Coins;
+            Check(!run.TryBuy(ShopItem.GiantRounds, out _) && !run.TryBuy(ShopItem.QuickBoots, out _)
+                && !run.TryBuy(ShopItem.CharacterRelic, out _) && run.Coins == coins
+                && !run.Sold(ShopItem.GiantRounds) && !run.Sold(ShopItem.QuickBoots), "Capped passives cannot charge on later visits");
+            var fresh = new RunState(42, character);
+            Check(fresh.ProjectileScale == 1 && fresh.MoveSpeedMultiplier == 1 && !fresh.HasCharacterRelic,
+                "A new run resets every relic");
         }
-        run.Hurt(100);
-        Check(!run.Equip(WeaponKind.Banana) && !run.TryBuy(ShopItem.Banana, out _) && run.Coins == savedCoins,
-            "Dead runs cannot equip or purchase curious weapons");
-        Console.WriteLine("Curious weapons: prices, atomic purchases, cadence, ownership, transitions and restart checked.");
+        foreach (ShopItem item in new[] { ShopItem.GiantRounds, ShopItem.CharacterRelic, ShopItem.QuickBoots })
+        {
+            var poor = new RunState(1) { BossDefeated = true, Coins = 1 };
+            Check(!poor.TryBuy(item, out _) && poor.Coins == 1 && !poor.Sold(item)
+                && poor.ProjectileScale == 1 && poor.MoveSpeedMultiplier == 1 && !poor.HasCharacterRelic,
+                "Unaffordable passive purchases are atomic");
+            poor.Coins = 10000;
+            poor.Hurt(100);
+            Check(!poor.TryBuy(item, out _) && poor.Coins == 10000 && !poor.Sold(item), "Dead characters cannot acquire passive relics");
+        }
+        Console.WriteLine("Shop/relics: deterministic limited stock, no rerolls, atomic refusals, character effects and passive caps checked.");
     }
 
     public static void Main()
@@ -400,6 +502,7 @@ static class HauntChecks
         Geometry();
         CharactersAndArsenal();
         CuriousShopWeapons();
+        ShopStockAndRelics();
         Console.WriteLine($"PASS — {assertions} assertions against production dungeon and run-state code.");
     }
 }

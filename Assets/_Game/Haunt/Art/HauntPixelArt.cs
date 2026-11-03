@@ -31,7 +31,8 @@ namespace Ecos.Haunt
         public Sprite Frame(string id, int frame)
         {
             if (disposed) throw new ObjectDisposedException(nameof(HauntPixelArt));
-            bool animated = id == "skeleton" || id == "slime" || id == "spider" || id == "miniboss"
+            bool animated = id == "lantern-wisp" || id == "mushroom-brute" || id == "clockwork-imp"
+                || id == "iron-executioner" || id == "bog-oracle" || id == "skeleton" || id == "slime" || id == "spider" || id == "miniboss"
                 || id == "spawn-rift" || id == "shot-disc" || id == "top-shot"
                 || id == "player" || id == "medium" || id == "reaper" || id == "alchemist"
                 || id == "pumpkin" || id == "ghost" || id == "cultist" || id == "bat"
@@ -44,6 +45,36 @@ namespace Ecos.Haunt
             Canvas pixels;
             switch (id)
             {
+                case "lantern-wisp": pixels = LanternWisp(frame); break;
+                case "mushroom-brute": pixels = MushroomBrute(frame); break;
+                case "clockwork-imp": pixels = ClockworkImp(frame); break;
+                case "iron-executioner": pixels = IronExecutioner(frame); break;
+                case "bog-oracle": pixels = BogOracle(frame); break;
+                case "umbrella-gun": pixels = CuriousWeapon(0); break;
+                case "hive-launcher": pixels = CuriousWeapon(1); break;
+                case "boxing-glove": pixels = CuriousWeapon(2); break;
+                case "shot-carbine": pixels = ShotCapsule(0); break;
+                case "shot-veil": pixels = SpectralPetal(true); break;
+                case "shot-petal": pixels = SpectralPetal(false); break;
+                case "shot-stinger": pixels = ShotCapsule(2); break;
+                case "shot-fist": pixels = ShotFist(); break;
+                case "barrel-explosive": pixels = ExplosiveBarrel(); break;
+                case "water-urn": pixels = WaterUrn(); break;
+                case "shattered-prop": pixels = ShatteredProp(); break;
+                case "wet-puddle": pixels = WetPuddle(); break;
+                case "giant-rounds": pixels = Relic(0); break;
+                case "character-relic": pixels = Relic(1); break;
+                case "quick-boots": pixels = Relic(2); break;
+                case "wall-side0": pixels = DeepWall(0, false); break;
+                case "wall-side1": pixels = DeepWall(1, false); break;
+                case "wall-side2": pixels = DeepWall(2, false); break;
+                case "wall-side3": pixels = DeepWall(3, false); break;
+                case "wall-side4": pixels = DeepWall(4, false); break;
+                case "wall-crown0": pixels = DeepWall(0, true); break;
+                case "wall-crown1": pixels = DeepWall(1, true); break;
+                case "wall-crown2": pixels = DeepWall(2, true); break;
+                case "wall-crown3": pixels = DeepWall(3, true); break;
+                case "wall-crown4": pixels = DeepWall(4, true); break;
                 case "skeleton": pixels = Skeleton(frame); break;
                 case "slime": pixels = Slime(frame); break;
                 case "spider": pixels = Spider(frame); break;
@@ -71,11 +102,15 @@ namespace Ecos.Haunt
                 case "boss-bar2": pixels = BossBar(2); break;
                 case "boss-bar3": pixels = BossBar(3); break;
                 case "boss-bar4": pixels = BossBar(4); break;
+                case "boss-bar5": pixels = BossBar(5); break;
+                case "boss-bar6": pixels = BossBar(6); break;
                 case "boss-fill0": pixels = BossFill(0); break;
                 case "boss-fill1": pixels = BossFill(1); break;
                 case "boss-fill2": pixels = BossFill(2); break;
                 case "boss-fill3": pixels = BossFill(3); break;
                 case "boss-fill4": pixels = BossFill(4); break;
+                case "boss-fill5": pixels = BossFill(5); break;
+                case "boss-fill6": pixels = BossFill(6); break;
                 case "stapler": pixels = Stapler(); break;
                 case "banana-gun": pixels = BananaGun(); break;
                 case "spinning-top": pixels = SpinningTop(); break;
@@ -206,15 +241,15 @@ namespace Ecos.Haunt
         static Color32 Hex(uint rgb) => new Color32((byte)(rgb >> 16), (byte)(rgb >> 8), (byte)rgb, 255);
         static Color32 Alpha(Color32 color, byte alpha) => new Color32(color.r, color.g, color.b, alpha);
 
-        // The five frames share a transparent HP window [24,216) x [8,16).
+        // All guardian frames share a transparent HP window [24,216) x [8,16).
         // UI can fill that region without changing geometry for each guardian.
         static Canvas BossBar(int theme)
         {
             var c = new Canvas(240,24);
             Color32 trim = theme == 0 ? Hex(0x9c743d) : theme == 1 ? Hex(0x9eabc8)
-                : theme == 2 ? Gold : theme == 3 ? Hex(0x7da26a) : Hex(0xae8ac1);
+                : theme == 2 ? Gold : theme == 3 ? Hex(0x7da26a) : theme == 5 ? Hex(0xb7bdc4) : theme == 6 ? Hex(0x93c995) : Hex(0xae8ac1);
             Color32 dark = theme == 0 ? Hex(0x3a3729) : theme == 1 ? Hex(0x38344d)
-                : theme == 2 ? Hex(0x583342) : theme == 3 ? Hex(0x2e4945) : Hex(0x352d4b);
+                : theme == 2 ? Hex(0x583342) : theme == 3 ? Hex(0x2e4945) : theme == 5 ? Hex(0x58353e) : theme == 6 ? Hex(0x234b48) : Hex(0x352d4b);
             c.Rect(23,5,194,3,Ink); c.Rect(23,16,194,4,Ink);
             c.Rect(24,6,192,1,trim); c.Rect(24,17,192,1,trim);
             c.Line(28,4,212,4,dark); c.Line(28,20,212,20,dark);
@@ -254,6 +289,23 @@ namespace Ecos.Haunt
                     c.Polygon(new[]{x+6,17,x+9,21,x+12,18,x+15,21,x+18,17},Bone);
                     c.Set(x+3,22,Mint); c.Set(x+20,23,Teal); c.Line(x+1,6,x+4,13,trim);
                 }
+                else if (theme == 5)
+                {
+                    c.Polygon(new[]{x+2,22,x+4,6,x+12,1,x+20,6,x+22,22},Hex(0x383643));
+                    c.Rect(x+6,6,13,13,Hex(0x8c8a94)); c.Rect(x+7,7,10,3,Hex(0xc7c7c5));
+                    c.Rect(x+7,11,4,3,Ink); c.Rect(x+14,11,4,3,Ink);
+                    c.Set(x+8,12,Orange); c.Set(x+15,12,Orange); c.Rect(x+11,15,3,4,Ink);
+                    c.Line(x+3,3,x+3,20,trim); c.Line(x+21,3,x+21,20,trim);
+                    c.Rect(x+1,2,4,3,Gold); c.Rect(x+19,18,4,3,Gold);
+                }
+                else if (theme == 6)
+                {
+                    c.Ellipse(x+3,7,18,14,Hex(0x436d63)); c.Ellipse(x+4,4,7,8,Hex(0x9fbc72));
+                    c.Ellipse(x+14,4,7,8,Hex(0x9fbc72)); c.Rect(x+6,6,3,4,Ink); c.Rect(x+16,6,3,4,Ink);
+                    c.Set(x+7,6,Gold); c.Set(x+17,6,Gold); c.Line(x+7,17,x+18,17,Mint);
+                    c.Line(x+3,8,x,1,Teal); c.Line(x+21,8,x+23,1,Teal);
+                    c.Set(x+1,1,Pale); c.Set(x+22,1,Pale); c.Rect(x+9,20,7,2,Gold);
+                }
                 else
                 {
                     c.Line(x+3,0,x+6,8,trim); c.Line(x+21,0,x+18,8,trim);
@@ -271,6 +323,10 @@ namespace Ecos.Haunt
                 for(int x=31;x<210;x+=24) { c.Rect(x,2,3,3,Gold); c.Set(x+1,0,Bone); c.Rect(x-1,21,5,2,Gold); }
             else if(theme==3)
                 for(int x=30;x<212;x+=15) { c.Ellipse(x,1,5,3,Teal); c.Set(x+2,0,Mint); c.Line(x,21,x+3,23,trim); }
+            else if(theme==5)
+                for(int x=28;x<212;x+=16) { c.Rect(x,1,5,3,trim); c.Set(x+1,1,Pale); c.Rect(x+6,20,5,3,trim); c.Set(x+7,21,Orange); }
+            else if(theme==6)
+                for(int x=28;x<212;x+=18) { c.Line(x,3,x+5,0,Teal); c.Line(x+5,0,x+9,3,trim); c.Ellipse(x+7,20,5,3,Mint); }
             else
                 for(int x=28;x<212;x+=18) { c.Polygon(new[]{x,3,x+4,0,x+8,3},trim); c.Set(x+4,22,Violet); }
             return c;
@@ -280,11 +336,333 @@ namespace Ecos.Haunt
         {
             var c = new Canvas(16,8);
             Color32 baseColor = theme == 0 ? Hex(0xe5762e) : theme == 1 ? Hex(0x9d8dc5)
-                : theme == 2 ? Hex(0xd65d69) : theme == 3 ? Hex(0x6bb563) : Hex(0xa863b5);
+                : theme == 2 ? Hex(0xd65d69) : theme == 3 ? Hex(0x6bb563) : theme == 5 ? Hex(0xe7794c) : theme == 6 ? Hex(0x4da993) : Hex(0xa863b5);
             Color32 light = theme == 0 ? Gold : theme == 1 ? Hex(0xe0e4f1)
-                : theme == 2 ? Hex(0xffa395) : theme == 3 ? Mint : Hex(0xe2adf0);
+                : theme == 2 ? Hex(0xffa395) : theme == 3 ? Mint : theme == 5 ? Hex(0xffd394) : theme == 6 ? Hex(0xb6f3b2) : Hex(0xe2adf0);
             c.Rect(0,0,16,8,baseColor); c.Rect(0,0,16,1,light); c.Rect(0,6,16,2,Alpha(Ink,80));
             c.Line(1,2,5,2,light); c.Line(9,3,13,3,light); c.Set(7,4,Alpha(Ink,90)); c.Set(14,5,light);
+            return c;
+        }
+
+        // Bright, continuous silhouettes remain readable over textured floors. The
+        // dark rim belongs to the body; runtime adds only a small local light halo.
+        static Canvas ShotCapsule(int kind)
+        {
+            var c = new Canvas(14,10);
+            Color32 rim = kind == 0 ? Hex(0x175469) : kind == 1 ? Hex(0xb46729) : Hex(0xb45d2c);
+            Color32 body = kind == 0 ? Mint : kind == 1 ? Gold : Hex(0xffbd67);
+            c.Ellipse(1,1,12,8,rim); c.Ellipse(2,2,10,6,body);
+            c.Rect(4,2,5,2,Pale); c.Ellipse(8,3,4,4,Hex(0xfff7d9));
+            c.Line(3,7,8,7,kind == 0 ? Teal : Orange);
+            if(kind==2) { c.Rect(3,3,2,4,Hex(0x825d40)); c.Rect(7,3,1,4,Hex(0xc18b3a)); }
+            c.Outline(Ink); return c;
+        }
+
+        static Canvas SpectralPetal(bool veil)
+        {
+            var c = new Canvas(14,14);
+            Color32 rim=veil?Hex(0x65418e):Hex(0x3b5b9d), color=veil?Hex(0xc5b5fa):Hex(0x8ed7fa);
+            c.Polygon(new[]{1,7,5,2,10,2,13,6,11,10,5,12},rim);
+            c.Ellipse(3,3,9,8,color); c.Ellipse(6,3,5,6,Pale);
+            c.Line(3,9,8,10,veil?Violet:Teal); c.Set(9,4,Pale);
+            c.Outline(Ink); return c;
+        }
+
+        static Canvas ShotFist()
+        {
+            var c = new Canvas(16,14);
+            c.Ellipse(2,1,12,12,Hex(0x30667e)); c.Ellipse(3,2,10,10,Mint);
+            c.Ellipse(5,2,7,6,Hex(0xd4fff0)); c.Rect(7,3,4,3,Pale);
+            c.Rect(1,5,4,5,Gold); c.Rect(2,5,2,2,Pale); c.Line(6,10,11,10,Teal);
+            c.Outline(Ink); return c;
+        }
+
+        static Canvas CuriousWeapon(int kind)
+        {
+            var c = new Canvas(36,24);
+            if(kind==0)
+            {
+                // A folded storm umbrella with brass ribs and an ivory handle.
+                c.Line(5,18,31,7,Hex(0x7a605c)); c.Line(5,17,31,6,Gold);
+                c.Polygon(new[]{4,17,11,7,26,2,32,6,29,10,16,17},Hex(0x324664));
+                c.Polygon(new[]{5,16,14,7,27,3,23,11,13,16},Hex(0x3c8b9c));
+                c.Polygon(new[]{14,8,28,3,31,6,24,10},Hex(0x71c9d1));
+                c.Line(13,8,9,15,Mint); c.Line(24,5,19,12,Mint); c.Set(29,4,Pale);
+                c.Rect(29,4,5,3,Gold); c.Rect(32,4,2,2,Ink); c.Rect(6,17,3,4,Bone);
+                c.Line(6,20,3,21,Gold); c.Line(3,21,1,19,Gold); c.Rect(1,17,2,3,Bone);
+                c.Rect(15,15,3,5,Hex(0x6c5061)); c.Set(16,15,Gold);
+            }
+            else if(kind==1)
+            {
+                // A portable hive with glass honey tank and a crooked bee muzzle.
+                c.Rect(6,12,8,8,Hex(0x76513f)); c.Line(7,13,11,16,Gold);
+                c.Ellipse(6,3,22,15,Hex(0xb97735)); c.Ellipse(7,3,19,12,Gold);
+                for(int row=0;row<3;row++) for(int col=0;col<4;col++)
+                {
+                    int x=9+col*4+row%2, y=5+row*3;
+                    c.Polygon(new[]{x,y+1,x+1,y,x+3,y,x+4,y+1,x+3,y+3,x+1,y+3},Hex(0xd99037));
+                    c.Set(x+1,y,Pale);
+                }
+                c.Rect(21,7,11,6,Hex(0x6f5445)); c.Rect(23,7,8,2,Gold);
+                c.Ellipse(29,6,5,8,Shade); c.Rect(31,8,3,4,Ink); c.Set(31,7,Mint);
+                c.Rect(4,7,4,9,Teal); c.Rect(5,8,2,5,Mint); c.Set(5,8,Pale);
+                c.Line(13,3,12,0,Shade); c.Line(18,3,20,0,Shade); c.Set(12,0,Gold);
+                c.Ellipse(12,1,6,5,Gold); c.Rect(14,2,2,3,Ink); c.Ellipse(11,0,4,2,Pale);
+            }
+            else
+            {
+                // A spring-loaded boxing glove, drawn as a weapon rather than its projectile.
+                c.Rect(3,11,7,5,Hex(0x5d6778)); c.Rect(2,13,4,7,Hex(0x715163));
+                c.Line(3,14,4,17,Gold); c.Rect(3,10,5,2,Bone);
+                for(int x=9;x<19;x+=3) { c.Line(x,9,x+2,15,LightStone); c.Line(x+2,9,x,15,Shade); }
+                c.Ellipse(17,3,17,15,Hex(0x9d3154)); c.Ellipse(18,3,14,12,Hex(0xe65b85));
+                c.Ellipse(21,4,9,7,Hex(0xffb2b5)); c.Rect(22,4,6,2,Pale);
+                c.Ellipse(16,11,8,7,Rust); c.Line(18,12,22,13,Hex(0xffa1a0));
+                c.Rect(15,8,5,8,Gold); c.Rect(16,9,3,2,Pale); c.Rect(20,15,9,3,Hex(0x8f375a));
+                c.Set(29,10,Hex(0xffd5c8)); c.Set(6,10,Mint);
+            }
+            c.Outline(Ink); return c;
+        }
+
+        static Canvas LanternWisp(int frame)
+        {
+            var c = new Canvas(30,34); int sway=frame==1?1:frame==3?-1:0;
+            c.Polygon(new[]{8,22,23,22,23+sway,29,18,27,17+sway,33,12,29,7+sway,31},Hex(0x537b91));
+            c.Polygon(new[]{10,23,20,23,20+sway,28,16,27,13,31,10,28},Hex(0x99c4d3));
+            c.Line(13,7,13,3,Gold); c.Line(13,3,18,3,Gold); c.Line(18,3,18,7,Gold);
+            c.Rect(6,9,19,15,Hex(0x323d58)); c.Rect(8,10,15,12,Hex(0xc67336));
+            c.Rect(10,10,11,10,Gold); c.Ellipse(12,12,7,8,Hex(0xfff1b2));
+            c.Rect(11,12,3,3,Ink); c.Rect(18,12,3,3,Ink); c.Set(12,13,Pale); c.Set(19,13,Pale);
+            c.Line(14,19,17,19,Hex(0xa86032)); c.Rect(6,8,19,3,Hex(0x5a6779));
+            c.Line(7,8,23,8,Bone); c.Rect(5,22,21,3,Hex(0x5a6779)); c.Line(7,22,23,22,Gold);
+            c.Rect(6,10,2,13,LightStone); c.Rect(23,10,2,13,Shade);
+            c.Line(7,13,2,17+sway,LightStone); c.Line(23,13,28,17-sway,LightStone);
+            c.Set(2,18+sway,Mint); c.Set(27,18-sway,Mint);
+            if(frame==2) { c.Rect(12,15,8,2,Pale); c.Set(15,5,Orange); }
+            c.Outline(Ink); return c;
+        }
+
+        static Canvas MushroomBrute(int frame)
+        {
+            var c = new Canvas(36,34); int stride=frame==1?2:frame==3?-2:0;
+            c.Rect(9,26,6,6+stride,Hex(0x574e61)); c.Rect(23,26,6,6-stride,Hex(0x574e61));
+            c.Rect(8,30+stride,8,3,Hex(0x9a8790)); c.Rect(22,30-stride,9,3,Hex(0x725f75));
+            c.Ellipse(10,14,17,16,Hex(0x92966c)); c.Ellipse(11,15,13,12,Hex(0xc6c293));
+            c.Line(10,21,5,27+stride,Hex(0x8b9669)); c.Ellipse(2,25+stride,7,5,Teal);
+            c.Line(27,21,31,25-stride,Hex(0x8b9669)); c.Ellipse(29,24-stride,6,5,Teal);
+            c.Polygon(new[]{2,15,6,7,12,2,24,2,31,7,35,15,29,18,8,18},Hex(0x6b376f));
+            c.Polygon(new[]{4,12,9,5,15,3,25,4,32,12,29,15,8,15},Hex(0xad5c91));
+            c.Ellipse(10,5,7,4,Hex(0xe6acb1)); c.Ellipse(22,7,5,4,Gold); c.Set(24,7,Pale);
+            c.Rect(4,14,28,3,Hex(0x61395d)); c.Line(9,17,27,17,Hex(0xdbc7b2));
+            c.Rect(12,20,4,4,Ink); c.Rect(22,20,4,4,Ink); c.Set(13,21,Mint); c.Set(23,21,Mint);
+            c.Rect(16,25,7,2,Hex(0x695f62)); c.Rect(18,25,2,2,Bone);
+            c.Ellipse(2,10,4,3,Mint); c.Set(7,4,Hex(0xcbe1a2));
+            if(frame==2) { c.Ellipse(16,22,7,7,Ink); c.Ellipse(17,23,5,4,Mint); c.Set(19,22,Pale); }
+            c.Outline(Ink); return c;
+        }
+
+        static Canvas ClockworkImp(int frame)
+        {
+            var c=new Canvas(34,32); int stride=frame==1?2:frame==3?-2:0;
+            c.Polygon(new[]{8,12,1,8,2,18,8,21},Hex(0x77505e));
+            c.Polygon(new[]{25,12,32,8,31,18,25,21},Hex(0x77505e));
+            c.Line(2,10,7,15,Hex(0xc58b82)); c.Line(31,10,26,15,Hex(0xc58b82));
+            c.Rect(10,23,4,6,Shade); c.Rect(21,23,4,6,Shade);
+            c.Line(10,24,14,28+stride,LightStone); c.Line(21,24,25,28-stride,LightStone);
+            c.Rect(9,28+stride,7,3,Gold); c.Rect(21,28-stride,7,3,Gold);
+            c.Ellipse(8,11,19,16,Hex(0x987039)); c.Ellipse(10,12,15,12,Gold);
+            c.Ellipse(13,14,10,10,Hex(0x64575c)); c.Ellipse(15,16,6,6,Teal); c.Rect(17,17,2,4,Mint);
+            for(int i=0;i<4;i++) { int x=14+i*3; c.Set(x,13,Pale); c.Set(x,24,Orange); }
+            c.Polygon(new[]{10,9,8,2,14,6,19,5,25,1,24,12},Hex(0x68535a));
+            c.Ellipse(9,6,17,12,Hex(0xc69754)); c.Ellipse(10,7,14,9,Hex(0xf0c077));
+            c.Rect(11,10,4,3,Ink); c.Rect(20,10,4,3,Ink); c.Set(12,10,Pink); c.Set(21,10,Pink);
+            c.Line(14,15,21,15,Rust); c.Rect(15,14,2,2,Bone); c.Rect(20,14,2,2,Bone);
+            c.Line(8,18,3,24-stride,LightStone); c.Line(26,18,30,23+stride,LightStone);
+            c.Ellipse(1,22-stride,5,4,Gold); c.Ellipse(28,21+stride,5,4,Gold);
+            if(frame==2) { c.Rect(12,10,3,2,Pale); c.Rect(20,10,3,2,Pale); c.Set(17,15,Orange); }
+            c.Outline(Ink); return c;
+        }
+
+        static Canvas IronExecutioner(int frame)
+        {
+            var c=new Canvas(64,64); int stride=frame==1?2:frame==3?-2:0, lift=frame==2?-8:0;
+            Color32 steel=Hex(0x85858d), bright=Hex(0xc6c7c4), cloak=Hex(0x583447);
+            c.Polygon(new[]{16,34,45,34,51,59,39,56,30,62,20,57,11,59},cloak);
+            c.Polygon(new[]{18,37,40,36,43,55,31,53,28,59,18,54},Hex(0x7b4052));
+            c.Line(18,40,14,54,Hex(0xaf5d62)); c.Line(39,40,44,54,Hex(0x352e42));
+            c.Rect(20,48,8,10+stride,Hex(0x494956)); c.Rect(34,48,8,10-stride,Hex(0x494956));
+            c.Rect(17,56+stride,12,5,steel); c.Rect(33,56-stride,12,5,steel);
+            c.Line(18,56+stride,27,56+stride,bright); c.Line(34,56-stride,42,56-stride,bright);
+            c.Polygon(new[]{17,24,41,24,45,43,15,43},Hex(0x515361));
+            c.Polygon(new[]{20,25,38,25,40,39,19,39},steel); c.Rect(22,27,3,10,bright);
+            c.Polygon(new[]{26,27,35,27,36,36,30,39,25,35},Hex(0x555560));
+            c.Rect(29,29,3,7,Hex(0xae4b46)); c.Rect(27,31,7,2,Orange); c.Set(30,30,Gold);
+            c.Line(35,27,38,36,Hex(0x3b3a49)); c.Set(21,27,Pale); c.Set(37,28,Pale);
+            c.Set(20,36,Gold); c.Set(38,36,Gold); c.Line(24,35,26,33,Hex(0x555160));
+            c.Rect(18,39,26,5,Hex(0x352d3a)); c.Rect(28,39,7,6,Gold); c.Rect(30,40,3,3,Ink);
+            c.Ellipse(8,26,15,12,Hex(0x6a6a75)); c.Ellipse(10,26,11,8,steel); c.Line(11,27,18,27,bright);
+            c.Ellipse(38,26,15,12,Hex(0x6a6a75)); c.Ellipse(39,26,11,8,steel);
+            c.Line(11,35,8,44+stride,Hex(0xa79d98)); c.Ellipse(5,42+stride,8,8,steel);
+            // Chains visibly swing independently of the helmet and cloth.
+            for(int i=0;i<5;i++) { int x=10+i%2*2+stride/2,y=31+i*4; c.Ellipse(x,y,4,5,bright); c.Ellipse(x+1,y+1,2,3,Ink); }
+            c.Polygon(new[]{17,23,16,12,22,3,33,1,43,10,45,24},Hex(0x302d3d));
+            c.Polygon(new[]{18,19,21,8,31,4,40,11,42,22},Hex(0x553d49));
+            c.Rect(21,13,18,15,Hex(0x686b77)); c.Rect(22,13,14,4,bright); c.Rect(35,15,4,12,Hex(0x535564));
+            c.Rect(23,19,6,4,Ink); c.Rect(32,19,6,4,Ink); c.Rect(24,20,4,2,Orange); c.Rect(33,20,4,2,Orange);
+            c.Rect(29,23,3,5,Ink); c.Line(23,27,37,27,bright); c.Set(25,26,Ink); c.Set(35,26,Ink);
+            c.Line(20,12,23,7,Hex(0x99717b)); c.Set(28,5,Gold);
+            // Broad guillotine blade changes height on the cast pose.
+            c.Rect(48,13+lift,3,39,Hex(0x8c6258)); c.Line(48,14+lift,48,49,Gold);
+            c.Polygon(new[]{48,8+lift,59,8+lift,62,13+lift,58,28+lift,51,31+lift,51,17+lift,46,17+lift},steel);
+            c.Polygon(new[]{51,9+lift,58,9+lift,60,13+lift,56,26+lift,52,28+lift},bright);
+            c.Line(59,14+lift,55,26+lift,Pale); c.Rect(51,13+lift,4,4,Ink); c.Set(52,13+lift,Orange);
+            c.Ellipse(45,34,9,7,steel); c.Rect(47,35,5,2,bright); c.Rect(47,50,6,4,Gold);
+            if(frame==2) { c.Rect(24,18,5,2,Pale); c.Rect(33,18,5,2,Pale); c.Line(5,7,8,3,Orange); c.Set(12,1,Gold); }
+            c.Outline(Ink); return c;
+        }
+
+        static Canvas BogOracle(int frame)
+        {
+            var c=new Canvas(64,64); int sway=frame==1?2:frame==3?-2:0, reach=frame==2?5:0;
+            Color32 moss=Hex(0x547e64), light=Hex(0x96bd84), deep=Hex(0x2d4d4e);
+            // Draped moss, gnarled roots and a broad frog silhouette.
+            c.Polygon(new[]{13,37,47,37,55+sway,58,44,55,35,62,27,57,16,61,8+sway,56},deep);
+            c.Polygon(new[]{18,38,42,37,48,54,35,54,31,59,23,54,14,56},moss);
+            c.Line(18,43,15+sway,56,light); c.Line(39,43,46+sway,53,Teal);
+            c.Ellipse(13,30,35,23,moss); c.Ellipse(18,33,25,17,light);
+            c.Ellipse(21,34,18,13,Hex(0xabc592)); c.Line(24,36,24,45,Hex(0xc5d2a0));
+            for(int i=0;i<4;i++) c.Line(26,37+i*3,37,37+i*3,Hex(0x6e9670));
+            c.Ellipse(9,45,14,10,moss); c.Ellipse(40,45,14,10,deep);
+            c.Polygon(new[]{7,54,17,52,23,55,19,59,13,56,8,59,3,57},light);
+            c.Polygon(new[]{40,55,48,52,58,55,61,58,54,58,48,56,43,60},moss);
+            c.Line(13,35,5,40-reach,moss); c.Line(5,40-reach,3,34-reach,light);
+            c.Line(46,35,56,37-reach,moss); c.Line(56,37-reach,59,30-reach,light);
+            c.Ellipse(1,29-reach,7,8,light); c.Ellipse(55,25-reach,7,8,light);
+            c.Line(2,31-reach,0,27-reach,Teal); c.Line(6,31-reach,8,27-reach,Teal);
+            c.Line(56,28-reach,54,23-reach,Teal); c.Line(60,28-reach,63,24-reach,Teal);
+            c.Ellipse(10,17,43,23,deep); c.Ellipse(12,16,39,22,moss); c.Ellipse(16,18,31,16,light);
+            c.Ellipse(12,12,14,16,moss); c.Ellipse(36,12,14,16,moss);
+            c.Ellipse(15,15,9,10,Gold); c.Ellipse(39,15,9,10,Gold);
+            c.Rect(18,16,3,8,Ink); c.Rect(42,16,3,8,Ink); c.Set(17,16,Pale); c.Set(41,16,Pale);
+            c.Polygon(new[]{18,28,44,28,42,35,22,35},deep); c.Line(21,29,42,29,Mint);
+            c.Rect(24,29,3,3,Bone); c.Rect(36,29,3,3,Bone); c.Set(31,26,Teal);
+            // Antler crown and ritual pearl make it distinct from the common slime.
+            c.Line(19,17,15,8,Hex(0x716956)); c.Line(15,8,17,2,light); c.Line(15,8,9,5,light);
+            c.Line(44,17,47,8,Hex(0x716956)); c.Line(47,8,45,1,light); c.Line(47,8,54,4,light);
+            c.Ellipse(25,5+sway,13,13,Hex(0x315c65)); c.Ellipse(27,6+sway,9,9,Mint);
+            c.Ellipse(29,7+sway,5,5,Pale); c.Set(30,4+sway,Gold);
+            c.Ellipse(12,28,4,3,Teal); c.Ellipse(47,26,4,3,Teal); c.Set(14,20,Pale);
+            c.Rect(27,48,9,4,Gold); c.Rect(29,49,5,2,Teal);
+            for(int i=0;i<5;i++) { c.Ellipse(20+i*5,35+i%2,3,3,Gold); c.Set(21+i*5,35+i%2,Bone); }
+            c.Line(14,38,10,45,Hex(0x25494b)); c.Line(44,39,49,46,Hex(0x25494b));
+            c.Ellipse(11,31,4,3,Hex(0xa6bc76)); c.Ellipse(46,32,4,3,Hex(0xa6bc76));
+            c.Set(19,28,Hex(0x47785d)); c.Set(45,27,Hex(0x47785d)); c.Set(23,17,Pale);
+            if(frame==2) { c.Ellipse(27,29,9,8,Ink); c.Ellipse(29,30,5,5,Mint); c.Set(31,30,Pale); }
+            c.Outline(Ink); return c;
+        }
+
+        static Canvas ExplosiveBarrel()
+        {
+            var c=new Canvas(30,34);
+            c.Ellipse(3,3,24,9,Hex(0x76413f)); c.Rect(3,7,24,22,Hex(0x8e3b4b));
+            c.Ellipse(3,24,24,8,Hex(0x5e3441)); c.Rect(6,8,5,20,Hex(0xc45b59)); c.Rect(21,8,4,19,Hex(0x663347));
+            c.Rect(3,10,24,4,Hex(0x626273)); c.Line(4,10,25,10,Hex(0xb9ac9c));
+            c.Rect(3,24,24,4,Hex(0x626273)); c.Line(4,24,25,24,Hex(0x9c8b87));
+            c.Ellipse(4,3,22,7,Hex(0xb35b53)); c.Ellipse(7,4,17,4,Hex(0x6f3942));
+            c.Ellipse(10,14,11,10,Bone); c.Rect(12,17,3,3,Ink); c.Rect(17,17,3,3,Ink); c.Rect(15,20,2,3,Ink);
+            c.Line(20,4,22,0,Gold); c.Set(23,0,Pale); c.Set(25,2,Orange); c.Set(20,0,Orange);
+            c.Set(4,11,Pale); c.Set(24,25,Gold); c.Outline(Ink); return c;
+        }
+
+        static Canvas WaterUrn()
+        {
+            var c=new Canvas(30,34);
+            c.Ellipse(1,10,10,16,Hex(0x4e7b9c)); c.Ellipse(3,12,6,10,new Color32());
+            c.Ellipse(19,10,10,16,Hex(0x345d81)); c.Ellipse(21,12,6,10,new Color32());
+            c.Polygon(new[]{9,7,21,7,24,15,23,28,20,32,10,32,6,27,6,17},Hex(0x315c82));
+            c.Ellipse(7,12,16,19,Hex(0x4d9cbb)); c.Ellipse(9,12,10,16,Hex(0x8ed1da));
+            c.Rect(9,6,12,6,Hex(0x407b9f)); c.Ellipse(8,3,14,6,Hex(0xb3d7d3)); c.Ellipse(10,4,10,3,Hex(0x274e74));
+            c.Rect(9,11,12,2,Gold); c.Line(8,26,21,26,Gold);
+            c.Polygon(new[]{15,15,19,22,17,25,13,25,11,22},Teal); c.Line(14,19,13,22,Pale);
+            c.Line(10,14,9,20,Pale); c.Set(10,13,Pale); c.Outline(Ink); return c;
+        }
+
+        static Canvas ShatteredProp()
+        {
+            var c=new Canvas(32,16);
+            c.Ellipse(1,7,30,8,Alpha(Ink,90));
+            c.Polygon(new[]{3,11,5,5,10,7,9,13},Hex(0x805a5d)); c.Line(5,6,8,8,Gold);
+            c.Polygon(new[]{12,10,14,2,19,3,19,9},Hex(0x6c919e)); c.Line(15,3,18,4,Bone);
+            c.Polygon(new[]{22,12,23,7,29,8,28,13},Hex(0x8c6e67)); c.Set(25,8,Gold);
+            c.Rect(10,13,4,2,Stone); c.Rect(20,12,2,2,LightStone); return c;
+        }
+
+        static Canvas WetPuddle()
+        {
+            var c=new Canvas(48,28);
+            c.Ellipse(2,7,43,17,Alpha(Hex(0x367a98),115)); c.Ellipse(7,3,25,21,Alpha(Hex(0x4c9caa),135));
+            c.Ellipse(19,7,27,17,Alpha(Hex(0x4c9caa),135)); c.Ellipse(9,7,23,14,Alpha(Hex(0x6bbdc0),95));
+            c.Line(9,10,17,8,Alpha(Pale,125)); c.Line(7,15,12,16,Alpha(Mint,110));
+            c.Line(28,11,38,12,Alpha(Pale,100)); c.Line(28,20,38,19,Alpha(Mint,110));
+            c.Set(21,5,Alpha(Pale,120)); c.Set(42,16,Alpha(Mint,120)); return c;
+        }
+
+        static Canvas Relic(int kind)
+        {
+            var c=new Canvas(32,32);
+            if(kind==0)
+            {
+                c.Ellipse(4,2,23,23,Hex(0x916735)); c.Ellipse(6,4,19,19,Gold);
+                c.Ellipse(8,6,15,15,Hex(0x35586b)); c.Ellipse(9,7,12,12,Teal);
+                c.Ellipse(11,8,9,8,Mint); c.Rect(12,8,4,2,Pale);
+                c.Polygon(new[]{20,20,24,19,30,27,27,31,22,26},Hex(0x935966)); c.Line(24,22,28,27,Bone);
+                c.Polygon(new[]{11,16,14,11,18,15,17,18,13,19},Gold); c.Set(14,13,Pale);
+            }
+            else if(kind==1)
+            {
+                c.Line(8,2,4,8,Gold); c.Line(4,8,7,16,Gold); c.Line(24,2,28,8,Gold); c.Line(28,8,25,16,Gold);
+                c.Line(8,2,24,2,Hex(0xa7825b)); c.Polygon(new[]{16,7,27,16,23,28,16,31,8,27,5,16},Hex(0x69547e));
+                c.Polygon(new[]{16,9,24,16,21,26,16,29,10,25,8,16},Violet);
+                c.Polygon(new[]{16,12,21,17,19,23,13,23,11,17},Mint); c.Rect(14,15,4,6,Pale);
+                c.Set(15,10,Gold); c.Line(8,17,10,24,Hex(0xe7acd1));
+            }
+            else
+            {
+                c.Polygon(new[]{7,4,18,4,17,17,26,21,28,27,23,30,6,28,4,23,7,19},Hex(0x435b77));
+                c.Polygon(new[]{8,5,16,5,15,18,24,22,24,26,8,24,7,21},Teal);
+                c.Rect(7,5,10,4,Mint); c.Line(8,5,15,5,Pale);
+                for(int y=11;y<19;y+=3) c.Line(9,y,14,y,Gold);
+                c.Rect(6,26,20,3,Hex(0x98a6a8)); c.Line(7,26,24,26,Pale);
+                c.Polygon(new[]{21,3,17,11,21,11,19,18,27,8,23,8,25,3},Gold);
+                c.Set(23,4,Pale);
+            }
+            c.Outline(Ink); return c;
+        }
+
+        static Canvas DeepWall(int theme, bool crown)
+        {
+            var c=new Canvas(32,32); Color32 trim=ThemeTrim(theme);
+            Color32 stone=theme==0?Hex(0x655a48):theme==1?Hex(0x65748a):theme==2?Hex(0x754d55):theme==3?Hex(0x526c52):Hex(0x564266);
+            if(crown)
+            {
+                c.Polygon(new[]{0,8,7,1,31,1,31,22,24,29,0,29},Ink);
+                c.Rect(0,8,25,19,stone); c.Polygon(new[]{0,8,7,1,31,1,24,8},trim);
+                c.Polygon(new[]{25,8,31,2,31,22,25,28},Hex(0x302e40));
+                c.Line(1,8,24,8,Bone); c.Line(7,1,30,1,LightStone); c.Line(24,9,24,26,trim);
+                c.Line(0,17,23,17,Hex(0x363544)); c.Rect(2,10,10,2,trim); c.Rect(13,20,9,2,trim);
+            }
+            else
+            {
+                c.Rect(0,0,32,32,Ink); c.Rect(1,1,29,29,stone); c.Rect(26,1,4,29,Hex(0x30303e));
+                c.Rect(1,1,25,4,trim); c.Line(1,1,24,1,Bone); c.Line(25,5,25,29,LightStone);
+                for(int y=8;y<31;y+=10) { c.Line(1,y,25,y,Hex(0x33313f)); c.Line(y%20==8?12:5,y,y%20==8?12:5,y+9,Hex(0x33313f)); }
+                c.Rect(3,10,8,2,trim); c.Rect(14,20,9,2,trim); c.Line(1,29,28,29,Ink);
+            }
+            if(theme==0) { c.Line(3,5,7,17,Teal); c.Line(7,17,3,28,Teal); c.Ellipse(3,12,5,3,Hex(0x8b9b60)); }
+            else if(theme==1) { c.Line(22,3,12,13,Hex(0xa6b7c9)); c.Line(22,7,17,7,Hex(0xa6b7c9)); }
+            else if(theme==2) { c.Rect(15,10,3,13,Gold); c.Rect(11,13,11,3,Gold); c.Set(15,10,Pale); }
+            else if(theme==3) { c.Ellipse(12,10,9,13,Hex(0x8a9c68)); c.Set(15,12,Mint); c.Line(20,20,23,26,Teal); }
+            else { c.Polygon(new[]{16,9,21,15,16,22,11,15},Hex(0x30253e)); c.Rect(15,12,3,6,Violet); c.Set(15,12,Pale); }
             return c;
         }
 
@@ -331,18 +709,18 @@ namespace Ecos.Haunt
 
         static Canvas StapleShot()
         {
-            var c = new Canvas(6,6);
-            c.Rect(1,2,4,2,Hex(0x7b8790)); c.Rect(2,2,3,1,Hex(0xe9e9df));
-            c.Set(4,3,Hex(0xb5bec0)); c.Set(0,2,Alpha(Hex(0xb5bec0),75));
-            return c;
+            var c = new Canvas(14,10);
+            c.Ellipse(1,2,12,6,Hex(0x39516d)); c.Ellipse(2,3,10,4,Hex(0xaad8ea));
+            c.Rect(4,3,6,2,Pale); c.Rect(9,4,3,2,Gold); c.Line(3,7,10,7,Teal);
+            c.Outline(Ink); return c;
         }
 
         static Canvas BananaShot()
         {
-            var c = new Canvas(6,6);
-            c.Ellipse(1,1,4,4,Hex(0xb6a46b)); c.Ellipse(2,1,3,3,Hex(0xe7d8a0));
-            c.Rect(3,2,2,1,Hex(0xfff0cf)); c.Set(1,3,Hex(0x837b61));
-            return c;
+            var c = new Canvas(14,12);
+            c.Ellipse(1,1,12,10,Hex(0xab5b28)); c.Ellipse(2,2,10,8,Gold);
+            c.Ellipse(4,2,7,5,Hex(0xfff3b5)); c.Rect(5,3,5,2,Pale);
+            c.Line(3,8,8,9,Orange); c.Outline(Ink); return c;
         }
 
         static Canvas TopShot(int frame)
@@ -582,31 +960,32 @@ namespace Ecos.Haunt
             c.Outline(Ink); return c;
         }
 
-        static Canvas ShotDot()
-        {
-            var c = new Canvas(6,6);
-            c.Ellipse(1,1,4,4,Hex(0x8c9b96)); c.Ellipse(2,1,3,3,Hex(0xd6e1d5));
-            c.Rect(3,2,2,1,Hex(0xfff6df)); c.Set(1,3,Hex(0x64716e)); return c;
-        }
+        static Canvas ShotDot() => ShotCapsule(1);
         static Canvas ShotBone()
         {
-            var c = new Canvas(8,4); c.Rect(1,1,6,2,Hex(0xaaa594));
-            c.Rect(2,1,5,1,Hex(0xeee4cc)); c.Set(1,0,Hex(0xd3cbb7));
-            c.Set(6,0,Hex(0xe3dac2)); c.Set(6,2,Hex(0xc5bca7)); return c;
+            var c = new Canvas(14,10);
+            c.Ellipse(1,1,5,4,Hex(0x856282)); c.Ellipse(1,5,5,4,Hex(0x856282));
+            c.Ellipse(8,1,5,4,Hex(0x856282)); c.Ellipse(8,5,5,4,Hex(0x856282));
+            c.Rect(4,3,6,4,Bone); c.Ellipse(2,2,4,6,Bone); c.Ellipse(8,2,4,6,Bone);
+            c.Line(4,3,10,3,Pale); c.Rect(6,4,5,2,Hex(0xfff5cf));
+            c.Line(4,7,10,7,Hex(0xc1a392)); c.Outline(Ink); return c;
         }
         static Canvas ShotShock()
         {
-            var c = new Canvas(8,6); c.Rect(1,2,6,2,Hex(0x819e9e));
-            c.Rect(3,1,3,1,Alpha(Hex(0xa7c6c3),170)); c.Rect(2,4,3,1,Alpha(Hex(0xa7c6c3),120));
-            c.Line(2,3,4,2,Hex(0xe4efdf)); c.Line(4,2,6,2,Hex(0xf8f5df)); return c;
+            var c = new Canvas(14,12);
+            c.Polygon(new[]{1,6,5,2,9,2,13,6,9,10,5,10},Hex(0x286778));
+            c.Polygon(new[]{2,6,6,3,10,3,12,6,8,9,5,8},Mint);
+            c.Polygon(new[]{7,2,5,6,8,6,6,10,11,5,8,5,10,2},Pale);
+            c.Set(2,6,Hex(0x64b8d6)); c.Outline(Ink); return c;
         }
         static Canvas ShotDisc(int frame)
         {
-            var c = new Canvas(8,8); c.Ellipse(1,1,6,6,Hex(0x718589));
-            c.Ellipse(2,2,4,4,Hex(0xb8c7c3)); c.Ellipse(3,3,2,2,Hex(0xeee8d5));
-            int[][] points={new[]{2,2,5,5},new[]{3,1,4,6},new[]{5,2,2,5},new[]{6,3,1,4}};
-            var p=points[frame%4]; c.Set(p[0],p[1],Hex(0xdce3d5));
-            c.Set(p[2],p[3],Hex(0x889b9a)); return c;
+            var c = new Canvas(14,14); c.Ellipse(1,1,12,12,Hex(0x34476c));
+            c.Ellipse(2,2,10,10,Hex(0x91cee6)); c.Ellipse(4,4,6,6,Hex(0x456e9c));
+            c.Ellipse(5,5,4,4,Gold); c.Set(6,5,Pale);
+            int[][] points={new[]{3,3,10,10},new[]{6,2,7,11},new[]{10,3,3,10},new[]{11,6,2,7}};
+            var q=points[frame%4]; c.Rect(q[0],q[1],2,2,Pale); c.Rect(q[2],q[3],2,2,Mint);
+            c.Outline(Ink); return c;
         }
         static Canvas ShotRay()
         {
@@ -622,11 +1001,11 @@ namespace Ecos.Haunt
 
         static Canvas ShotHalo()
         {
-            var c = new Canvas(16,16);
-            for(int y=0;y<16;y++) for(int x=0;x<16;x++)
+            var c = new Canvas(20,20);
+            for(int y=0;y<20;y++) for(int x=0;x<20;x++)
             {
-                double dx=(x-7.5)/7.5,dy=(y-7.5)/7.5,d=dx*dx+dy*dy;
-                if(d<1) c.Set(x,y,new Color32(255,247,230,(byte)(Math.Pow(1-d,3)*62)));
+                double dx=(x-9.5)/9.5,dy=(y-9.5)/9.5,d=dx*dx+dy*dy;
+                if(d<1) c.Set(x,y,new Color32(255,249,232,(byte)(Math.Pow(1-d,2.5)*96)));
             }
             return c;
         }
@@ -1531,9 +1910,11 @@ namespace Ecos.Haunt
         static Canvas Bullet(bool enemy)
         {
             if (!enemy) return ShotDot();
-            var c = new Canvas(8,8);
-            c.Ellipse(1,1,6,6,Hex(0x9c465c)); c.Ellipse(2,2,4,4,Hex(0xe58b9e));
-            c.Rect(3,2,2,3,Hex(0xffebd7)); c.Set(5,3,Hex(0xffebd7)); return c;
+            var c = new Canvas(14,14);
+            c.Ellipse(1,1,12,12,Hex(0x602748)); c.Ellipse(2,2,10,10,Hex(0xe04d77));
+            c.Ellipse(4,3,7,7,Hex(0xffa7bb)); c.Ellipse(5,4,5,5,Hex(0xfff0dc));
+            c.Rect(5,3,3,2,Pale); c.Set(10,8,Hex(0xffced5));
+            c.Line(4,11,9,11,Hex(0xaa355a)); c.Outline(Ink); return c;
         }
         static Canvas Muzzle()
         {

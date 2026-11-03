@@ -83,6 +83,17 @@ namespace Ecos.Haunt
                     for (int pellet = -1; pellet <= 1; pellet++)
                         FireSpecial(origin, Rotate(aim, pellet * 13) * 16, State.Damage * 2, WeaponKind.BoneFlute);
                     break;
+                case WeaponKind.Umbrella:
+                    for (int petal = -2; petal <= 2; petal++)
+                        FireSpecial(origin, Rotate(aim, petal * 10) * 14, State.Damage, WeaponKind.Umbrella);
+                    break;
+                case WeaponKind.HiveLauncher:
+                    for (int stinger = -1; stinger <= 1; stinger++)
+                        FireSpecial(origin, Rotate(aim, stinger * 16) * 16, State.Damage, WeaponKind.HiveLauncher);
+                    break;
+                case WeaponKind.BoxingGlove:
+                    FireSpecial(origin, aim * 11, State.Damage * 4, WeaponKind.BoxingGlove);
+                    break;
                 case WeaponKind.ArcCoil:
                 case WeaponKind.RayLantern:
                     UpdateBeam(aim, true);
@@ -106,36 +117,57 @@ namespace Ecos.Haunt
             switch (style)
             {
                 case WeaponKind.Stapler:
-                    id = "staple-shot"; scale = .55f; shot.Color = new Color(.8f, .9f, 1);
-                    shot.Radius = .07f; shot.Life = 4;
+                    id = "staple-shot"; scale = .78f; shot.Color = new Color(.65f, .87f, 1);
+                    shot.Radius = .12f; shot.Life = 4;
                     break;
                 case WeaponKind.Banana:
-                    id = "banana-shot"; scale = .5f; shot.Color = new Color(1, .85f, .2f);
-                    shot.Curve = 52; shot.Spin = 540; shot.Radius = .1f; shot.Life = 2.8f;
+                    id = "banana-shot"; scale = .8f; shot.Color = new Color(1, .85f, .2f);
+                    shot.Curve = 52; shot.Spin = 360; shot.Radius = .14f; shot.Life = 2.8f;
                     break;
                 case WeaponKind.SpinningTop:
-                    id = "top-shot"; scale = .6f; shot.Color = new Color(.4f, 1, .95f);
-                    shot.Spin = 960; shot.Radius = .14f; shot.Life = 2.8f;
+                    id = "top-shot"; scale = .88f; shot.Color = new Color(.4f, 1, .95f);
+                    shot.Spin = 720; shot.Radius = .18f; shot.Life = 2.8f;
                     shot.Pierces = 3; shot.HitEnemies = new HashSet<Enemy>();
                     break;
                 case WeaponKind.MirrorDisc:
-                    id = "shot-disc"; scale = .65f; shot.Color = new Color(.45f, .9f, 1);
-                    shot.Spin = 780; shot.Radius = .12f; shot.Life = 5; shot.Bounces = 2;
+                    id = "shot-disc"; scale = .85f; shot.Color = new Color(.45f, .9f, 1);
+                    shot.Spin = 660; shot.Radius = .17f; shot.Life = 5; shot.Bounces = 2;
                     break;
                 case WeaponKind.BoneCaster:
                 case WeaponKind.BoneFlute:
-                    id = "shot-bone"; scale = .7f; shot.Color = new Color(.95f, .86f, .64f);
-                    shot.Radius = .07f; shot.Life = 4;
+                    id = "shot-bone"; scale = .85f; shot.Color = new Color(.95f, .86f, .64f);
+                    shot.Radius = .14f; shot.Life = 4;
+                    break;
+                case WeaponKind.Umbrella:
+                    id = "shot-petal"; scale = .82f; shot.Color = new Color(1, .5f, .8f);
+                    shot.Radius = .13f; shot.Life = 3.2f; shot.Bounces = 2;
+                    break;
+                case WeaponKind.HiveLauncher:
+                    id = "shot-stinger"; scale = .85f; shot.Color = new Color(1, .78f, .25f);
+                    shot.Radius = .12f; shot.Life = 2.4f;
+                    break;
+                case WeaponKind.BoxingGlove:
+                    id = "shot-fist"; scale = 1.05f; shot.Color = new Color(.35f, .86f, 1);
+                    shot.Radius = .23f; shot.Life = 2.2f; shot.Heavy = true;
+                    break;
+                case WeaponKind.VeilWand:
+                    id = "shot-veil"; scale = .8f; shot.Color = new Color(.85f, .55f, 1);
+                    shot.Radius = .14f; shot.Life = 4;
+                    break;
+                case WeaponKind.HunterCarbine:
+                    id = "shot-carbine"; scale = .85f; shot.Color = new Color(.55f, 1, .85f);
+                    shot.Radius = .13f; shot.Life = 4;
                     break;
                 default:
-                    id = "shot-dot"; scale = style == WeaponKind.VeilWand ? .55f : .65f;
-                    shot.Color = style == WeaponKind.VeilWand ? new Color(.8f, .55f, 1) : new Color(.65f, 1, .82f);
-                    shot.Radius = .075f; shot.Life = 4;
+                    id = "shot-dot"; scale = .85f; shot.Color = new Color(1, .85f, .4f);
+                    shot.Radius = .14f; shot.Life = 4;
                     break;
             }
             shot.Sprite.sprite = art.Get(id);
             shot.Sprite.color = Color.white;
-            shot.Sprite.transform.localScale = Vector3.one * scale;
+            float relicScale = Mathf.Clamp(State.ProjectileScale, 1, 1.6f);
+            shot.Radius *= relicScale;
+            shot.Sprite.transform.localScale = Vector3.one * (scale * relicScale);
             ConfigureProjectileLight(shot);
         }
 
@@ -160,7 +192,8 @@ namespace Ecos.Haunt
             sprite.gameObject.SetActive(true);
             sprite.sprite = art.Get(friendly ? "bullet-player" : "bullet-enemy");
             sprite.color = heavy ? new Color(.6f, 1, .85f) : friendly ? CharacterAccent : Color.Lerp(HostileAccent, FloorColors[ThemeVariant], .22f);
-            float scale = heavy ? 1.05f : friendly ? .75f : .85f;
+            float relicScale = friendly ? Mathf.Clamp(State.ProjectileScale, 1, 1.6f) : 1;
+            float scale = (heavy ? 1.15f : friendly ? .85f : .8f) * relicScale;
             sprite.transform.localScale = Vector3.one * scale;
             sprite.transform.position = Snap(origin + Vector2.up * .38f);
             sprite.transform.rotation = Quaternion.Euler(0, 0, Mathf.Atan2(velocity.y, velocity.x) * Mathf.Rad2Deg);
@@ -170,22 +203,45 @@ namespace Ecos.Haunt
             Color shotColor = sprite.color;
             sprite.color = Color.white;
             var shot = new Shot { Sprite = sprite, Glow = light, Position = origin, Velocity = velocity,
-                Friendly = friendly, Damage = damage, Life = 6, Radius = heavy ? .16f : friendly ? .09f : .12f,
+                Friendly = friendly, Damage = damage + (friendly ? State.ProjectileDamageBonus : 0), Life = 6,
+                Radius = (heavy ? .23f : friendly ? .14f : .16f) * relicScale,
                 Color = shotColor, Heavy = heavy, TrailTimer = friendly ? 0 : .02f * (shots.Count % 4) };
             ConfigureProjectileLight(shot);
             shots.Add(shot);
             if (!friendly) Emit("shot-halo", origin + Vector2.up * .35f, Vector2.zero, new Color(1, .7f, .55f, .12f), .05f, .3f, 0);
         }
 
+        void StyleLastHostileShot(int kind)
+        {
+            if (shots.Count == 0) return;
+            var shot = shots[shots.Count - 1];
+            if (shot.Friendly) return;
+            // All three retain the hostile red rim/ivory core. Shape and size add
+            // information without making enemy rounds resemble the player's ammo.
+            if (kind == 12)
+                shot.Sprite.transform.localScale = new Vector3(.76f, .9f, 1);
+            else if (kind == 13)
+            {
+                shot.Sprite.transform.localScale = Vector3.one * .95f;
+                shot.Radius = .19f;
+            }
+            else if (kind == 14)
+            {
+                shot.Sprite.transform.localScale = new Vector3(1.05f, .48f, 1);
+                shot.Radius = .13f;
+            }
+            ConfigureProjectileLight(shot);
+        }
+
         void ConfigureProjectileLight(Shot shot)
         {
-            // Metallic, fruit and bone rounds retain their own silhouette without
-            // a spotlight underneath them. Only energy gets a faint local corona.
-            bool energy = !shot.Friendly || shot.Heavy || shot.Style == WeaponKind.VeilWand;
-            shot.Glow.enabled = energy;
-            float size = shot.Heavy ? .65f : shot.Friendly ? .5f : .4f;
-            Color tint = Color.Lerp(shot.Color, new Color(1, .92f, .8f), .45f);
-            shot.Glow.color = new Color(tint.r, tint.g, tint.b, shot.Heavy ? .2f : shot.Friendly ? .16f : .1f);
+            // A small corona belongs to the projectile itself, at the same height.
+            // The opaque pixel core carries its silhouette; no light decal follows it.
+            shot.Glow.enabled = true;
+            float relicScale = shot.Friendly ? Mathf.Clamp(State.ProjectileScale, 1, 1.6f) : 1;
+            float size = (shot.Heavy ? 1.1f : shot.Friendly ? .85f : .7f) * relicScale;
+            Color tint = Color.Lerp(shot.Color, new Color(1, .92f, .8f), .25f);
+            shot.Glow.color = new Color(tint.r, tint.g, tint.b, shot.Heavy ? .36f : shot.Friendly ? .29f : .18f);
             float scale = Mathf.Max(.01f, shot.Sprite.transform.localScale.x);
             shot.Glow.transform.localScale = Vector3.one * (size / scale);
             shot.Glow.transform.rotation = Quaternion.identity;
@@ -198,16 +254,25 @@ namespace Ecos.Haunt
             Color color = lantern ? new Color(.8f, .5f, 1) : new Color(.35f, .85f, 1);
             Vector2 origin = playerPosition;
             Vector2 end = origin + aim * (lantern ? 11 : 7);
-            FindSolidContact(origin, end, .035f, out float nearest, out _);
+            float beamRadius = .055f * Mathf.Clamp(State.ProjectileScale, 1, 1.6f);
+            FindSolidContact(origin, end, beamRadius, out float nearest, out _);
+            int propIndex = -1;
+            if (FindRoomPropContact(origin, end, beamRadius, out float propContact, out int candidateProp)
+                && propContact <= nearest + .00001f)
+            {
+                nearest = propContact;
+                propIndex = candidateProp;
+            }
             int targetIndex = -1;
             for (int e = 0; e < enemies.Count; e++)
             {
                 var enemy = enemies[e];
                 if (enemy.SpawnRemaining > 0) continue;
                 if (!CombatGeometry.CircleHitFraction(origin.x, origin.y, end.x, end.y,
-                    enemy.Position.x, enemy.Position.y, EnemyHitRadius(enemy) + .035f, out float contact) || contact >= nearest) continue;
+                    enemy.Position.x, enemy.Position.y, EnemyHitRadius(enemy) + beamRadius, out float contact) || contact >= nearest) continue;
                 nearest = contact;
                 targetIndex = e;
+                propIndex = -1;
             }
             if (nearest <= 1) end = Vector2.Lerp(origin, end, Mathf.Clamp01(nearest));
             float distance = Vector2.Distance(origin, end);
@@ -234,24 +299,30 @@ namespace Ecos.Haunt
                 float width = sprite.rect.width / sprite.pixelsPerUnit;
                 float height = sprite.rect.height / sprite.pixelsPerUnit;
                 float pulse = .97f + Mathf.Sin(beamPulse) * .03f;
-                beamVisual.transform.localScale = new Vector3(length / width, (lantern ? .075f : .05f) * pulse / height, 1);
+                float relicScale = Mathf.Clamp(State.ProjectileScale, 1, 1.6f);
+                beamVisual.transform.localScale = new Vector3(length / width, (lantern ? .105f : .08f) * relicScale * pulse / height, 1);
                 beamVisual.color = Color.Lerp(color, Color.white, .55f);
                 beamGlow.transform.position = beamVisual.transform.position;
                 beamGlow.transform.rotation = beamVisual.transform.rotation;
-                beamGlow.transform.localScale = new Vector3(length / width, (lantern ? .15f : .11f) / height, 1);
-                beamGlow.color = new Color(color.r, color.g, color.b, .15f);
+                beamGlow.transform.localScale = new Vector3(length / width, (lantern ? .22f : .18f) * relicScale / height, 1);
+                beamGlow.color = new Color(color.r, color.g, color.b, .24f);
                 muzzleTime = .035f;
             }
             if (!damageTick) return;
             if (targetIndex >= 0)
-                DamageEnemy(targetIndex, State.Damage * (lantern ? 2 : 1), -aim, color, false);
+                DamageEnemy(targetIndex, State.Damage * (lantern ? 2 : 1) + State.ProjectileDamageBonus, -aim, color, false);
+            else if (propIndex >= 0)
+            {
+                DamageRoomProp(propIndex, State.Damage * (lantern ? 2 : 1) + State.ProjectileDamageBonus);
+                Impact(end + Vector2.up * .38f, -aim, color, false);
+            }
             else if (nearest <= 1) Impact(end + Vector2.up * .38f, -aim, color, false);
             Emit("impact-dust", end + Vector2.up * .38f, -aim * .35f, new Color(color.r, color.g, color.b, .4f), .07f, .2f, 0);
         }
 
         static float EnemyHitRadius(Enemy enemy)
         {
-            return enemy.Kind == 4 ? .85f : enemy.Kind == 11 ? .65f : .36f;
+            return enemy.Kind == 4 ? .85f : enemy.Kind == 11 ? .65f : enemy.Kind == 13 ? .48f : .36f;
         }
 
         void DamageEnemy(int index, int damage, Vector2 normal, Color color, bool heavy)
@@ -277,6 +348,7 @@ namespace Ecos.Haunt
                 var shot = shots[i];
                 shot.Age += dt;
                 if (shot.Curve != 0) shot.Velocity = Rotate(shot.Velocity, shot.Curve * dt);
+                if (shot.Friendly && shot.Style == WeaponKind.HiveLauncher) GuideStinger(shot, dt);
                 if (shot.Spin != 0) shot.Sprite.transform.rotation = Quaternion.Euler(0, 0, shot.Age * shot.Spin);
                 if (shot.Style == WeaponKind.SpinningTop) shot.Sprite.sprite = art.Frame("top-shot", Mathf.FloorToInt(shot.Age * 16));
                 if (shot.Style == WeaponKind.MirrorDisc) shot.Sprite.sprite = art.Frame("shot-disc", Mathf.FloorToInt(shot.Age * 20));
@@ -295,6 +367,13 @@ namespace Ecos.Haunt
                     shot.TrailTimer = shot.Friendly ? .045f : .16f;
                 }
                 FindSolidContact(old, next, shot.Radius, out float nearest, out Vector2 solidNormal);
+                int propIndex = -1;
+                if (FindRoomPropContact(old, next, shot.Radius, out float propContact, out int candidateProp)
+                    && propContact <= nearest + .00001f)
+                {
+                    nearest = propContact;
+                    propIndex = candidateProp;
+                }
                 int targetIndex = -1;
                 bool piercing = false, playerHit = false;
                 if (shot.Friendly)
@@ -307,6 +386,7 @@ namespace Ecos.Haunt
                             enemy.Position.x, enemy.Position.y, EnemyHitRadius(enemy) + shot.Radius, out float contact) || contact >= nearest) continue;
                         nearest = contact;
                         targetIndex = e;
+                        propIndex = -1;
                     }
                     if (targetIndex >= 0)
                     {
@@ -314,6 +394,14 @@ namespace Ecos.Haunt
                         {
                             shot.HitEnemies.Add(enemies[targetIndex]);
                             piercing = --shot.Pierces > 0;
+                        }
+                        if (shot.Style == WeaponKind.BoxingGlove)
+                        {
+                            var enemy = enemies[targetIndex];
+                            // Guardians hold their ground; other targets are pushed only
+                            // along legal ground so a glove cannot throw them into cover.
+                            if (enemy.Kind != 4)
+                                enemy.Position = MoveEnemy(enemy, shot.Velocity.normalized * (enemy.Kind == 11 ? .3f : .85f), EnemyHitRadius(enemy));
                         }
                         DamageEnemy(targetIndex, shot.Damage, -shot.Velocity.normalized, shot.Color, shot.Heavy);
                     }
@@ -323,12 +411,14 @@ namespace Ecos.Haunt
                 {
                     nearest = playerContact;
                     playerHit = true;
+                    propIndex = -1;
                     HurtPlayer();
                 }
                 if (nearest <= 1)
                 {
                     Vector2 contact = Vector2.Lerp(old, next, Mathf.Clamp01(nearest));
-                    bool solidHit = targetIndex < 0 && !playerHit;
+                    bool solidHit = targetIndex < 0 && !playerHit && propIndex < 0;
+                    if (propIndex >= 0) DamageRoomProp(propIndex, shot.Damage);
                     if (targetIndex < 0) Impact(contact + Vector2.up * .38f, solidHit ? solidNormal : -shot.Velocity.normalized, shot.Color, shot.Heavy);
                     if (solidHit && shot.Bounces > 0)
                     {
@@ -350,6 +440,28 @@ namespace Ecos.Haunt
                 shot.Glow.transform.position = Snap(next + Vector2.up * .38f);
                 shot.Glow.transform.rotation = Quaternion.identity;
             }
+        }
+
+        void GuideStinger(Shot shot, float dt)
+        {
+            Enemy target = null;
+            float nearest = 64;
+            Vector2 forward = shot.Velocity.normalized;
+            foreach (var enemy in enemies)
+            {
+                if (enemy.SpawnRemaining > 0 || enemy.Health <= 0) continue;
+                Vector2 delta = enemy.Position - shot.Position;
+                float distance = delta.sqrMagnitude;
+                // Limited turning preserves an aimed shot and cannot track through cover.
+                if (distance >= nearest || distance < .001f
+                    || Vector2.Dot(forward, delta.normalized) < .05f || CoverBetween(shot.Position, enemy.Position, shot.Radius)) continue;
+                nearest = distance;
+                target = enemy;
+            }
+            if (target == null) return;
+            float angle = Vector2.SignedAngle(forward, target.Position - shot.Position);
+            shot.Velocity = Rotate(shot.Velocity, Mathf.Clamp(angle, -115 * dt, 115 * dt));
+            shot.Sprite.transform.rotation = Quaternion.Euler(0, 0, Mathf.Atan2(shot.Velocity.y, shot.Velocity.x) * Mathf.Rad2Deg);
         }
 
         // Swept cover tests are shared by rays and projectiles. Normals point back

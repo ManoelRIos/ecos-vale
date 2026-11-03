@@ -3,9 +3,9 @@ using System.Collections.Generic;
 
 namespace Ecos.Haunt
 {
-    public enum ShopItem { Heal, Damage, FireRate, MaxHealth, Scattergun, Repeater, SoulCannon, Stapler, Banana, SpinningTop, MirrorDisc, RayLantern, BoneFlute }
+    public enum ShopItem { Heal, Damage, FireRate, MaxHealth, Scattergun, Repeater, SoulCannon, Stapler, Banana, SpinningTop, MirrorDisc, RayLantern, BoneFlute, Umbrella, HiveLauncher, BoxingGlove, GiantRounds, CharacterRelic, QuickBoots }
     public enum CharacterKind { Hunter, Medium, Reaper, Alchemist }
-    public enum WeaponKind { Pistol, Scattergun, Repeater, SoulCannon, Stapler, Banana, SpinningTop, HunterCarbine, VeilWand, BoneCaster, ArcCoil, MirrorDisc, RayLantern, BoneFlute }
+    public enum WeaponKind { Pistol, Scattergun, Repeater, SoulCannon, Stapler, Banana, SpinningTop, HunterCarbine, VeilWand, BoneCaster, ArcCoil, MirrorDisc, RayLantern, BoneFlute, Umbrella, HiveLauncher, BoxingGlove }
 
     /// <summary>Run-only progression: purchases survive floors, never a new run.</summary>
     public sealed class RunState
@@ -16,9 +16,21 @@ namespace Ecos.Haunt
         public CharacterKind Character { get; }
         public WeaponKind StartingWeapon => StartingWeaponFor(Character);
         public WeaponKind Weapon { get; private set; }
+        public float ProjectileScale { get; private set; } = 1;
+        public float MoveSpeedMultiplier { get; private set; } = 1;
+        public bool HasCharacterRelic { get; private set; }
+        public int ProjectileDamageBonus => HasCharacterRelic
+            && (Character == CharacterKind.Hunter || Character == CharacterKind.Reaper) ? 1 : 0;
+        public string CharacterRelicName => Character == CharacterKind.Hunter ? "OLHO DA AURORA"
+            : Character == CharacterKind.Medium ? "FITA DO VEU" : Character == CharacterKind.Reaper ? "DENTE LUNAR" : "CORACAO VOLTAICO";
+        public string CharacterRelicDescription => Character == CharacterKind.Hunter ? "TIROS +1 DANO"
+            : Character == CharacterKind.Medium ? "PODER RECARREGA 30% ANTES"
+            : Character == CharacterKind.Reaper ? "OSSOS +1 DANO" : "ELIXIR CURA 3 / RECARGA -15%";
         public float PowerCooldown { get; private set; }
-        public float PowerDuration => Character == CharacterKind.Hunter ? 9f
-            : Character == CharacterKind.Medium ? 7f : Character == CharacterKind.Reaper ? 8f : 18f;
+        public float PowerDuration => (Character == CharacterKind.Hunter ? 9f
+            : Character == CharacterKind.Medium ? 7f : Character == CharacterKind.Reaper ? 8f : 18f)
+            * (HasCharacterRelic && Character == CharacterKind.Medium ? .7f
+                : HasCharacterRelic && Character == CharacterKind.Alchemist ? .85f : 1);
         public string PowerName => Character == CharacterKind.Hunter ? "PULSO DA AURORA"
             : Character == CharacterKind.Medium ? "LAMENTO ESPECTRAL"
             : Character == CharacterKind.Reaper ? "COLHEITA LUNAR" : "ELIXIR VITAL";
@@ -50,6 +62,9 @@ namespace Ecos.Haunt
                     case WeaponKind.MirrorDisc: return ShotInterval * 1.7f;
                     case WeaponKind.RayLantern: return ShotInterval * .6f;
                     case WeaponKind.BoneFlute: return ShotInterval * 2f;
+                    case WeaponKind.Umbrella: return ShotInterval * 2.1f;
+                    case WeaponKind.HiveLauncher: return ShotInterval * 1.15f;
+                    case WeaponKind.BoxingGlove: return ShotInterval * 2.6f;
                     default: throw new ArgumentOutOfRangeException(nameof(Weapon));
                 }
             }
@@ -72,6 +87,9 @@ namespace Ecos.Haunt
                 case WeaponKind.MirrorDisc: return "DISCO ESPELHO";
                 case WeaponKind.RayLantern: return "LANTERNA DE RAIOS";
                 case WeaponKind.BoneFlute: return "FLAUTA DE OSSOS";
+                case WeaponKind.Umbrella: return "GUARDA-CHUVA";
+                case WeaponKind.HiveLauncher: return "COLMEIA DE BOLSO";
+                case WeaponKind.BoxingGlove: return "LUVA DE BOXE";
                 default: throw new ArgumentOutOfRangeException(nameof(weapon));
             }
         }
@@ -100,6 +118,9 @@ namespace Ecos.Haunt
                 case ShopItem.MirrorDisc: weapon = WeaponKind.MirrorDisc; return true;
                 case ShopItem.RayLantern: weapon = WeaponKind.RayLantern; return true;
                 case ShopItem.BoneFlute: weapon = WeaponKind.BoneFlute; return true;
+                case ShopItem.Umbrella: weapon = WeaponKind.Umbrella; return true;
+                case ShopItem.HiveLauncher: weapon = WeaponKind.HiveLauncher; return true;
+                case ShopItem.BoxingGlove: weapon = WeaponKind.BoxingGlove; return true;
                 default: weapon = default; return false;
             }
         }
@@ -112,13 +133,62 @@ namespace Ecos.Haunt
             if (Character == CharacterKind.Alchemist)
             {
                 if (Health >= MaxHealth) return false;
-                Health = Math.Min(MaxHealth, Health + 2);
+                Health = Math.Min(MaxHealth, Health + (HasCharacterRelic ? 3 : 2));
             }
             PowerCooldown = PowerDuration;
             return true;
         }
         public bool IsDead => Health <= 0;
         readonly HashSet<ShopItem> sold = new HashSet<ShopItem>();
+        static readonly ShopItem[] WeaponCatalog =
+        {
+            ShopItem.Scattergun, ShopItem.Repeater, ShopItem.SoulCannon,
+            ShopItem.Stapler, ShopItem.Banana, ShopItem.SpinningTop,
+            ShopItem.MirrorDisc, ShopItem.RayLantern, ShopItem.BoneFlute,
+            ShopItem.Umbrella, ShopItem.HiveLauncher, ShopItem.BoxingGlove
+        };
+        ShopItem[] shopWeapons;
+        int stockedFloor = int.MinValue, stockedSeed;
+
+        // The displayed cases and accepted purchases share one stable stock list.
+        // Buying a weapon never rerolls its neighbour; a new floor refreshes stock.
+        public ShopItem[] ShopWeapons
+        {
+            get { EnsureShopStock(); return (ShopItem[])shopWeapons.Clone(); }
+        }
+
+        public bool IsOffered(ShopItem item)
+        {
+            if (!Enum.IsDefined(typeof(ShopItem), item)) return false;
+            if (!TryWeaponForItem(item, out _)) return true;
+            EnsureShopStock();
+            return Array.IndexOf(shopWeapons, item) >= 0;
+        }
+
+        void EnsureShopStock()
+        {
+            if (shopWeapons != null && stockedFloor == Floor && stockedSeed == Seed) return;
+            stockedFloor = Floor; stockedSeed = Seed;
+            var available = new List<ShopItem>();
+            foreach (ShopItem item in WeaponCatalog)
+                if (TryWeaponForItem(item, out WeaponKind weapon) && !Owns(weapon)) available.Add(item);
+            uint random = unchecked((uint)Seed * 0x85ebca6bu ^ (uint)Floor * 0xc2b2ae35u ^ 0x71f36a9du);
+            if (random == 0) random = 0x6d2b79f5u;
+            int count = Math.Min(available.Count, 1 + StockNext(ref random, 2));
+            shopWeapons = new ShopItem[count];
+            for (int i = 0; i < count; i++)
+            {
+                int index = StockNext(ref random, available.Count);
+                shopWeapons[i] = available[index];
+                available.RemoveAt(index);
+            }
+        }
+
+        static int StockNext(ref uint state, int maximum)
+        {
+            state ^= state << 13; state ^= state >> 17; state ^= state << 5;
+            return (int)(state % (uint)maximum);
+        }
 
         public RunState(int seed, CharacterKind character = CharacterKind.Hunter)
         {
@@ -163,6 +233,12 @@ namespace Ecos.Haunt
                 case ShopItem.MirrorDisc: return 70 + scaling;
                 case ShopItem.RayLantern: return 90 + scaling;
                 case ShopItem.BoneFlute: return 75 + scaling;
+                case ShopItem.Umbrella: return 65 + scaling;
+                case ShopItem.HiveLauncher: return 85 + scaling;
+                case ShopItem.BoxingGlove: return 75 + scaling;
+                case ShopItem.GiantRounds: return 35 + scaling;
+                case ShopItem.CharacterRelic: return 50 + scaling;
+                case ShopItem.QuickBoots: return 30 + scaling;
                 default: throw new ArgumentOutOfRangeException(nameof(item));
             }
         }
@@ -176,11 +252,15 @@ namespace Ecos.Haunt
             if (!BossDefeated) { message = "MERCADO FECHADO."; return false; }
             bool weaponItem = TryWeaponForItem(item, out WeaponKind purchasedWeapon);
             if (weaponItem && Owns(purchasedWeapon)) { message = "ARMA JA ADQUIRIDA."; return false; }
+            if (weaponItem && !IsOffered(item)) { message = "ARMA FORA DESTA VISITA."; return false; }
             if (Sold(item)) { message = "ESGOTADO NESTA VISITA."; return false; }
             if (item == ShopItem.Heal && Health >= MaxHealth) { message = "VIDA COMPLETA."; return false; }
             if (item == ShopItem.Damage && Damage >= 10) { message = "DANO MAXIMO."; return false; }
             if (item == ShopItem.FireRate && ShotInterval <= .0701f) { message = "CADENCIA MAXIMA."; return false; }
             if (item == ShopItem.MaxHealth && MaxHealth >= 20) { message = "VIDA MAXIMA."; return false; }
+            if (item == ShopItem.GiantRounds && ProjectileScale >= 1.5999f) { message = "BALAS NO TAMANHO MAXIMO."; return false; }
+            if (item == ShopItem.CharacterRelic && HasCharacterRelic) { message = "RELIQUIA JA ADQUIRIDA."; return false; }
+            if (item == ShopItem.QuickBoots && MoveSpeedMultiplier >= 1.2499f) { message = "PASSOS NO MAXIMO."; return false; }
             int price = Price(item);
             if (Coins < price) { message = "FALTAM ALMAS."; return false; }
 
@@ -206,6 +286,18 @@ namespace Ecos.Haunt
                     Health = Math.Min(MaxHealth, Health + gain);
                     message = "VIDA MAXIMA +2.";
                     break;
+                case ShopItem.GiantRounds:
+                    ProjectileScale = Math.Min(1.6f, ProjectileScale + .3f);
+                    message = "BALAS MAIORES.";
+                    break;
+                case ShopItem.CharacterRelic:
+                    HasCharacterRelic = true;
+                    message = CharacterRelicName + " ADQUIRIDO.";
+                    break;
+                case ShopItem.QuickBoots:
+                    MoveSpeedMultiplier = Math.Min(1.25f, MoveSpeedMultiplier + .125f);
+                    message = "PASSOS MAIS RAPIDOS.";
+                    break;
                 default:
                     Weapon = purchasedWeapon;
                     weapons.Add(Weapon);
@@ -221,6 +313,7 @@ namespace Ecos.Haunt
             if (Floor < int.MaxValue) Floor++;
             BossDefeated = false;
             sold.Clear();
+            shopWeapons = null;
         }
     }
 }

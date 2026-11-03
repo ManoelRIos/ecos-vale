@@ -1,30 +1,30 @@
-# Validação
+# Validação de Ecos da Meia-Noite
 
-O Editor Unity não está disponível neste ambiente. Esta expansão deve ser validada em duas camadas: checks executáveis sem Unity e importação/execução com o Editor licenciado. O ZIP contém fontes; empacotar não gera nem valida um executável.
+## O que foi executado nesta revisão
 
-## Checks sem Unity
+- 24 testes Python de versões, atalho e empacotamento.
+- Análise de sintaxe dos 17 arquivos C#, referências e metadados: 23 assets e 33 GUIDs.
+- 492.814 asserções compilando o núcleo C# real, incluindo 2.436 andares, estoque determinístico limitado, compras atômicas, relíquias, progressão, inventário e geometria varrida.
+- Helpers temporários externos ao projeto compilaram os parciais reais com tipos Unity simulados e verificaram IA, objetos, armas, controle, arte e síntese de áudio. A prévia `ARSENAL_AND_ENCOUNTERS.png` usa os pixels reais da arte procedural, sem renderização do motor.
 
-Nesta revisão passaram 24 testes Python, a análise de sintaxe de 15 arquivos C# e 396.051 asserções do núcleo C#, incluindo 2.436 andares gerados. O validador estrutural conferiu 21 assets e 31 GUIDs. A compilação Unity e os testes do Editor permanecem pendentes.
+**O Editor Unity não está instalado neste ambiente.** Esses resultados não certificam importação, compilação no Unity, shaders, Play Mode, áudio reproduzido, hardware PS4 ou executável Windows. Não há build Windows validado desta revisão. Os testes Editor foram ampliados e precisam ser executados no motor.
 
-Execute na raiz do projeto:
+## Reproduzir checks sem Editor
 
 ```bash
 python3 -m pip install -r Tools/requirements-validation.txt
-python3 -m unittest discover -s Tools -p 'test_*.py'
 python3 Tools/validate_project.py
+python3 -m unittest discover -s Tools -p 'test_*.py'
 dotnet run --project Tools/HauntChecks.csproj
-bash -n Tools/setup-cloud.sh Tools/unity-check.sh
 ```
 
-O núcleo C# verifica conectividade, determinismo e variação de mapas, crescimento de 7 até 27 salas, limite em andares extremos, posição do chefe, três candidatos por tema, reprodução da escolha do guardião e das salas com miniboss pela semente, cobertura dos pools, metadados de três ondas e progresso independente entre instâncias. Também verifica quatro armas iniciais exclusivas, cadência, mapeamento explícito entre item e arma, compras atômicas antigas/novas, limites de melhorias, morte, passagem de andar e ordem das colisões. O antigo fingerprint dos mapas foi retirado porque o crescimento dos andares é intencional; a reprodução determinística do novo grafo continua verificada. A suíte produz contagens no terminal; um resultado de outra versão não substitui uma execução atual.
+O ambiente configurado por `bash Tools/setup-cloud.sh` executa a instalação e esses checks. Para gerar o ZIP, rastreie arquivos novos e use `python3 Tools/package_project.py`. O pacote deve conter os parciais Input e Environment com `.meta`, além da cena, recursos, versões e demais fontes obrigatórias.
 
-As verificações Python cobrem a estrutura do projeto, metadados/GUIDs, versões, arquivos necessários ao lançamento e conteúdo seguro do ZIP. O parser C# inclui a nova classe parcial `HauntGame.Weapons.cs` e verifica sintaxe, sem substituir a resolução de tipos e a compilação Unity. Os testes estáticos do atalho não executam Windows ou o Editor.
+## Verificação necessária no Unity
 
-As prévias de sprites executam as rotinas de pixels C# com tipos auxiliares mínimos fora do Editor. Esses stubs permitem desenhar o PNG e não simulam o Unity, sua câmera, materiais ou URP. Essa geração não equivale a um teste de renderização; os checks do núcleo usam o código de produção sem stubs Unity.
+Abra uma extração nova pelo Hub com Unity 6000.0.85f1. Aguarde os pacotes URP 17.0.4, Input System 1.11.2 e Test Framework 1.4.5. Com Play parado, use Ecos → Abrir roguelike. Execute os testes de Editor pelo Test Runner e procure erros de compilação, shader ou referências no Console.
 
-## Checks no Unity
-
-Com `UNITY_EDITOR_PATH` apontando para o executável licenciado de Unity 6000.0.85f1:
+Com Editor licenciado e `UNITY_EDITOR_PATH` definido, também é possível usar:
 
 ```bash
 bash Tools/unity-check.sh import
@@ -33,85 +33,39 @@ bash Tools/unity-check.sh tests
 bash Tools/unity-check.sh build
 ```
 
-A importação prepara os recursos URP. O smoke verifica bootstrap, recursos e plano inicial. Os testes do Editor verificam configuração gráfica, cena/build, sprites, estado da incursão, combate/recompensa, revisita, esquiva, reinício e abertura segura. A expansão acrescenta cobertura para poderes, cinco arquétipos de chefe, seleção por tema/semente, câmera próxima, orientação da saída, reciclagem dos halos e os novos sprites/criaturas; esses testes Unity foram escritos, mas não executados aqui. Eles não certificam a aparência renderizada.
+O build solicitado fica em `Builds/Windows/EcosDaMeiaNoite.exe`. Teste a execução em Windows; o atalho opcional também precisa de validação nesse sistema.
 
-Os testes de runtime isolam uma cena vazia e restauram a configuração anterior. Se houver edição de cena não salva, esse grupo pode ser pulado para preservar o trabalho; registre esse resultado como pulado, sem tratá-lo como aprovado. Confira os logs e o XML da execução atual em `/tmp`.
+## Combate, arsenal e cenário
 
-O build Windows exige o módulo Windows Build Support. A saída padrão é `Builds/Windows/EcosDaMeiaNoite.exe`.
+1. Compare salas de enxame, emboscada, fogo cruzado e elite na mesma incursão. Confira combinações, formações e mobilidade diferentes; todas precisam de três ondas, uma recompensa e portas fechadas até a última. Emergência de 0,9 s não deve atacar nem receber dano. Miniboss não deve abrir portal de chefe.
+2. Confira os treze mobs comuns e seus sinais de ataque, incluindo lanterna orbital, cogumelo bruto e diabrete de corda. Verifique que cobertura impede tiros, criaturas não ficam presas nos objetos novos e grupos mantêm rotas de aproximação. Limites de tiros devem preservar o disparo do jogador em salas densas.
+3. Teste as quatro armas iniciais, nove armas curiosas e três antigas. Confira corpo arredondado, núcleo claro e halo curto co-localizado em pisos claros/escuros, com balas hostis distintas. Rastros e clarões devem reforçar o movimento sem esconder ataques. Troque armas após colisões e confira a restauração de escala, cor e orientação do pool.
+4. Guarda-Chuva: cinco pétalas, dois ricochetes e término no contato sólido seguinte. Colmeia: três ferrões com perseguição suave, sem atravessar cobertura ou procurar inimigos emergindo. Luva: dano pesado e empurrão sem lançar o alvo para paredes/abismos; chefe mantém posição. Pião: até três inimigos distintos, sem dano repetido no mesmo alvo.
+5. Raios acompanham a mira, respeitam a cadência e param no primeiro inimigo, parede ou objeto. Soltar, trocar arma, esquivar, pausar, morrer ou abrir catálogo oculta corpo, brilho e loop sonoro.
+6. Destrua um barril e saia do marcador de 0,55 s; teste dano no jogador e em inimigos, cobertura, pares próximos e reação em cadeia. A explosão do último alvo deve avançar só uma onda, sem ferir os recém-criados. Revisitar a sala deve manter os destroços.
+7. Quebre uma urna, caminhe sobre a poça e saia dela. A lentidão deve corresponder à elipse visível e não acumular. Esquive para atravessar; criaturas terrestres também devem ser afetadas. Espere até 14 s para a água desaparecer; revisitar não deve restaurar a urna quebrada.
+8. Teste abismos nas salas indicadas do segundo andar em diante: esquiva atravessa, aterrissar no buraco perde uma vida e volta ao chão seguro. Inimigos flutuantes cruzam; terrestres evitam.
 
-## Verificação funcional
+## Chefes, progressão e loja
 
-No Editor, abra **Ecos → Abrir roguelike**, pressione Play e confira:
+1. Confira os sete arquétipos, barra inferior exclusiva e preenchimento proporcional. Carrasco e Oráculo devem alternar os três padrões e intensificar quando feridos; os avisos de chão duram 1,1 s e são cancelados ao purificar a sala. Repetir a semente e o andar reproduz o sorteio.
+2. Verifique os cinco temas, pisos, sombras, faces/coroamentos de paredes, cobertura e neblina baixa. A ordenação deve permitir passar atrás dos objetos; paredes próximas ficam translúcidas quando cobrem o jogador. Projéteis permanecem legíveis. Esta apresentação usa camadas 2D, sem malhas 3D.
+3. No mercado, confira uma ou duas vitrines com as mesmas armas do catálogo. Reabrir ou comprar não muda a outra oferta. A próxima visita sorteia entre armas não adquiridas; após obter todas, estoque vazio deve ser tratado sem erro. Não é possível comprar produto fora do estoque.
+4. Compre Balas Gigantes até o limite de 160% e Botas até 125%; mudanças devem persistir entre andares e sumir em uma incursão nova. Confira cada relíquia de alma, seu benefício, preço e rejeição de compra repetida. Compra recusada não consome moedas.
+5. Caminhe pelo balcão/vitrines. Abrir conversa longe deve falhar; perto, E/X/clique abre e só então bloqueia movimento. Esc/Círculo fecha antes de pausar. Descer exige conversa fechada e interação no portal.
+6. Confira 7/9/13/27 salas nos andares 1/2/4/11, minibosses e aumento moderado de vida. Nova incursão restaura arma inicial, vida, passivos e mapa; morte encerra a atual.
 
-1. Menu, início com semente aleatória e repetição de uma semente.
-2. Movimento, mira, disparos e colisão com paredes e colunas.
-3. Os dez inimigos comuns, seus avisos de ataque e a esquiva atravessando projéteis. Conferir esqueleto atirador, slime saltador com rajada radial e aranha que circunda e investe.
-4. Três ondas em cada sala de combate: matar a primeira e a segunda deve iniciar outra emergência sem abrir portas nem pagar recompensa. Somente limpar a terceira abre as saídas e paga uma vez. Revisitar uma sala purificada não deve recriar ondas.
-5. Chefe, vitória, portal e chegada segura ao Mercado das Almas.
-6. Compras, saldo insuficiente, limite por visita e preservação das melhorias no próximo andar.
-7. Pausa, morte e reinício.
-8. Legibilidade e mira em janelas de tamanhos diferentes, incluindo 860 × 500.
-9. Sprite do jogador e de cada inimigo visíveis nas duas direções; cores preservadas após dano e esquiva.
-10. Ciclos de quatro quadros de movimento, asas e velas; portas aberta/selada/guardião; rastro, recuo e partículas.
-11. Selecionar as quatro almas, conferir sprite, arma inicial e usar Q: pulso remove balas próximas e bloqueia dano brevemente; lamento produz nove tiros. Repetir Q durante recarga não dispara novamente; pausa congela recarga. O atalho 1 deve voltar à arma inicial de cada alma.
-12. Conferir Ceifador (12 tiros radiais/proteção) e Alquimista (cura 2; vida cheia não gasta recarga).
-13. Comprar as seis armas do catálogo em suas duas páginas de três itens, conferir cobrança única, alternar com 1–7, atravessar andares e reiniciar. Conferir pares de grampos, tiro curvo da banana, pião que atravessa até três inimigos distintos, disco com dois ricochetes, lanterna contínua e flauta com três ossos. Paredes e cobertura devem bloquear os tiros e raios, refletindo o disco enquanto houver ricochetes disponíveis.
-14. Explorar os cinco temas com sementes diferentes e conferir os três guardiões possíveis de cada tema. Repetir semente e andar para conferir o mesmo guardião. Conferir Matriarca/Sino quando sorteados, seus padrões, as criaturas comuns do tema, o minimapa e as partículas.
-15. Mirar e atirar através dos textos do HUD, mapa pequeno e atlas ampliado, sem zonas invisíveis de bloqueio. Conferir bloqueio de tiros no menu, catálogo do atendente, pausa e morte. A loja é segura: o jogador caminha com o catálogo fechado, sem disparar.
-16. Conferir uma sala com miniboss por andar e duas a partir do quarto, sempre em salas de combate. O miniboss deve surgir com os mobs da terceira onda, sem substituir o guardião principal; conferir resistência, leque e ataque marcado no chão.
-17. Observar a emergência de 0,9 s: fenda animada no chão, crescimento do sprite, nenhuma IA, dano de contato ou dano recebido antes de terminar. Testar tiros, raio e poderes durante a emergência; pausa deve congelá-la.
-18. A partir do segundo andar, localizar salas com abismos. Cruzar usando Espaço/botão direito, terminar a esquiva em chão firme e terminar outra sobre o buraco: a queda deve custar 1 de vida e retornar ao último chão seguro. Conferir rotas de entrada livres e inimigos terrestres evitando a borda.
-19. Nos temas Galeria, Ninho e Abismo, conferir neblina animada abaixo dos atores, sombras e legibilidade dos projéteis; repetir semente e andar para conferir a mesma colocação dos abismos.
+## Controle e interface
 
-A compilação completa, o Play Mode, o render e o executável desta expansão permanecem pendentes até esses checks serem executados no Editor.
+1. Conecte DualShock 4 por USB e depois Bluetooth no PC, verificando se o Input System reconhece o dispositivo. Teste desconectar/reconectar e alternar mouse/teclado sem mira presa ou disparo involuntário. O teste sintético não comprova compatibilidade do hardware/driver.
+2. Use somente controle: escolha personagem, inicie, mova/mire com analógicos, dispare R2, esquive Círculo/L2, use Quadrado, troque armas L1/R1, abra mapa Share/touchpad e pause Options. A mira deve conservar a última direção após soltar o analógico direito.
+3. Navegue loja, abas L1/R1, páginas Triângulo, compra X e fechamento Círculo. Segurar X ao abrir não pode comprar; só uma nova pressão aceita a ação. Teste pausa, som e as três escolhas da tela de morte sem mouse.
+4. Confira Tab/roda para todo o inventário e atalhos 1–0. Em 1280×720 e 860×500, teste foco visível, glifos bitmap, preços, corações sem tarjas e menus sem sobreposição. O mapa ampliado tem fundo escuro, permanece passivo e não deve capturar disparos.
+5. Após purificar, siga a seta à porta mais próxima; após chefe, ao portal. Durante combate ou conversa, ela deve desaparecer.
 
-## Roteiro adicional: arenas, chefes e loja
+## Áudio, desempenho e descarte
 
-- Em cada um dos cinco temas, conferir as quatro variantes de piso, tom/rotação, paredes, relevos com sombra, candelabros de quatro quadros e miniatura própria do mapa. Repetir a semente para conferir os mesmos ladrilhos. Testar saídas nos quatro lados da arena ampliada e a chegada livre de obstáculos.
-- Conferir poses de conjuração, aura e os dois padrões de cada chefe; sair de um aviso de chão antes de 1,1 s, ficar em outro para verificar dano, e purificar/sair com uma marca pendente para verificar cancelamento.
-- Conferir rastros e impactos em inimigo, parede e cobertura com as quatro armas iniciais e as seis de loja, sem encobrir a leitura das balas hostis. Os novos tiros abstratos devem permanecer pequenos e os raios devem seguir a mira sem atravessar cobertura.
-- Entrar no mercado e caminhar entre balcão, seis vitrines e prateleiras, conferindo colisões e câmera. Clicar no atendente de longe não deve abrir o catálogo; aproximar-se a até 2,8 unidades e clicar ou usar E deve abri-lo. Conferir as duas páginas de três armas, nomes, ícones, preços e estado adquirido. Movimento só fica bloqueado durante a conversa. Comprar, recusar compra sem saldo e equipar uma arma adquirida; Esc deve fechar o catálogo antes de pausar. Fechar a conversa, caminhar até o portal e usar E para descer. Nenhum botão do catálogo deve pular o portal.
-- Conferir a câmera ortográfica de tamanho 6,3 em 1280×720 e 860×500: seguir o personagem suavemente, respeitar limites nas bordas e reposicionar imediatamente ao trocar de sala. Testar mira pelo mouse com a câmera deslocada. Conferir HUD, atlas e cartões nas duas resoluções. Não há coop nesta revisão.
-- Durante o combate, conferir ausência da seta de saída. Purificar a sala e caminhar entre duas portas para conferir a indicação da mais próxima. Após vencer o chefe, conferir que a seta aponta ao portal mesmo perto de uma porta; na loja/pausa, a orientação deve ficar oculta.
-- Para cada tema, testar sementes até observar os três candidatos documentados no README. Repetir uma semente e andar para conferir mapa e chefe iguais. Conferir que o piso, as paredes e os inimigos comuns permanecem associados ao tema, mesmo quando muda o guardião sorteado.
-- Disparar repetidamente as armas iniciais e as seis de loja contra paredes, cobertura e inimigos; conferir ausência de halo nas munições físicas, halo pequeno e alinhado nas energéticas e rastros discretos, sem apagar balas hostis. Expirar ou colidir os tiros e verificar que seus halos desaparecem junto. Reiniciar e voltar ao menu várias vezes; confirmar que o pool reaproveita o par projétil/halo e que a contagem de objetos não cresce sem limite. O núcleo e o brilho dos raios devem desaparecer juntos ao soltar o disparo, esquivar, morrer, pausar ou abrir o catálogo.
-- Destruir o objeto `HauntGame` ou sair do Play Mode e conferir liberação do material ambiente `Haunt / additive light`, o material de tiro `Haunt / soft shot light`, materiais e texturas da biblioteca de arte. Inspecionar o Console para referências destruídas ou halos órfãos; o pool e sua limpeza não são certificados pelo parser C#.
-
-Os testes Unity foram ampliados para geometria, portas/chegadas, câmera, orientação da saída, seleção e identidades dos chefes, alternância de ataques, avisos de chão, poderes novos e reciclagem do halo com o projétil; permanecem não executados. A prévia PNG apenas mostra os pixels do desenho procedural, sem renderização Unity.
-
-## Roteiro: HUD sem tarjas
-
-- Em 1280×720 e 860×500, conferir corações no canto superior esquerdo, textos sem retângulos e legibilidade sobre pisos claros/escuros. Testar vida máxima acima de 10 para conferir a segunda linha de corações.
-- Conferir ausência de fundos em notificações, rótulos das portas, portal e legenda da seta; dados da sala devem desaparecer após o breve aviso de entrada. A seta deve continuar visível ao ampliar o mapa depois de purificar a sala.
-- Conferir mapa pequeno sem fundo em 45% de opacidade. Com M, conferir atlas de 1060 × 580 na interface de referência 1280 × 720, desenhos a 95% e fundo escuro de tela inteira a 78%. Corredores, miniaturas, retratos e marcadores devem continuar legíveis em ambas as resoluções. Deve ser possível mirar e atirar em qualquer ponto das sobreposições; o combate continua ativo com M aberto.
-- Conferir que catálogo do atendente, menu, pausa e morte continuam com botões funcionais e sem disparos por trás das telas. Com o catálogo fechado, deve ser possível caminhar pelo mercado.
-
-Esta revisão de interface recebeu análise de sintaxe e checks estáticos. A aparência em jogo permanece pendente de execução no Editor Unity.
-
-## Roteiro: barra de chefe e texto bitmap
-
-- Enfrentar cada um dos cinco arquétipos e conferir barra de vida centralizada na parte inferior, preenchimento proporcional e moldura exclusiva em pixel art. Testar dano, morte, pausa e mudança de sala sem barra órfã ou informações duplicadas no topo.
-- Conferir glifos bitmap em HUD, menus, botões, preços, rótulos e avisos, sem rótulos nativos sobrepostos. Digitar e apagar a semente, usar valores negativos e reiniciar para conferir entrada e sobreposição bitmap.
-- No catálogo, conferir ícones das seis armas em duas páginas de três, nome, preço e característica curta; as armas convencionais antigas não devem aparecer à venda. Conferir que compra fechada ou sem saldo não muda vida, arma, estoque ou moedas.
-- Com o pião, alinhar quatro inimigos: ele deve atingir no máximo três distintos e não ferir repetidamente o mesmo alvo. Colocar cobertura antes de outro inimigo para conferir que não atravessa a parede. Conferir duração de 2,8 s e reaproveitamento de projétil/halo.
-- Criar e destruir várias incursões e encerrar Play Mode para conferir que o cache de glifos, materiais e sprites é liberado. O parser não valida os recursos de IMGUI nem a compilação do Unity.
-
-Os checks sem Unity desta revisão passaram; os testes visuais, a integração do mercado, os projéteis e a compilação completa permanecem pendentes de execução no Editor licenciado.
-
-## Roteiro: raios, ricochetes e progressão de ondas
-
-- Carabina: conferir tiro único; varinha: três tiros em leque; Ceifador de Ossos: dano duplo por tiro; Bobina Voltaica: raio de alcance 7 com dano base por pulso. As armas devem acompanhar a alma selecionada e voltar ao estado inicial ao reiniciar.
-- Lanterna: manter o botão pressionado e mover a mira; conferir alcance 11, dano duplo por pulso e bloqueio pelo primeiro inimigo ativo ou obstáculo. Trocar de arma, soltar o botão ou interromper o combate deve ocultar o raio.
-- Disco: testar parede, cobertura e canto, conferindo duas reflexões e término no contato sólido seguinte. Colocar um inimigo antes e outro atrás de uma coluna: a primeira colisão deve decidir o contato, sem atravessar a cobertura. Flauta: conferir três ossos com dano duplo cada.
-- Contar salas nos andares 1/2/4/11: 7/9/13/27; andares posteriores mantêm o limite de 27. Repetir semente e andar para conferir posição dos minibosses. A recompensa é por sala completa, sem pagamento intermediário por onda.
-- Esquivar durante os 0,24 s a 12,5 unidades/s sobre um abismo de 2 × 1,2, conferindo salto e sombra. Testar queda durante proteção de dano e após pausa; a queda ainda custa 1 de vida e nunca deve devolver o jogador ao próprio buraco.
-
-As simulações de ondas, emergência, inimigos novos, raios, ricochetes e quedas dependem dos testes no Editor para comprovar integração. A suíte independente certifica seus dados de progressão, inventário e geometria básica, sem executar o runtime Unity.
-
-## Tiros e áudio desta revisão
-
-- Comparar tiros físicos e mágicos em pisos claros e escuros: sem manchas luminosas no chão, sem estrelas contínuas e sem luz separada do corpo. Conferir leitura das bordas rosadas/vermelhas das balas hostis.
-- Conferir feixes finos em diagonais, rastros curtos e o clarão breve do cano. Repetir tiros e trocar armas para conferir que o pool restaura material, escala, orientação e ativação do halo.
-- Ouvir disparos, impactos, esquiva, ondas, compra, portas e mortes. Manter o raio pressionado, soltar e pausar para verificar início/fim sem cliques ou loop persistente. Testar o botão de som, reinício e troca de sala; repetir uma sala densa para conferir volume e limite de vozes.
-
-Checks de estrutura e sintaxe não certificam iluminação renderizada ou reprodução de áudio. Esses pontos permanecem dependentes do Editor e de uma saída de som.
+1. Ouça os cinco temas, os trechos de loja e a intensidade de combate/chefe. Confira transições, repetição de loops, percussão e inteligibilidade dos efeitos em salas densas. O volume calculado não substitui ouvir em caixas/fones reais.
+2. Teste SOM ligado/desligado, pausa, perda de foco, morte e retorno ao menu. Não deve permanecer raio sonoro ou iniciar música enquanto suspenso. Reconectar foco não deve ressuscitar efeitos já encerrados.
+3. Jogue várias salas densas e alterne armas. Confira limites de 420 projéteis/140 hostis, 320 partículas, oito objetos e dez poças. Inspecione profiler para custos de geração inicial dos clipes e materiais e estabilidade após aquecer caches.
+4. Reinicie várias vezes, retorne ao menu e encerre Play Mode. Confira descarte dos materiais de luz, texturas/sprites, fonte bitmap, clipes/fontes de áudio e ausência de halos ou objetos órfãos.

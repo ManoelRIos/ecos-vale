@@ -4,6 +4,7 @@ using System.Collections.Generic;
 namespace Ecos.Haunt
 {
     public enum RoomKind { Entrance, Combat, Boss }
+    public enum EncounterKind { Swarm, Ambush, Crossfire, Elite }
 
     public readonly struct GridPoint : IEquatable<GridPoint>
     {
@@ -24,6 +25,7 @@ namespace Ecos.Haunt
         public int WavesCleared;
         public int TotalWaves => Kind == RoomKind.Combat ? 3 : 1;
         public bool HasMiniBoss;
+        public EncounterKind Encounter;
     }
 
     /// <summary>
@@ -41,8 +43,8 @@ namespace Ecos.Haunt
         // floor's setting without changing its room graph or ordinary enemy roster.
         static readonly int[][] BossPools =
         {
-            new[] { 0, 1, 3 }, new[] { 1, 2, 4 }, new[] { 2, 4, 0 },
-            new[] { 3, 1, 0 }, new[] { 4, 3, 2 }
+            new[] { 0, 1, 5 }, new[] { 1, 2, 6 }, new[] { 2, 4, 5 },
+            new[] { 3, 6, 0 }, new[] { 4, 5, 6 }
         };
 
         public static int[] BossCandidatesForTheme(int themeIndex)
@@ -146,6 +148,18 @@ namespace Ecos.Haunt
                 combatRooms[selected].HasMiniBoss = true;
                 combatRooms.RemoveAt(selected);
             }
+            // A separate stream keeps room geometry and boss selection unchanged.
+            // Consecutive combat rooms cycle through a salted order rather than
+            // repeating one enemy composition for the whole floor.
+            var profileRandom = new SeededRandom(unchecked((uint)seed * 0x27d4eb2du
+                ^ (uint)number * 0x165667b1u ^ 0xa47b109du));
+            int profileOffset = profileRandom.Next(4), combatIndex = 0;
+            foreach (DungeonRoom room in plan.Rooms)
+                if (room.Kind == RoomKind.Combat)
+                {
+                    room.Encounter = room.HasMiniBoss ? EncounterKind.Elite : (EncounterKind)((combatIndex + profileOffset) % 4);
+                    combatIndex++;
+                }
             return plan;
         }
 

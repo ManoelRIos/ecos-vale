@@ -5,12 +5,13 @@ namespace Ecos.Haunt
 {
     enum SoundCue
     {
-        Shot, MagicShot, EnemyHit, PlayerHit, Dodge, Wave, Purchase, Door, BossDeath, PlayerDeath, Impact
+        Shot, MagicShot, EnemyHit, PlayerHit, Dodge, Wave, Purchase, Door, BossDeath, PlayerDeath, Impact,
+        Explosion, Splash, RelicPickup
     }
 
     public sealed partial class HauntGame
     {
-        const int AudioSampleRate = 22050, AudioVoiceCount = 8, AudioCueCount = 11;
+        const int AudioSampleRate = 22050, AudioVoiceCount = 8, AudioCueCount = 14, MusicThemeCount = 5;
         const float AudioMasterGain = .35f, AudioVoiceGain = .45f, AudioRetriggerDelay = .04f;
         readonly AudioSource[] audioVoices = new AudioSource[AudioVoiceCount];
         readonly float[] audioVoiceStarted = new float[AudioVoiceCount];
@@ -18,8 +19,16 @@ namespace Ecos.Haunt
         readonly AudioClip[] audioClips = new AudioClip[AudioCueCount];
         AudioSource audioRay;
         AudioClip audioRayCoilClip, audioRayLanternClip;
+        readonly AudioClip[] musicBedClips = new AudioClip[MusicThemeCount];
+        readonly AudioClip[] musicRhythmClips = new AudioClip[MusicThemeCount];
+        readonly AudioSource[] musicBeds = new AudioSource[2], musicRhythms = new AudioSource[2];
+        readonly float[] musicWeights = new float[2];
+        int musicActiveSlot, musicTheme = -1;
+        float musicIntensity, musicGain;
         GameObject audioRoot;
-        bool soundEnabled = true, audioInitialized, audioPaused;
+        bool soundEnabled = true, audioInitialized, audioPaused, musicInitialized;
+        bool audioFocused = true, audioApplicationPaused, audioSourcesSuspended;
+        bool AudioSuspended => audioPaused || Paused || !audioFocused || audioApplicationPaused || !soundEnabled;
 
         void InitAudio()
         {
@@ -65,7 +74,7 @@ namespace Ecos.Haunt
 
         void PlaySound(SoundCue cue, float gain = 1)
         {
-            if (!soundEnabled || audioPaused || gain <= 0) return;
+            if (AudioSuspended || gain <= 0) return;
             int cueIndex = (int)cue;
             if (cueIndex < 0 || cueIndex >= AudioCueCount) return;
             InitAudio();
@@ -81,7 +90,7 @@ namespace Ecos.Haunt
             AudioSource voice = audioVoices[voiceIndex];
             voice.Stop();
             voice.clip = audioClips[cueIndex];
-            // Even eight simultaneous peaks leave ample room for the quiet beam loop.
+            // Eight simultaneous SFX, the ray and both music layers retain mix headroom.
             voice.volume = AudioMasterGain * AudioVoiceGain * Mathf.Clamp01(gain) * CueVolume(cue);
             voice.Play();
             audioVoiceStarted[voiceIndex] = now;
@@ -97,6 +106,9 @@ namespace Ecos.Haunt
                 case SoundCue.Impact: return .45f;
                 case SoundCue.Dodge: return .7f;
                 case SoundCue.Door: return .75f;
+                case SoundCue.Explosion: return .85f;
+                case SoundCue.Splash: return .65f;
+                case SoundCue.RelicPickup: return .8f;
                 default: return 1;
             }
         }
@@ -108,7 +120,7 @@ namespace Ecos.Haunt
                 if (audioRay != null) audioRay.Stop();
                 return;
             }
-            if (audioPaused) return;
+            if (AudioSuspended) return;
             InitAudio();
             AudioClip clip = lantern ? audioRayLanternClip : audioRayCoilClip;
             if (audioRay.clip != clip)
@@ -124,24 +136,111 @@ namespace Ecos.Haunt
         void SetSoundEnabled(bool enabled)
         {
             soundEnabled = enabled;
-            if (enabled) return;
-            for (int i = 0; i < AudioVoiceCount; i++)
-                if (audioVoices[i] != null) audioVoices[i].Stop();
-            if (audioRay != null) audioRay.Stop();
+            if (!enabled)
+            {
+                for (int i = 0; i < AudioVoiceCount; i++)
+                    if (audioVoices[i] != null) audioVoices[i].Stop();
+                if (audioRay != null) audioRay.Stop();
+            }
+            RefreshAudioSuspension();
         }
 
         void PauseAudio(bool paused)
         {
-            if (audioPaused == paused) return;
             audioPaused = paused;
-            if (!audioInitialized) return;
+            RefreshAudioSuspension();
+        }
+
+        void OnApplicationFocus(bool focused)
+        {
+            audioFocused = focused;
+            RefreshAudioSuspension();
+        }
+
+        void OnApplicationPause(bool paused)
+        {
+            audioApplicationPaused = paused;
+            RefreshAudioSuspension();
+        }
+
+        void RefreshAudioSuspension()
+        {
+            bool suspended = AudioSuspended;
+            if (!audioInitialized || suspended == audioSourcesSuspended) return;
+            audioSourcesSuspended = suspended;
             for (int i = 0; i < AudioVoiceCount; i++)
             {
-                if (paused) audioVoices[i].Pause();
+                if (suspended) audioVoices[i].Pause();
                 else if (soundEnabled) audioVoices[i].UnPause();
             }
-            if (paused) audioRay.Pause();
+            if (suspended) audioRay.Pause();
             else if (soundEnabled) audioRay.UnPause();
+            if (!musicInitialized) return;
+            for (int i = 0; i < 2; i++)
+            {
+                if (suspended) { musicBeds[i].Pause(); musicRhythms[i].Pause(); }
+                else if (soundEnabled) { musicBeds[i].UnPause(); musicRhythms[i].UnPause(); }
+            }
+        }
+
+        // Call once per frame, including the menu. Clips are generated only on first
+        // visiting a theme; transitions reuse two pairs of aligned looping sources.
+        void UpdateMusic(float dt)
+        {
+            RefreshAudioSuspension();
+            if (AudioSuspended) return;
+            if (float.IsNaN(dt) || float.IsInfinity(dt)) dt = 0;
+            dt = Mathf.Clamp(dt, 0, .1f);
+            InitAudio();
+            if (!musicInitialized)
+            {
+                for (int i = 0; i < 2; i++)
+                {
+                    musicBeds[i] = CreateAudioSource();
+                    musicRhythms[i] = CreateAudioSource();
+                    musicBeds[i].loop = musicRhythms[i].loop = true;
+                    musicBeds[i].priority = musicRhythms[i].priority = 192;
+                }
+                musicInitialized = true;
+            }
+            int theme = !Playing || InShop || Floor == null ? 0 : ThemeVariant;
+            theme = Math.Max(0, Math.Min(MusicThemeCount - 1, theme));
+            if (theme != musicTheme)
+            {
+                int next = musicTheme < 0 ? 0 : 1 - musicActiveSlot;
+                int phase = musicTheme < 0 ? 0 : musicBeds[musicActiveSlot].timeSamples;
+                if (musicBedClips[theme] == null)
+                {
+                    musicBedClips[theme] = CreateAudioClip("Tema " + theme + " • harmonia", SynthesizeMusic(theme, false));
+                    musicRhythmClips[theme] = CreateAudioClip("Tema " + theme + " • ritmo", SynthesizeMusic(theme, true));
+                }
+                musicBeds[next].Stop(); musicRhythms[next].Stop();
+                musicBeds[next].volume = musicRhythms[next].volume = 0;
+                musicBeds[next].clip = musicBedClips[theme];
+                musicRhythms[next].clip = musicRhythmClips[theme];
+                musicBeds[next].timeSamples = musicRhythms[next].timeSamples = phase % musicBedClips[theme].samples;
+                musicWeights[next] = 0;
+                musicBeds[next].Play(); musicRhythms[next].Play();
+                musicActiveSlot = next;
+                musicTheme = theme;
+            }
+            bool alive = State == null || !State.IsDead;
+            bool combat = Playing && !InShop && alive && CurrentRoom != null && !CurrentRoom.Cleared;
+            bool boss = combat && CurrentRoom.Kind == RoomKind.Boss;
+            float targetIntensity = boss ? 1 : combat ? .68f : InShop ? .08f : .2f;
+            float targetGain = !alive ? .35f : !Playing ? .55f : InShop ? .7f : 1;
+            musicIntensity = Mathf.MoveTowards(musicIntensity, targetIntensity, dt * 1.1f);
+            musicGain = Mathf.MoveTowards(musicGain, targetGain, dt * .8f);
+            for (int i = 0; i < 2; i++)
+            {
+                musicWeights[i] = Mathf.MoveTowards(musicWeights[i], i == musicActiveSlot ? 1 : 0, dt / 1.2f);
+                musicBeds[i].volume = AudioMasterGain * .24f * musicWeights[i] * musicGain;
+                musicRhythms[i].volume = AudioMasterGain * .20f * musicWeights[i] * musicGain * musicIntensity;
+                if (i != musicActiveSlot && musicWeights[i] <= 0)
+                {
+                    musicBeds[i].Stop(); musicRhythms[i].Stop();
+                }
+            }
         }
 
         void DisposeAudio()
@@ -152,6 +251,19 @@ namespace Ecos.Haunt
                 audioVoices[i] = null;
             }
             if (audioRay != null) audioRay.Stop();
+            for (int i = 0; i < 2; i++)
+            {
+                if (musicBeds[i] != null) musicBeds[i].Stop();
+                if (musicRhythms[i] != null) musicRhythms[i].Stop();
+                musicBeds[i] = musicRhythms[i] = null;
+                musicWeights[i] = 0;
+            }
+            for (int i = 0; i < MusicThemeCount; i++)
+            {
+                DestroyAudioObject(musicBedClips[i]);
+                DestroyAudioObject(musicRhythmClips[i]);
+                musicBedClips[i] = musicRhythmClips[i] = null;
+            }
             for (int i = 0; i < AudioCueCount; i++)
             {
                 DestroyAudioObject(audioClips[i]);
@@ -165,6 +277,9 @@ namespace Ecos.Haunt
             audioRoot = null;
             audioInitialized = false;
             audioPaused = false;
+            audioSourcesSuspended = musicInitialized = false;
+            musicTheme = -1;
+            musicIntensity = musicGain = 0;
         }
 
         static void DestroyAudioObject(UnityEngine.Object owned)
@@ -190,6 +305,9 @@ namespace Ecos.Haunt
                 case SoundCue.Door: duration = .28f; break;
                 case SoundCue.BossDeath: duration = .72f; break;
                 case SoundCue.Impact: duration = .065f; break;
+                case SoundCue.Explosion: duration = .48f; break;
+                case SoundCue.Splash: duration = .32f; break;
+                case SoundCue.RelicPickup: duration = .48f; break;
                 default: duration = .65f; break;
             }
             int count = (int)(duration * AudioSampleRate);
@@ -235,13 +353,22 @@ namespace Ecos.Haunt
                     case SoundCue.BossDeath:
                         frequency = 42 + 130 * (1 - progress) * (1 - progress);
                         toneWeight = .65f; noiseWeight = .55f; decay = 5; break;
+                    case SoundCue.Explosion:
+                        frequency = 38 + 110 * (1 - progress) * (1 - progress);
+                        toneWeight = .7f; noiseWeight = .9f; decay = 10; break;
+                    case SoundCue.Splash:
+                        frequency = 430 - 330 * progress + 90 * (float)Math.Sin(t * 67);
+                        toneWeight = .3f; noiseWeight = .75f; decay = 10; break;
+                    case SoundCue.RelicPickup:
+                        frequency = progress < .25f ? 440 : progress < .5f ? 554.37f : progress < .75f ? 659.25f : 880;
+                        toneWeight = .65f; noiseWeight = .01f; decay = 5; break;
                     default:
                         frequency = 220 - 175 * progress;
                         toneWeight = .75f; noiseWeight = .12f; decay = 5; break;
                 }
                 phase += Math.PI * 2 * frequency / AudioSampleRate;
                 float tone = (float)(Math.Sin(phase) + .24 * Math.Sin(phase * 2));
-                if (cue == SoundCue.MagicShot || cue == SoundCue.Purchase)
+                if (cue == SoundCue.MagicShot || cue == SoundCue.Purchase || cue == SoundCue.RelicPickup)
                     tone += .18f * (float)Math.Sin(phase * 3);
                 float attack = Math.Min(1, t / .006f);
                 if (cue == SoundCue.Dodge || cue == SoundCue.Wave) attack = Math.Min(1, t / .035f);
@@ -287,5 +414,90 @@ namespace Ecos.Haunt
             }
             return samples;
         }
+
+        // Original sixteen-beat motifs at 112 BPM. Notes and percussion share the
+        // exact sample count, so their phases stay aligned through theme changes.
+        // Each note releases before the loop boundary; no sample is concatenated
+        // with a nonzero edge. No file, download or realtime DSP callback is used.
+        static float[] SynthesizeMusic(int theme, bool rhythm)
+        {
+            const double beatSeconds = 60.0 / 112, beatCount = 16;
+            int count = (int)Math.Round(AudioSampleRate * beatSeconds * beatCount);
+            var samples = new float[count];
+            int[] roots = { 45, 50, 43, 46, 40 };
+            int[][] progressions =
+            {
+                new[] { 0, 5, 3, 7 }, new[] { 0, 3, -2, 5 },
+                new[] { 0, 7, 5, 3 }, new[] { 0, 5, -2, 3 }, new[] { 0, 3, 7, -2 }
+            };
+            int[] melody = { 0, 7, 10, 7, 3, 7, 12, 10, 0, 7, 3, 10, 7, 5, 3, 7 };
+            theme = Math.Max(0, Math.Min(roots.Length - 1, theme));
+            uint noise = 0x0EC05A11u + (uint)theme * 7919u;
+            float lowNoise = 0;
+            for (int i = 0; i < count; i++)
+            {
+                double beats = beatCount * i / count;
+                int beat = (int)beats, bar = beat / 4;
+                double local = (beats - beat) * beatSeconds;
+                double eighth = (beats * 2 - Math.Floor(beats * 2)) * beatSeconds * .5;
+                int root = roots[theme] + progressions[theme][bar];
+                double value;
+                if (rhythm)
+                {
+                    float rawNoise = NextAudioNoise(ref noise);
+                    lowNoise += .18f * (rawNoise - lowNoise);
+                    double kick = 0, snare = 0;
+                    if ((beat & 1) == 0)
+                    {
+                        double phase = Math.PI * 2 * (44 * local + 2.6 * (1 - Math.Exp(-local / .04)));
+                        kick = .42 * Math.Sin(phase) * MusicEnvelope(local, .005, .34, 13);
+                    }
+                    else
+                        snare = (.21 * lowNoise + .045 * Math.Sin(Math.PI * 2 * 160 * local))
+                            * MusicEnvelope(local, .003, .24, 19);
+                    double hat = .035 * (rawNoise - lowNoise) * MusicEnvelope(eighth, .0015, .11, 43);
+                    double bass = .08 * Math.Sin(Math.PI * 2 * MusicFrequency(root - 12) * local)
+                        * MusicEnvelope(local, .01, .42, 5);
+                    value = kick + snare + hat + bass;
+                }
+                else
+                {
+                    double barTime = (beats - bar * 4) * beatSeconds;
+                    double barProgress = (beats - bar * 4) / 4;
+                    double padEnvelope = Math.Pow(Math.Sin(Math.PI * barProgress), 2);
+                    double pad = .045 * padEnvelope * (
+                        Math.Sin(Math.PI * 2 * MusicFrequency(root + 12) * barTime)
+                        + .7 * Math.Sin(Math.PI * 2 * MusicFrequency(root + 15) * barTime)
+                        + .5 * Math.Sin(Math.PI * 2 * MusicFrequency(root + 19) * barTime));
+                    int note = root + 12 + melody[(beat + theme * 3) % melody.Length];
+                    double leadPhase = Math.PI * 2 * MusicFrequency(note) * local;
+                    double lead = (.13 * Math.Sin(leadPhase) + .025 * Math.Sin(leadPhase * 2))
+                        * MusicEnvelope(local, .012, .45, 5.5);
+                    double bass = .13 * Math.Sin(Math.PI * 2 * MusicFrequency(root - 12) * local)
+                        * MusicEnvelope(local, .015, .46, 4);
+                    value = pad + lead + bass;
+                }
+                samples[i] = (float)value;
+            }
+            // A tiny release also bounds the join if a later motif adds sustained notes.
+            float peak = 0;
+            for (int i = 0; i < count; i++)
+            {
+                float edge = Math.Min(1, Math.Min(i, count - 1 - i) / (AudioSampleRate * .008f));
+                samples[i] *= edge;
+                peak = Math.Max(peak, Math.Abs(samples[i]));
+            }
+            if (peak > 0)
+                for (int i = 0; i < count; i++) samples[i] *= .5f / peak;
+            return samples;
+        }
+
+        static double MusicEnvelope(double time, double attack, double release, double decay)
+        {
+            if (time < 0 || time >= release) return 0;
+            return Math.Min(1, time / attack) * Math.Min(1, (release - time) / .035) * Math.Exp(-time * decay);
+        }
+
+        static double MusicFrequency(int midi) => 440 * Math.Pow(2, (midi - 69) / 12.0);
     }
 }

@@ -9,6 +9,8 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.TestTools;
 
 namespace Ecos.Haunt.Tests
@@ -49,7 +51,7 @@ namespace Ecos.Haunt.Tests
         {
             using (var art = new HauntPixelArt())
             {
-                foreach (string id in new[] { "player", "medium", "reaper", "alchemist", "widow", "bishop", "larva", "sentinel", "acolyte", "matriarch", "bell", "pumpkin", "ghost", "cultist", "bat", "boss", "merchant", "candle", "portal", "top-shot", "skeleton", "slime", "spider", "miniboss", "spawn-rift", "shot-disc" })
+                foreach (string id in new[] { "player", "medium", "reaper", "alchemist", "widow", "bishop", "larva", "sentinel", "acolyte", "matriarch", "bell", "pumpkin", "ghost", "cultist", "bat", "boss", "merchant", "candle", "portal", "top-shot", "skeleton", "slime", "spider", "miniboss", "spawn-rift", "shot-disc", "lantern-wisp", "mushroom-brute", "clockwork-imp", "iron-executioner", "bog-oracle" })
                 {
                     var frames = new Sprite[4];
                     for (int i = 0; i < 4; i++)
@@ -109,7 +111,7 @@ namespace Ecos.Haunt.Tests
         {
             using (var art = new HauntPixelArt())
             {
-                for (int boss = 0; boss < 5; boss++)
+                for (int boss = 0; boss < 7; boss++)
                 {
                     var frame = art.Get("boss-bar" + boss);
                     var fill = art.Get("boss-fill" + boss);
@@ -118,12 +120,30 @@ namespace Ecos.Haunt.Tests
                     Assert.AreEqual(FilterMode.Point, frame.texture.filterMode);
                     Assert.AreSame(frame, art.Get("boss-bar" + boss));
                 }
-                foreach (string id in new[] { "stapler", "banana-gun", "spinning-top", "staple-shot", "banana-shot", "top-shot", "shop-counter", "shop-shelf", "shop-case", "shop-board" })
+                foreach (string id in new[] { "stapler", "banana-gun", "spinning-top", "staple-shot", "banana-shot", "top-shot", "shop-counter", "shop-shelf", "shop-case", "shop-board", "umbrella-gun", "hive-launcher", "boxing-glove", "shot-carbine", "shot-veil", "shot-petal", "shot-stinger", "shot-fist", "barrel-explosive", "water-urn", "shattered-prop", "wet-puddle", "giant-rounds", "character-relic", "quick-boots" })
                 {
                     var sprite = art.Get(id);
                     Assert.IsNotNull(sprite, id);
                     Assert.AreEqual(FilterMode.Point, sprite.texture.filterMode, id);
                     Assert.AreSame(sprite, art.Get(id), id);
+                }
+            }
+        }
+
+        [Test]
+        public void CombatProjectileBodiesRemainReadableBesideTheirSeparateSoftHalo()
+        {
+            using (var art = new HauntPixelArt())
+            {
+                foreach (string id in new[] { "bullet-player", "bullet-enemy", "staple-shot", "banana-shot", "top-shot",
+                    "shot-carbine", "shot-veil", "shot-bone", "shot-disc", "shot-petal", "shot-stinger", "shot-fist" })
+                {
+                    Sprite body = art.Get(id);
+                    Assert.GreaterOrEqual(body.rect.width, 12, "Combat projectiles must not regress to tiny pebble silhouettes: " + id);
+                    Assert.LessOrEqual(body.rect.width, 16, "Bodies must remain compact enough for dense combat: " + id);
+                    Assert.Less(body.rect.width, art.Get("shot-halo").rect.width,
+                        "The light corona must stay separate from the opaque body: " + id);
+                    Assert.AreEqual(16, body.pixelsPerUnit);
                 }
             }
         }
@@ -294,6 +314,31 @@ namespace Ecos.Haunt.Tests
             var floor = DungeonFloor.Generate(seed, number);
             Set(game, "<Floor>k__BackingField", floor);
             Invoke(game, "EnterRoom", floor.Entrance, Vector2.zero);
+        }
+
+        static int SeedOffering(ShopItem item)
+        {
+            return Enumerable.Range(0, 1000).First(seed => new RunState(seed).IsOffered(item));
+        }
+
+        // Weapon collision fixtures acquire equipment through the same limited stock
+        // as normal play. Advance both the run and room plan before another visit.
+        static void PurchaseInAvailableVisit(HauntGame game, ShopItem item)
+        {
+            for (int visit = 0; visit < 100; visit++)
+            {
+                game.State.BossDefeated = true;
+                if (game.State.IsOffered(item))
+                {
+                    Assert.IsTrue(game.State.TryBuy(item, out _));
+                    return;
+                }
+                game.State.NextFloor();
+                var floor = DungeonFloor.Generate(game.State.Seed, game.State.Floor);
+                Set(game, "<Floor>k__BackingField", floor);
+                Invoke(game, "EnterRoom", floor.Entrance, Vector2.zero);
+            }
+            Assert.Fail("No available visit offered " + item);
         }
 
         static bool NearestExit(HauntGame game, out Vector2 destination)
@@ -598,7 +643,7 @@ namespace Ecos.Haunt.Tests
             try
             {
                 var game = root.AddComponent<HauntGame>();
-                game.BeginRun(42);
+                game.BeginRun(SeedOffering(ShopItem.MirrorDisc));
                 game.State.BossDefeated = true;
                 game.State.Coins = 1000;
                 Assert.IsTrue(game.State.TryBuy(ShopItem.MirrorDisc, out _));
@@ -747,7 +792,7 @@ namespace Ecos.Haunt.Tests
             try
             {
                 var game = root.AddComponent<HauntGame>();
-                string[] ids = { "boss", "widow", "bishop", "matriarch", "bell" };
+                string[] ids = { "boss", "widow", "bishop", "matriarch", "bell", "iron-executioner", "bog-oracle" };
                 for (int archetype = 0; archetype < ids.Length; archetype++)
                 {
                     int number = Enumerable.Range(1, 5).First(n => DungeonFloor.BossCandidatesForTheme(n - 1).Contains(archetype));
@@ -775,6 +820,15 @@ namespace Ecos.Haunt.Tests
                     {
                         var warnings = (IList)typeof(HauntGame).GetField("warnings", PrivateInstance).GetValue(game);
                         Assert.Greater(warnings.Count, 0, "The alternate attack must mark the ground: " + ids[archetype]);
+                    }
+                    if (archetype >= 5)
+                    {
+                        int beforeThirdPattern = game.ActiveProjectiles;
+                        type.GetField("Cooldown").SetValue(boss, 0f);
+                        Invoke(game, "UpdateBoss", boss, Vector2.down, 0f);
+                        Assert.AreEqual(3, type.GetField("Attack").GetValue(boss));
+                        Assert.Greater(game.ActiveProjectiles, beforeThirdPattern,
+                            "A new guardian follows its marked-ground attack with a third projectile pattern");
                     }
                     Assert.AreEqual(number - 1, game.Floor.ThemeIndex, "Encounter choice must not replace the floor theme");
                 }
@@ -932,6 +986,10 @@ namespace Ecos.Haunt.Tests
                 var glow = (SpriteRenderer)shot.GetType().GetField("Glow").GetValue(shot);
                 Assert.IsNotNull(glow, "A shot must carry its luminous halo");
                 Assert.IsTrue(glow.gameObject.activeInHierarchy);
+                Assert.IsTrue(glow.enabled, "Physical projectiles now carry a visible corona as well as energy rounds");
+                var body = Field<SpriteRenderer>(shot, "Sprite");
+                Assert.AreEqual(body.transform.position, glow.transform.position, "The corona follows the elevated projectile, not the floor");
+                Assert.Less(glow.sortingOrder, body.sortingOrder, "The opaque pixel body must remain above its own light");
                 Assert.AreEqual(1f, glow.sharedMaterial.GetFloat("_DstBlend"), "Halo RGB uses additive blending");
                 Invoke(game, "RecycleShot", 0);
                 Assert.IsFalse(glow.gameObject.activeInHierarchy, "Recycling must also hide the halo");
@@ -954,7 +1012,7 @@ namespace Ecos.Haunt.Tests
             try
             {
                 var game = root.AddComponent<HauntGame>();
-                game.BeginRun(42);
+                game.BeginRun(SeedOffering(ShopItem.Stapler));
                 game.State.BossDefeated = true;
                 game.State.Coins = 1000;
                 Invoke(game, "OpenShop");
@@ -1016,7 +1074,7 @@ namespace Ecos.Haunt.Tests
                 game.State.BossDefeated = true;
                 game.State.Coins = 1000;
                 foreach (var item in new[] { ShopItem.Stapler, ShopItem.Banana, ShopItem.SpinningTop })
-                    Assert.IsTrue(game.State.TryBuy(item, out _));
+                    PurchaseInAvailableVisit(game, item);
                 game.State.Equip(WeaponKind.Stapler);
                 Invoke(game, "FireWeapon", Vector2.right);
                 var shots = Field<IList>(game, "shots");
@@ -1063,7 +1121,7 @@ namespace Ecos.Haunt.Tests
             try
             {
                 var game = root.AddComponent<HauntGame>();
-                game.BeginRun(42);
+                game.BeginRun(SeedOffering(ShopItem.SpinningTop));
                 game.State.BossDefeated = true;
                 game.State.Coins = 1000;
                 Assert.IsTrue(game.State.TryBuy(ShopItem.SpinningTop, out _));
@@ -1076,6 +1134,345 @@ namespace Ecos.Haunt.Tests
                 for (int step = 0; step < 10; step++) Invoke(game, "UpdateShots", .05f);
                 Assert.AreEqual(0, game.ActiveProjectiles, "Piercing actors must not permit tunnelling through cover");
                 Assert.AreEqual(health, Field<int>(enemy, "Health"));
+                yield return null;
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally { UnityEngine.Object.Destroy(root); }
+        }
+
+        [UnityTest]
+        public IEnumerator GiantRoundsGrowFriendlyCollisionAndLightWithoutEnlargingHostileShots()
+        {
+            var root = new GameObject("Haunt giant-round integration test");
+            try
+            {
+                var game = root.AddComponent<HauntGame>();
+                game.enabled = false;
+                game.BeginRun(42);
+                Invoke(game, "FireWeapon", Vector2.right);
+                var shots = Field<IList>(game, "shots");
+                float radius = Field<float>(shots[0], "Radius");
+                float width = Field<SpriteRenderer>(shots[0], "Sprite").bounds.size.x;
+                float lightWidth = Field<SpriteRenderer>(shots[0], "Glow").bounds.size.x;
+                Invoke(game, "Fire", Vector2.zero, Vector2.left * 5, false, 1);
+                float hostileRadius = Field<float>(shots[1], "Radius");
+                Invoke(game, "ClearCombat");
+                game.State.BossDefeated = true;
+                game.State.Coins = 1000;
+                Assert.IsTrue(game.State.TryBuy(ShopItem.GiantRounds, out _));
+                Invoke(game, "FireWeapon", Vector2.right);
+                var large = shots[0];
+                Assert.AreEqual(radius * game.State.ProjectileScale, Field<float>(large, "Radius"), .0001f,
+                    "Larger bullets need matching collision, not just a larger drawing");
+                var body = Field<SpriteRenderer>(large, "Sprite");
+                var light = Field<SpriteRenderer>(large, "Glow");
+                Assert.AreEqual(width * game.State.ProjectileScale, body.bounds.size.x, .0001f);
+                Assert.AreEqual(lightWidth * game.State.ProjectileScale, light.bounds.size.x, .0001f);
+                Assert.IsTrue(light.enabled);
+                Assert.AreEqual(body.transform.position, light.transform.position);
+                Invoke(game, "Fire", Vector2.zero, Vector2.left * 5, false, 1);
+                Assert.AreEqual(hostileRadius, Field<float>(shots[1], "Radius"), .0001f,
+                    "A player relic must never enlarge hostile collision circles");
+                yield return null;
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally { UnityEngine.Object.Destroy(root); }
+        }
+
+        [UnityTest]
+        public IEnumerator ExplosivePropsRespectCoverAndWarnBeforeTheirBlastDamagesEnemies()
+        {
+            var root = new GameObject("Haunt barrel collision integration test");
+            try
+            {
+                var game = root.AddComponent<HauntGame>();
+                game.enabled = false;
+                game.BeginRun(42);
+                Invoke(game, "EnterRoom", game.Floor.Rooms.First(room => room.Kind == RoomKind.Combat), Vector2.zero);
+                Invoke(game, "ClearCombat");
+                var props = Field<IList>(game, "roomProps");
+                int index = Enumerable.Range(0, props.Count).First(i => Field<bool>(props[i], "Explosive"));
+                var barrel = props[index];
+                Vector2 position = Field<Vector2>(barrel, "Position");
+                int barrelHealth = Field<int>(barrel, "Health");
+                var cover = new Rect(position.x - 1.2f, position.y - .7f, .3f, 1.4f);
+                var obstacles = Field<IList>(game, "obstacles");
+                obstacles.Add(cover);
+                Invoke(game, "Fire", position + Vector2.left * 2, Vector2.right * 20, true, 100);
+                Invoke(game, "UpdateShots", .2f);
+                Assert.AreEqual(barrelHealth, Field<int>(barrel, "Health"), "A shot stopped by nearer cover cannot damage the barrel behind it");
+                Assert.AreEqual(0, game.ActiveProjectiles);
+                obstacles.Remove(cover);
+                Invoke(game, "SpawnEnemy", 0, position + Vector2.down);
+                FinishEmergence(game);
+                var enemy = Field<IList>(game, "enemies")[0];
+                SetField(enemy, "Health", 100);
+                Invoke(game, "Fire", position + Vector2.left * 2, Vector2.right * 20, true, 100);
+                Invoke(game, "UpdateShots", .2f);
+                Assert.AreEqual(0, Field<int>(barrel, "Health"));
+                Assert.IsFalse(Field<bool>(barrel, "Detonated"));
+                Assert.IsNotNull(Field<SpriteRenderer>(barrel, "Warning"));
+                Assert.AreEqual(100, Field<int>(enemy, "Health"), "Breaking the barrel starts a fuse rather than instant invisible damage");
+                Invoke(game, "UpdateRoomProps", .3f);
+                Assert.AreEqual(100, Field<int>(enemy, "Health"));
+                Invoke(game, "UpdateRoomProps", .3f);
+                Assert.IsTrue(Field<bool>(barrel, "Detonated"));
+                Assert.Less(Field<int>(enemy, "Health"), 100, "The completed explosion damages a nearby unprotected enemy");
+                yield return null;
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally { UnityEngine.Object.Destroy(root); }
+        }
+
+        [UnityTest]
+        public IEnumerator BrokenUrnsCreateTemporarySlowGroundAndRemainBrokenOnRoomReentry()
+        {
+            var root = new GameObject("Haunt water and prop persistence test");
+            try
+            {
+                var game = root.AddComponent<HauntGame>();
+                game.enabled = false;
+                game.BeginRun(42);
+                var room = game.Floor.Rooms.First(value => value.Kind == RoomKind.Combat);
+                Invoke(game, "EnterRoom", room, Vector2.zero);
+                Invoke(game, "ClearCombat");
+                var props = Field<IList>(game, "roomProps");
+                int index = Enumerable.Range(0, props.Count).First(i => !Field<bool>(props[i], "Explosive"));
+                var urn = props[index];
+                Vector2 position = Field<Vector2>(urn, "Position");
+                long key = Field<long>(urn, "Key");
+                var propSprite = Field<SpriteRenderer>(urn, "Sprite");
+                Set(game, "playerPosition", position + Vector2.up);
+                Invoke(game, "UpdatePresentation");
+                Assert.Less(Field<SpriteRenderer>(game, "player").sortingOrder, propSprite.sortingOrder,
+                    "The actor passes visually behind a raised prop when its feet are farther away");
+                Set(game, "playerPosition", position + Vector2.down);
+                Invoke(game, "UpdatePresentation");
+                Assert.Greater(Field<SpriteRenderer>(game, "player").sortingOrder, propSprite.sortingOrder,
+                    "The actor passes visually in front after crossing the prop's ground position");
+                Set(game, "playerPosition", Vector2.zero);
+                Invoke(game, "Fire", position + Vector2.left * 2, Vector2.right * 20, true, 100);
+                Invoke(game, "UpdateShots", .2f);
+                Assert.AreEqual(0, Field<int>(urn, "Health"));
+                Assert.AreEqual(1, Field<IList>(game, "wetPatches").Count);
+                Assert.Less((float)Invoke(game, "RoomMovementMultiplier", position), 1);
+                Invoke(game, "SpawnEnemy", 0, position);
+                Invoke(game, "SpawnEnemy", 12, position);
+                FinishEmergence(game);
+                var enemies = Field<IList>(game, "enemies");
+                Vector2 grounded = (Vector2)Invoke(game, "MoveEnemy", enemies[0], Vector2.right, .36f);
+                Vector2 floating = (Vector2)Invoke(game, "MoveEnemy", enemies[1], Vector2.right, .36f);
+                Assert.Less(Vector2.Distance(position, grounded), Vector2.Distance(position, floating),
+                    "Wet ground slows walking enemies while the floating lantern keeps its movement");
+                Invoke(game, "UpdateRoomProps", 15f);
+                Assert.AreEqual(0, Field<IList>(game, "wetPatches").Count);
+                Assert.AreEqual(1f, (float)Invoke(game, "RoomMovementMultiplier", position));
+                room.Cleared = true;
+                Invoke(game, "EnterRoom", room, Vector2.zero);
+                Assert.IsFalse(Field<IList>(game, "roomProps").Cast<object>().Any(prop => Field<long>(prop, "Key") == key),
+                    "Revisiting the room must not recreate a destroyed interactive urn");
+                game.BeginRun(42);
+                Invoke(game, "EnterRoom", game.Floor.GetRoom(room.Id), Vector2.zero);
+                Assert.IsTrue(Field<IList>(game, "roomProps").Cast<object>().Any(prop => Field<long>(prop, "Key") == key
+                    && Field<int>(prop, "Health") > 0), "A fresh run restores its own seeded props");
+                yield return null;
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally { UnityEngine.Object.Destroy(root); }
+        }
+
+        static void InjectPad(HauntGame game, Gamepad pad, GamepadState state)
+        {
+            InputSystem.QueueStateEvent(pad, state);
+            InputSystem.Update();
+            Set(game, "controlFrame", -1);
+            Invoke(game, "PollControlInput");
+        }
+
+        [UnityTest]
+        public IEnumerator SyntheticGamepadMovesAimsFiresDodgesAndDisconnectsWithoutStuckInput()
+        {
+            var root = new GameObject("Haunt synthetic controller integration test");
+            var previousPad = Gamepad.current;
+            Gamepad pad = null;
+            try
+            {
+                var game = root.AddComponent<HauntGame>();
+                game.enabled = false;
+                game.BeginRun(42);
+                pad = InputSystem.AddDevice<Gamepad>();
+                pad.MakeCurrent();
+                InjectPad(game, pad, new GamepadState { leftStick = new Vector2(.6f, .8f), rightStick = Vector2.right, rightTrigger = 1 });
+                Invoke(game, "UpdatePlayer", null, .1f);
+                Assert.Greater(game.PlayerPosition.x, 0);
+                Assert.Greater(game.PlayerPosition.y, 0);
+                Assert.Greater(game.ActiveProjectiles, 0, "The right trigger drives the real weapon path");
+                Assert.Greater(Vector2.Dot((Vector2)Invoke(game, "AimDirection"), Vector2.right), .99f);
+                InjectPad(game, pad, new GamepadState());
+                Assert.IsFalse((bool)Invoke(game, "FireHeld"));
+                Assert.Greater(Vector2.Dot((Vector2)Invoke(game, "AimDirection"), Vector2.right), .99f,
+                    "Releasing the aim stick retains its last direction");
+                InjectPad(game, pad, new GamepadState().WithButton(GamepadButton.East));
+                Invoke(game, "UpdatePlayer", null, .01f);
+                Assert.Greater(Field<float>(game, "rollRemaining"), 0, "The east button starts the actual invulnerable dodge");
+                InjectPad(game, pad, new GamepadState().WithButton(GamepadButton.Select));
+                Assert.IsTrue((bool)Invoke(game, "MapPressed"));
+                Gamepad disconnected = pad;
+                InputSystem.RemoveDevice(pad);
+                pad = null;
+                Assert.AreNotSame(disconnected, Gamepad.current);
+                if (Gamepad.current == null)
+                {
+                    Set(game, "controlFrame", -1);
+                    Invoke(game, "PollControlInput");
+                    Assert.IsFalse(Field<bool>(game, "controllerActive"));
+                    Assert.AreEqual(Vector2.zero, (Vector2)Invoke(game, "MovementInput", new object[] { null }),
+                        "Disconnecting the last controller cannot leave a virtual movement stick held down");
+                }
+                yield return null;
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally
+            {
+                if (pad != null && pad.added) InputSystem.RemoveDevice(pad);
+                if (previousPad != null && previousPad.added) previousPad.MakeCurrent();
+                UnityEngine.Object.Destroy(root);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator ControllerConfirmOpeningMerchantCannotAlsoSpendMoney()
+        {
+            var root = new GameObject("Haunt controller merchant confirmation test");
+            var previousPad = Gamepad.current;
+            Gamepad pad = null;
+            try
+            {
+                var game = root.AddComponent<HauntGame>();
+                game.enabled = false;
+                game.BeginRun(42);
+                game.State.BossDefeated = true;
+                game.State.Coins = 1000;
+                Invoke(game, "OpenShop");
+                Set(game, "playerPosition", new Vector2(0, 1.3f));
+                Set(game, "shopWeapons", true);
+                pad = InputSystem.AddDevice<Gamepad>();
+                pad.MakeCurrent();
+                InjectPad(game, pad, new GamepadState().WithButton(GamepadButton.South));
+                Assert.IsTrue((bool)Invoke(game, "InteractPressed"));
+                Invoke(game, "Interact");
+                Assert.IsTrue(Field<bool>(game, "shopMenuOpen"));
+                int coins = game.State.Coins;
+                InjectPad(game, pad, new GamepadState().WithButton(GamepadButton.South));
+                Assert.AreEqual(coins, game.State.Coins, "The press that opened the merchant must be released before any purchase");
+                ShopItem offer = game.State.ShopWeapons[0];
+                InjectPad(game, pad, new GamepadState());
+                InjectPad(game, pad, new GamepadState().WithButton(GamepadButton.South));
+                Assert.AreEqual(coins - game.State.Price(offer), game.State.Coins);
+                Assert.IsTrue(game.State.Sold(offer));
+                InjectPad(game, pad, new GamepadState().WithButton(GamepadButton.South));
+                Assert.AreEqual(coins - game.State.Price(offer), game.State.Coins, "Holding confirm cannot charge repeatedly");
+                InjectPad(game, pad, new GamepadState().WithButton(GamepadButton.East));
+                Assert.IsFalse(Field<bool>(game, "shopMenuOpen"));
+                Assert.IsFalse((bool)Invoke(game, "InteractPressed"), "Closing the catalog consumes that frame's controller action");
+                yield return null;
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally
+            {
+                if (pad != null && pad.added) InputSystem.RemoveDevice(pad);
+                if (previousPad != null && previousPad.added) previousPad.MakeCurrent();
+                UnityEngine.Object.Destroy(root);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator NewCuriousWeaponsRicochetGuideAndPushEnemiesWithoutCrossingCover()
+        {
+            var root = new GameObject("Haunt new weapon mechanics test");
+            try
+            {
+                var game = root.AddComponent<HauntGame>();
+                game.enabled = false;
+                game.BeginRun(42);
+                game.State.Coins = 10000;
+                foreach (ShopItem item in new[] { ShopItem.Umbrella, ShopItem.HiveLauncher, ShopItem.BoxingGlove })
+                    PurchaseInAvailableVisit(game, item);
+                var obstacles = Field<IList>(game, "obstacles");
+                obstacles.Clear();
+                obstacles.Add(new Rect(2, -.7f, .3f, 1.4f));
+                game.State.Equip(WeaponKind.Umbrella);
+                Invoke(game, "FireWeapon", Vector2.right);
+                var shots = Field<IList>(game, "shots");
+                Assert.AreEqual(5, shots.Count);
+                var centralPetal = shots[2];
+                Invoke(game, "UpdateShots", .15f);
+                Assert.Less(Field<Vector2>(centralPetal, "Velocity").x, 0, "The umbrella's central petal actually reflects from cover");
+                Assert.AreEqual(1, Field<int>(centralPetal, "Bounces"));
+                Invoke(game, "ClearCombat");
+                obstacles.Clear();
+                game.State.Equip(WeaponKind.HiveLauncher);
+                Invoke(game, "SpawnEnemy", 0, new Vector2(3, 2));
+                FinishEmergence(game);
+                Invoke(game, "FireWeapon", Vector2.right);
+                Assert.AreEqual(3, shots.Count);
+                var stinger = shots[1];
+                Invoke(game, "UpdateShots", .05f);
+                Vector2 guided = Field<Vector2>(stinger, "Velocity");
+                Assert.Greater(guided.y, 0, "The central stinger bends toward an exposed target");
+                Assert.AreEqual(16, guided.magnitude, .001f, "Guidance turns a stinger without accelerating it");
+                obstacles.Add(new Rect(1.8f, -.5f, .4f, 3.5f));
+                Invoke(game, "GuideStinger", stinger, .1f);
+                Assert.AreEqual(guided, Field<Vector2>(stinger, "Velocity"), "Guidance cannot lock onto an enemy through cover");
+                Invoke(game, "ClearCombat");
+                obstacles.Clear();
+                game.State.Equip(WeaponKind.BoxingGlove);
+                Invoke(game, "SpawnEnemy", 0, new Vector2(2, 0));
+                FinishEmergence(game);
+                var target = Field<IList>(game, "enemies")[0];
+                SetField(target, "Health", 100);
+                obstacles.Add(new Rect(2.6f, -.6f, .4f, 1.2f));
+                Invoke(game, "FireWeapon", Vector2.right);
+                Invoke(game, "UpdateShots", .2f);
+                Assert.AreEqual(100 - game.State.Damage * 4, Field<int>(target, "Health"));
+                float pushedX = Field<Vector2>(target, "Position").x;
+                Assert.Greater(pushedX, 2, "The glove's impact physically pushes an ordinary enemy");
+                Assert.LessOrEqual(pushedX, 2.6f - .36f + .001f, "A punch cannot push its target through nearby cover");
+                yield return null;
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally { UnityEngine.Object.Destroy(root); }
+        }
+
+        [UnityTest]
+        public IEnumerator DestroyingAClusterPropCannotCreateAnotherPropWhenTheRoomIsRebuilt()
+        {
+            var root = new GameObject("Haunt destroyed prop layout regression");
+            try
+            {
+                var game = root.AddComponent<HauntGame>();
+                game.enabled = false;
+                // This seed places candidate six near candidate zero. The original
+                // layout rejects six; breaking zero must not admit it on a revisit.
+                game.BeginRun(21);
+                var room = game.Floor.GetRoom(1);
+                Assert.AreEqual(RoomKind.Combat, room.Kind);
+                Invoke(game, "EnterRoom", room, Vector2.zero);
+                Invoke(game, "ClearCombat");
+                var props = Field<IList>(game, "roomProps");
+                var expected = props.Cast<object>().Select(prop => Field<long>(prop, "Key")).ToList();
+                Assert.AreEqual(6, expected.Count, "The regression seed starts with one rejected cluster candidate");
+                long broken = Field<long>(props[0], "Key");
+                Vector2 brokenPosition = Field<Vector2>(props[0], "Position");
+                Invoke(game, "DamageRoomProp", 0, 100);
+                expected.Remove(broken);
+                room.Cleared = true;
+                Invoke(game, "EnterRoom", room, Vector2.zero);
+                var actual = Field<IList>(game, "roomProps").Cast<object>().Select(prop => Field<long>(prop, "Key")).ToArray();
+                CollectionAssert.AreEquivalent(expected, actual,
+                    "Room reconstruction must preserve all surviving props without creating a formerly blocked candidate");
+                Assert.IsFalse((bool)Invoke(game, "Blocked", brokenPosition, .1f),
+                    "Temporary layout reservations cannot leave an invisible collider at the destroyed prop");
                 yield return null;
                 LogAssert.NoUnexpectedReceived();
             }

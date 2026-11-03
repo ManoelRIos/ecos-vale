@@ -1,28 +1,37 @@
 ECOS DA MEIA-NOITE - UNITY
 
 1. Instale Unity 6000.0.85f1 pelo Unity Hub.
-2. Extraia TODO o ZIP em uma pasta nova, como C:\Dev\EcosDaMeiaNoite.
-   Preserve sua copia anterior e quaisquer alteracoes proprias.
-3. Feche o Editor que estiver aberto em outra copia.
-4. Execute ABRIR_ECOS_DA_MEIA_NOITE.cmd na pasta nova.
-5. Aguarde a resolucao dos pacotes e a compilacao. Pressione Play e inicie
-   uma incursao no menu. Se abriu pelo Hub, use Ecos > Abrir roguelike
-   enquanto o Play estiver parado.
+2. Extraia TODO o ZIP em uma pasta nova e curta, como C:\Dev\EcosDaMeiaNoite.
+   Preserve sua copia anterior e alteracoes proprias.
+3. No Unity Hub, use Add / Add project from disk e selecione a pasta
+   que contem Assets, Packages e ProjectSettings.
+4. Aguarde os pacotes e a compilacao. Com Play parado, use
+   Ecos > Abrir roguelike para abrir Assets/_Game/Scenes/Haunt.unity.
+5. Pressione Play, escolha personagem e inicie uma incursao.
 
-A pasta aberta deve conter Assets, Packages e ProjectSettings.
-Cena do jogo: Assets/_Game/Scenes/Haunt.unity.
-Log do atalho: Logs/MeiaNoite-Editor.log.
+O atalho ABRIR_ECOS_DA_MEIA_NOITE.cmd e opcional. A abertura pelo Hub
+nao precisa dele. Log do atalho: Logs/MeiaNoite-Editor.log.
 
-Use uma pasta nova ao atualizar por ZIP. Sobrepor arquivos nao remove os
-arquivos que deixaram de fazer parte do projeto. Um clone Git atualizado
-aplica as remocoes rastreadas. O projeto agora contem somente o roguelike.
+TECLADO/MOUSE
+WASD/setas mover; mouse mirar; esquerdo atirar; Espaco/direito esquivar;
+Q poder; E conversar/portal; M mapa; Esc fechar conversa/pausar.
+Tab/roda troca todas armas. Atalhos 1-0: inicial, grampeador, banana,
+piao, disco, lanterna, flauta, guarda-chuva, colmeia, luva.
 
-Controles: WASD mover, mouse mirar, esquerdo atirar, Espaco/direito esquivar,
-E para portal/sair da loja, M mapa, Esc pausa. Caminhe ate portas abertas
-para mudar de sala. Compre pelos botoes do mercado apos vencer o chefe.
-Morrer encerra a incursao; nao ha save entre sessoes.
+CONTROLE PS4 RECONHECIDO PELO INPUT SYSTEM (USB OU BLUETOOTH)
+Analogico esquerdo mover; direito mirar; R2 atirar; Circulo/L2 esquivar;
+Quadrado poder; X conversar/portal/confirmar; L1/R1 trocar armas;
+Options pausa; Share/clique touchpad mapa. Direcional navega menus.
+Na loja: L1/R1 abas, Triangulo paginas, X comprar, Circulo fechar.
+A compatibilidade do seu controle/driver ainda precisa ser testada no PC.
 
-O Editor nao esta instalado no ambiente desta revisao. Os checks do nucleo
-C# e estaticos nao substituem importacao/Play Mode. O atalho nao foi
-executado no Windows aqui. Nao ha executavel Windows validado.
-Veja README.md para instrucoes, testes e limites atuais.
+NOVIDADES
+Salas com 4 perfis, novos mobs e chefes, tiros maiores/luminosos,
+barris explosivos, agua com lentidao, reliquias, 1-2 armas sorteadas
+por loja, paredes com profundidade por camadas e musica de fundo.
+Morrer encerra a incursao; nao ha save entre sessoes ou multiplayer.
+
+O Editor nao esta instalado no ambiente desta revisao. Checks C#,
+Python e helpers com tipos Unity simulados nao substituem importacao,
+compilacao Unity, Play Mode, audicao real ou teste fisico com PS4.
+Nao ha executavel Windows validado. Veja README.md e Documentation/VALIDATION.md.
