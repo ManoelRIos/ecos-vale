@@ -12,6 +12,7 @@ namespace Ecos.Haunt
         HauntPixelText pixelText;
         GUIStyle titleStyle, headingStyle, bodyStyle, smallStyle, hudStyle, buttonStyle, fieldStyle;
         bool stylesReady, shopWeapons;
+        int shopWeaponPage;
         static readonly string[] CharacterIcons = { "player", "medium", "reaper", "alchemist" };
         static readonly string[] CharacterNames = { "CAÇADOR DA AURORA", "MÉDIUM DO VÉU", "CEIFADOR ERRANTE", "ALQUIMISTA DE CINZAS" };
         static readonly string[] CharacterPowers = {
@@ -78,7 +79,10 @@ namespace Ecos.Haunt
                 {
                     // Passive atlas below the text HUD; it never captures input.
                     if (!Paused && !State.IsDead)
-                        DrawMap(showMap ? new Rect(355, 130, 570, 470) : new Rect(1040, 478, 216, 200), showMap);
+                    {
+                        if (showMap) Fill(new Rect(0, 0, 1280, 720), new Color(.01f, .01f, .03f, .78f));
+                        DrawMap(showMap ? new Rect(110, 72, 1060, 580) : new Rect(1040, 478, 216, 200), showMap);
+                    }
                     DrawHud();
                 }
                 if (State.IsDead) DrawDeath();
@@ -110,7 +114,7 @@ namespace Ecos.Haunt
             Text(new Rect(99, 446, 411, 20), seedText, smallStyle, Color.white);
             if (Button(new Rect(87, 495, 435, 56), "INICIAR INCURSÃO     →", Orange)) StartFromMenu();
             Text(new Rect(87, 571, 440, 32), "ENTER para começar", smallStyle, Muted);
-            Text(new Rect(87, 623, 455, 52), "WASD / MOUSE\nQ PODER  1-4 ARMAS  ESPACO ESQUIVA", smallStyle, Color.white);
+            Text(new Rect(87, 623, 455, 52), "WASD / MOUSE  M MAPA\nQ PODER  1-7 ARMAS\nESPACO PULO / ESQUIVA", smallStyle, Color.white);
 
             Panel(new Rect(598, 65, 604, 560), new Color(.35f, .25f, .45f));
             Text(new Rect(624, 88, 550, 36), "ESCOLHA SUA ALMA", headingStyle, Mint);
@@ -122,7 +126,9 @@ namespace Ecos.Haunt
                 Panel(new Rect(x, y, 276, 218), chosen ? Mint : new Color(.27f, .23f, .35f));
                 Text(new Rect(x + 14, y + 10, 251, 26), CharacterNames[i], smallStyle, chosen ? Mint : Orange);
                 DrawIcon(new Rect(x + 14, y + 48, 65, 95), CharacterIcons[i]);
-                Text(new Rect(x + 93, y + 45, 169, 121), CharacterPowers[i], smallStyle, Color.white);
+                Text(new Rect(x + 93, y + 45, 169, 96), CharacterPowers[i], smallStyle, Color.white);
+                Text(new Rect(x + 14, y + 148, 248, 22),
+                    RunState.WeaponName(RunState.StartingWeaponFor((CharacterKind)i)), smallStyle, Mint);
                 if (Button(new Rect(x + 14, y + 176, 248, 29), chosen ? "SELECIONADO" : "SELECIONAR", chosen ? Mint : Muted))
                     selectedCharacter = (CharacterKind)i;
             }
@@ -146,7 +152,7 @@ namespace Ecos.Haunt
                 {
                     if (Vector2.Distance(playerPosition, MerchantPosition) < 2.8f)
                         WorldTag(MerchantPosition, "[E] CONVERSAR", Mint, 1.7f, 200);
-                    ShopItem[] displayed = { ShopItem.Stapler, ShopItem.Banana, ShopItem.SpinningTop };
+                    ShopItem[] displayed = { ShopItem.Stapler, ShopItem.Banana, ShopItem.SpinningTop, ShopItem.MirrorDisc, ShopItem.RayLantern, ShopItem.BoneFlute };
                     for (int i = 0; i < displayed.Length; i++)
                     {
                         Vector2 position = ShopPosition(i);
@@ -164,8 +170,11 @@ namespace Ecos.Haunt
                 + (State.PowerCooldown <= 0 ? " · PRONTO" : " · " + Mathf.CeilToInt(State.PowerCooldown) + "s"), smallStyle,
                 State.PowerCooldown <= 0 ? Mint : Muted);
             HudText(new Rect(1010, 18, 246, 25), "ANDAR " + State.Floor, hudStyle, Orange);
-            HudText(new Rect(1010, 47, 246, 25), rollReady <= 0 ? "ESQUIVA PRONTA" : "ESQUIVA · " + rollReady.ToString("0.0") + "s",
+            HudText(new Rect(1010, 47, 246, 25), rollReady <= 0 ? "PULO / ESQUIVA" : "PULO / ESQUIVA " + rollReady.ToString("0.0") + "s",
                 smallStyle, rollReady <= 0 ? Mint : Muted);
+            if (CurrentRoom.Kind == RoomKind.Combat && !CurrentRoom.Cleared && !Paused && !State.IsDead)
+                HudText(new Rect(1010, 76, 246, 25), "ONDA " + Mathf.Min(CurrentRoom.TotalWaves, CurrentRoom.WavesCleared + 1)
+                    + " / " + CurrentRoom.TotalWaves, smallStyle, Orange);
 
             Enemy boss = null;
             foreach (var enemy in enemies) if (enemy.Kind == 4) { boss = enemy; break; }
@@ -177,7 +186,11 @@ namespace Ecos.Haunt
                 HudText(new Rect(460, 18, 470, 28), RoomThemeName, hudStyle, tint);
                 tint = enemies.Count > 0 ? Orange : Mint;
                 tint.a = Mathf.Clamp01(roomBannerTime);
-                HudText(new Rect(460, 47, 470, 25), enemies.Count > 0 ? enemies.Count + " AMEAÇAS" : "SALA PURIFICADA", smallStyle, tint);
+                string status = CurrentRoom.Cleared ? "SALA PURIFICADA" : CurrentRoom.Kind == RoomKind.Combat
+                    ? "ONDA " + Mathf.Min(CurrentRoom.TotalWaves, CurrentRoom.WavesCleared + 1) + " / " + CurrentRoom.TotalWaves
+                        + (enemies.Count > 0 ? "  " + enemies.Count + " AMEACAS" : "  EMERGINDO")
+                    : enemies.Count > 0 ? enemies.Count + " AMEACAS" : "SALA PURIFICADA";
+                HudText(new Rect(460, 47, 470, 25), status, smallStyle, tint);
             }
             DrawDoorLabels();
             DrawExitGuide();
@@ -275,27 +288,32 @@ namespace Ecos.Haunt
             if (Button(new Rect(232, 154, 384, 42), "RELIQUIAS", shopWeapons ? Muted : Mint)) shopWeapons = false;
             if (Button(new Rect(632, 154, 384, 42), "ARMAS", shopWeapons ? Mint : Muted)) shopWeapons = true;
             ShopItem[] items = shopWeapons
-                ? new[] { ShopItem.Stapler, ShopItem.Banana, ShopItem.SpinningTop }
+                ? new[] { ShopItem.Stapler, ShopItem.Banana, ShopItem.SpinningTop, ShopItem.MirrorDisc, ShopItem.RayLantern, ShopItem.BoneFlute }
                 : new[] { ShopItem.Heal, ShopItem.Damage, ShopItem.FireRate, ShopItem.MaxHealth };
             string[] names = shopWeapons
-                ? new[] { "GRAMPEADOR", "BANANA", "PIAO DO CAOS" }
+                ? new[] { "GRAMPEADOR", "BANANA", "PIAO DO CAOS", "DISCO ESPELHO", "LANTERNA DE RAIOS", "FLAUTA DE OSSOS" }
                 : new[] { "TONICO", "POLVORA", "GATILHO", "CORACAO" };
             string[] icons = shopWeapons
-                ? new[] { "stapler", "banana-gun", "spinning-top" }
+                ? new[] { "stapler", "banana-gun", "spinning-top", "mirror-disc", "ray-lantern", "bone-flute" }
                 : new[] { "heart", "weapon", "muzzle", "heart" };
             string[] stats = shopWeapons
-                ? new[] { "GRAMPO DUPLO", "TIRO CURVO", "GIRO CONTINUO" }
+                ? new[] { "GRAMPO DUPLO", "TIRO CURVO", "GIRO CONTINUO", "RICOCHETE", "RAIO CONTINUO", "LEQUE DE OSSOS" }
                 : new[] { "CURA +3", "DANO +1", "RECARGA -15%", "VIDA MAX +2" };
             float cardWidth = shopWeapons ? 248 : 180;
             float stride = shopWeapons ? 272 : 196;
-            for (int i = 0; i < items.Length; i++)
+            int pages = shopWeapons ? (items.Length + 2) / 3 : 1;
+            shopWeaponPage = Mathf.Clamp(shopWeaponPage, 0, pages - 1);
+            int first = shopWeapons ? shopWeaponPage * 3 : 0;
+            int count = shopWeapons ? Mathf.Min(3, items.Length - first) : items.Length;
+            for (int card = 0; card < count; card++)
             {
-                float x = 232 + i * stride;
+                int i = first + card;
+                float x = 232 + card * stride;
                 ShopItem item = items[i];
-                WeaponKind weapon = shopWeapons ? (WeaponKind)((int)item - 3) : WeaponKind.Pistol;
-                bool owned = shopWeapons && State.Owns(weapon);
+                bool weaponItem = RunState.TryWeaponForItem(item, out WeaponKind weapon);
+                bool owned = weaponItem && State.Owns(weapon);
                 bool equipped = owned && State.Weapon == weapon;
-                bool sold = !shopWeapons && State.Sold(item);
+                bool sold = !weaponItem && State.Sold(item);
                 bool affordable = State.Coins >= State.Price(item);
                 DrawIcon(new Rect(x + 20, 226, cardWidth - 40, 108), icons[i]);
                 Text(new Rect(x + 6, 352, cardWidth - 12, 40), names[i], smallStyle, Orange, TextAnchor.UpperCenter);
@@ -313,15 +331,26 @@ namespace Ecos.Haunt
                 GUI.enabled = canBuy;
             }
             if (noticeTime > 0)
-                Text(new Rect(234, 558, 802, 36), notice, smallStyle, Mint);
-            Text(new Rect(234, 614, 570, 22), "1 REVOLVER  2 GRAMPO  3 BANANA  4 PIAO", smallStyle, Muted);
+                Text(new Rect(234, 558, shopWeapons ? 540 : 802, 36), notice, smallStyle, Mint);
+            if (shopWeapons)
+            {
+                bool canPage = GUI.enabled;
+                GUI.enabled = canPage && shopWeaponPage > 0;
+                if (Button(new Rect(810, 554, 56, 30), "<", Muted)) shopWeaponPage--;
+                GUI.enabled = canPage;
+                Text(new Rect(876, 560, 90, 22), (shopWeaponPage + 1) + " / " + pages, smallStyle, Mint, TextAnchor.UpperCenter);
+                GUI.enabled = canPage && shopWeaponPage < pages - 1;
+                if (Button(new Rect(980, 554, 56, 30), ">", Muted)) shopWeaponPage++;
+                GUI.enabled = canPage;
+            }
+            Text(new Rect(234, 614, 570, 22), "1 ARMA PROPRIA  2-7 LOJA", smallStyle, Muted);
             if (Button(new Rect(884, 604, 160, 38), "FECHAR", Mint)) CloseMerchant();
             GUI.enabled = enabled;
         }
 
         void DrawMap(Rect rect, bool expanded)
         {
-            float opacity = expanded ? .80f : .45f;
+            float opacity = expanded ? .95f : .45f;
             Color theme = FloorColors[ThemeVariant];
             int minX = int.MaxValue, minY = int.MaxValue, maxX = int.MinValue, maxY = int.MinValue;
             foreach (var room in Floor.Rooms)
@@ -330,7 +359,7 @@ namespace Ecos.Haunt
                 minY = Mathf.Min(minY, room.Position.Y); maxY = Mathf.Max(maxY, room.Position.Y);
             }
             float spacing = Mathf.Min((rect.width - 30) / (maxX - minX + 1), (rect.height - 30) / (maxY - minY + 1));
-            spacing = Mathf.Min(spacing, expanded ? 72 : 36);
+            spacing = Mathf.Min(spacing, expanded ? 112 : 36);
             Vector2 center = new Vector2(rect.center.x - (minX + maxX) * .5f * spacing,
                 rect.center.y + (minY + maxY) * .5f * spacing);
             float corridor = expanded ? 5 : 3;

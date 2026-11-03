@@ -21,6 +21,9 @@ namespace Ecos.Haunt
         public RoomKind Kind;
         public readonly List<int> Neighbors = new List<int>();
         public bool Cleared;
+        public int WavesCleared;
+        public int TotalWaves => Kind == RoomKind.Combat ? 3 : 1;
+        public bool HasMiniBoss;
     }
 
     /// <summary>
@@ -65,18 +68,20 @@ namespace Ecos.Haunt
             return Rooms[id];
         }
 
+        public static int RoomCountForNumber(int number) => 7 + 2 * Math.Min(Math.Max(1, number) - 1, 10);
+
         public static DungeonFloor Generate(int seed, int number)
         {
             number = Math.Max(1, number);
             var plan = new DungeonFloor { Seed = seed, Number = number };
-            // A separate salted stream preserves all existing seeded room layouts.
+            // A separate salted stream keeps encounter choices independent of room growth.
             // Visual ambience and room generation never advance this encounter RNG.
             var encounterRandom = new SeededRandom(unchecked((uint)seed * 0x85ebca6bu
                 ^ (uint)number * 0xc2b2ae35u ^ 0x4d595df4u));
             int[] pool = BossPools[plan.ThemeIndex];
             plan.BossArchetype = pool[encounterRandom.Next(pool.Length)];
             var random = new SeededRandom(unchecked((uint)seed ^ ((uint)number * 0x9e3779b9u)));
-            int count = 7 + Math.Min(number - 1, 4);
+            int count = RoomCountForNumber(number);
             var occupied = new Dictionary<GridPoint, DungeonRoom>();
             plan.Entrance = new DungeonRoom
             {
@@ -131,6 +136,16 @@ namespace Ecos.Haunt
             }
             plan.Boss = farthest[random.Next(farthest.Count)];
             plan.Boss.Kind = RoomKind.Boss;
+            // Select only after the boss room is known, so sentinels cannot replace
+            // the safe entrance or the floor's main encounter.
+            var combatRooms = plan.Rooms.FindAll(room => room.Kind == RoomKind.Combat);
+            int sentinels = number >= 4 ? 2 : 1;
+            for (int i = 0; i < sentinels; i++)
+            {
+                int selected = encounterRandom.Next(combatRooms.Count);
+                combatRooms[selected].HasMiniBoss = true;
+                combatRooms.RemoveAt(selected);
+            }
             return plan;
         }
 

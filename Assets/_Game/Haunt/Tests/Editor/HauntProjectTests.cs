@@ -49,7 +49,7 @@ namespace Ecos.Haunt.Tests
         {
             using (var art = new HauntPixelArt())
             {
-                foreach (string id in new[] { "player", "medium", "reaper", "alchemist", "widow", "bishop", "larva", "sentinel", "acolyte", "matriarch", "bell", "pumpkin", "ghost", "cultist", "bat", "boss", "merchant", "candle", "portal", "top-shot" })
+                foreach (string id in new[] { "player", "medium", "reaper", "alchemist", "widow", "bishop", "larva", "sentinel", "acolyte", "matriarch", "bell", "pumpkin", "ghost", "cultist", "bat", "boss", "merchant", "candle", "portal", "top-shot", "skeleton", "slime", "spider", "miniboss", "spawn-rift", "shot-disc" })
                 {
                     var frames = new Sprite[4];
                     for (int i = 0; i < 4; i++)
@@ -64,7 +64,7 @@ namespace Ecos.Haunt.Tests
                     for (int i = 0; i < 240; i++)
                         Assert.AreSame(frames[i % 4], art.Frame(id, i), "Repeated animation must not allocate more textures: " + id);
                 }
-                foreach (string id in new[] { "chandelier", "exit-arrow", "floor3", "floor4", "floor5", "door-open", "door-locked", "door-boss", "shadow", "player-ring", "enemy-ring", "glow", "rune", "rug", "weapon", "scattergun", "repeater", "cannon", "slash", "dust", "spark", "effect-ring" })
+                foreach (string id in new[] { "chandelier", "exit-arrow", "floor3", "floor4", "floor5", "door-open", "door-locked", "door-boss", "shadow", "player-ring", "enemy-ring", "glow", "rune", "rug", "weapon", "scattergun", "repeater", "cannon", "slash", "dust", "spark", "effect-ring", "pit", "fog", "hunter-carbine", "veil-wand", "bone-caster", "arc-coil", "mirror-disc", "ray-lantern", "bone-flute", "shot-dot", "shot-bone", "shot-shock", "shot-ray" })
                     Assert.IsNotNull(art.Get(id), id);
             }
         }
@@ -258,6 +258,35 @@ namespace Ecos.Haunt.Tests
             return (T)field.GetValue(target);
         }
 
+        static void SetField(object target, string name, object value)
+        {
+            var field = target.GetType().GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            Assert.IsNotNull(field, "Missing state field: " + name);
+            field.SetValue(target, value);
+        }
+
+        static void FinishEmergence(HauntGame game)
+        {
+            foreach (object enemy in Field<IList>(game, "enemies"))
+                SetField(enemy, "SpawnRemaining", 0f);
+        }
+
+        static void DefeatCurrentWave(HauntGame game)
+        {
+            var enemies = Field<IList>(game, "enemies");
+            int count = enemies.Count;
+            Assert.Greater(count, 0, "Every wave must contain an encounter");
+            FinishEmergence(game);
+            for (int i = 0; i < count; i++)
+            {
+                Vector2 position = Field<Vector2>(enemies[0], "Position");
+                // Hit the actual collision circle instead of calling the reward path directly.
+                Invoke(game, "Fire", position, Vector2.right, true, 10000);
+                Invoke(game, "UpdateShots", .01f);
+                if (i < count - 1) Assert.AreEqual(count - i - 1, game.LivingEnemies);
+            }
+        }
+
         static void StartFloor(HauntGame game, int seed, int number)
         {
             game.BeginRun(seed);
@@ -320,28 +349,285 @@ namespace Ecos.Haunt.Tests
                 game.BeginRun(71319);
                 var room = game.Floor.Rooms.First(r => r.Kind == RoomKind.Combat);
                 Invoke(game, "EnterRoom", room, Vector2.zero);
-                Assert.Greater(game.LivingEnemies, 0);
-                Assert.IsFalse(room.Cleared);
                 int coins = game.State.Coins;
-                var list = (IList)typeof(HauntGame).GetField("enemies", PrivateInstance).GetValue(game);
-                int count = game.LivingEnemies;
-                for (int i = 0; i < count; i++)
+                Assert.AreEqual(3, room.TotalWaves, "A room includes the first wave and two reinforcements");
+                for (int wave = 0; wave < room.TotalWaves; wave++)
                 {
-                    var enemy = list[0];
-                    Vector2 position = (Vector2)enemy.GetType().GetField("Position").GetValue(enemy);
-                    // A high-damage friendly shot starts inside the enemy's collision circle.
-                    // This exercises actual projectile damage and clear/reward code.
-                    Invoke(game, "Fire", position, Vector2.right, true, 10000);
-                    Invoke(game, "UpdateShots", .01f);
-                    Assert.AreEqual(count - i - 1, game.LivingEnemies);
+                    Assert.AreEqual(wave, room.WavesCleared);
+                    Assert.Greater(game.LivingEnemies, 0);
+                    Assert.IsFalse(room.Cleared);
+                    Assert.IsFalse(NearestExit(game, out _), "Doors remain locked during every wave");
+                    Assert.AreEqual(coins, game.State.Coins, "A reinforcement must not award the room reward");
+                    Assert.IsTrue(Field<IList>(game, "enemies").Cast<object>().All(enemy => Field<float>(enemy, "SpawnRemaining") > 0),
+                        "Every reinforcement must use the emergence period");
+                    Invoke(game, "WarnGround", new Vector2(-13, 7), 1.1f);
+                    Invoke(game, "Fire", new Vector2(-13, 7), Vector2.zero, false, 1);
+                    DefeatCurrentWave(game);
+                    Assert.AreEqual(wave + 1, room.WavesCleared);
+                    Assert.AreEqual(0, Field<IList>(game, "warnings").Count, "A completed wave clears pending ground attacks");
+                    Assert.AreEqual(0, game.ActiveProjectiles, "Hostile shots cannot leak into the reinforcement or exit phase");
                 }
                 Assert.IsTrue(room.Cleared);
+                Assert.AreEqual(0, game.LivingEnemies);
+                Assert.IsTrue(NearestExit(game, out _), "The final wave unlocks the exit guide");
                 Assert.Greater(game.State.Coins, coins);
                 int reward = game.State.Coins;
+                Invoke(game, "CompleteRoom", false);
+                Assert.AreEqual(reward, game.State.Coins, "Duplicate clear callbacks cannot reward twice");
                 Invoke(game, "EnterRoom", game.Floor.Entrance, Vector2.zero);
                 Invoke(game, "EnterRoom", room, Vector2.zero);
                 Assert.AreEqual(0, game.LivingEnemies);
+                Assert.AreEqual(room.TotalWaves, room.WavesCleared);
                 Assert.AreEqual(reward, game.State.Coins);
+                yield return null;
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally { UnityEngine.Object.Destroy(root); }
+        }
+
+        [UnityTest]
+        public IEnumerator EmergingCreaturesCannotMoveAttackOrTakeProjectileDamage()
+        {
+            var root = new GameObject("Haunt emerging creatures test");
+            try
+            {
+                var game = root.AddComponent<HauntGame>();
+                game.BeginRun(42);
+                Invoke(game, "EnterRoom", game.Floor.Rooms.First(r => r.Kind == RoomKind.Combat), Vector2.zero);
+                Field<IList>(game, "obstacles").Clear();
+                for (int kind = 8; kind <= 11; kind++)
+                {
+                    Invoke(game, "ClearCombat");
+                    Set(game, "invincible", 0f);
+                    Invoke(game, "SpawnEnemy", kind, Vector2.zero);
+                    var enemy = Field<IList>(game, "enemies")[0];
+                    int enemyHealth = Field<int>(enemy, "Health");
+                    int playerHealth = game.State.Health;
+                    SetField(enemy, "Cooldown", 0f);
+                    Assert.Greater(Field<float>(enemy, "SpawnRemaining"), .3f);
+                    Invoke(game, "UpdateEnemies", .3f);
+                    Assert.AreEqual(Vector2.zero, Field<Vector2>(enemy, "Position"), "Emerging creature moved: " + kind);
+                    Assert.AreEqual(0f, Field<float>(enemy, "Cooldown"), "An emerging creature must not advance its attack: " + kind);
+                    Assert.AreEqual(playerHealth, game.State.Health, "Emerging contact must not hurt: " + kind);
+                    Invoke(game, "Fire", Vector2.zero, Vector2.right, true, 1);
+                    Invoke(game, "UpdateShots", .01f);
+                    Assert.AreEqual(enemyHealth, Field<int>(enemy, "Health"), "Emerging creatures must not be targeted: " + kind);
+                    foreach (object shot in Field<IList>(game, "shots")) SetField(shot, "Life", 0f);
+                    Invoke(game, "UpdateShots", .01f);
+                    Invoke(game, "UpdateEnemies", Field<float>(enemy, "SpawnRemaining") + .01f);
+                    Assert.AreEqual(0f, Field<float>(enemy, "SpawnRemaining"));
+                    Invoke(game, "Fire", Field<Vector2>(enemy, "Position"), Vector2.right, true, 1);
+                    Invoke(game, "UpdateShots", .01f);
+                    Assert.AreEqual(enemyHealth - 1, Field<int>(enemy, "Health"), "Fully emerged creatures become vulnerable: " + kind);
+                }
+                yield return null;
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally { UnityEngine.Object.Destroy(root); }
+        }
+
+        [UnityTest]
+        public IEnumerator SentinelRoomAddsAMiniBossWithoutReplacingTheFloorBoss()
+        {
+            var root = new GameObject("Haunt sentinel room test");
+            try
+            {
+                var game = root.AddComponent<HauntGame>();
+                game.BeginRun(42);
+                var room = game.Floor.Rooms.First(r => r.HasMiniBoss);
+                Assert.AreEqual(RoomKind.Combat, room.Kind);
+                Invoke(game, "EnterRoom", room, Vector2.zero);
+                bool sawSentinel = false;
+                for (int wave = 0; wave < room.TotalWaves; wave++)
+                {
+                    var enemies = Field<IList>(game, "enemies").Cast<object>().ToArray();
+                    Assert.IsFalse(enemies.Any(enemy => Field<int>(enemy, "Kind") == 4), "Only the main boss room spawns a floor boss");
+                    bool hasSentinel = enemies.Any(enemy => Field<int>(enemy, "Kind") == 11);
+                    Assert.AreEqual(wave == room.TotalWaves - 1, hasSentinel, "The sentinel joins the final reinforcement");
+                    if (hasSentinel)
+                    {
+                        sawSentinel = true;
+                        Assert.IsTrue(enemies.Any(enemy => Field<int>(enemy, "Kind") != 11), "The sentinel arrives with ordinary creatures");
+                    }
+                    DefeatCurrentWave(game);
+                }
+                Assert.IsTrue(sawSentinel, "A marked room must actually spawn its miniboss");
+                Assert.IsTrue(room.Cleared);
+                Assert.IsFalse(game.State.BossDefeated, "A miniboss cannot unlock the floor portal or shop");
+                Invoke(game, "EnterRoom", game.Floor.Boss, Vector2.zero);
+                var boss = Field<IList>(game, "enemies");
+                Assert.AreEqual(1, boss.Count);
+                Assert.AreEqual(4, Field<int>(boss[0], "Kind"));
+                yield return null;
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally { UnityEngine.Object.Destroy(root); }
+        }
+
+        [UnityTest]
+        public IEnumerator DodgeCrossesGeneratedPitsButLandingInsideFallsBackToSafeGround()
+        {
+            var root = new GameObject("Haunt pit traversal test");
+            try
+            {
+                var game = root.AddComponent<HauntGame>();
+                StartFloor(game, 42, 2);
+                var room = game.Floor.Rooms.First(r => r.Kind == RoomKind.Combat && r.Id % 3 == 0);
+                Invoke(game, "EnterRoom", room, Vector2.zero);
+                var pits = Field<IList>(game, "pits");
+                Assert.Greater(pits.Count, 0, "The test must use a generated pit room");
+                Rect pit = (Rect)pits[0];
+                Assert.IsTrue((bool)Invoke(game, "IsPit", pit.center));
+                int health = game.State.Health;
+                Set(game, "playerPosition", new Vector2(pit.xMin - .35f, pit.center.y));
+                Invoke(game, "ResolvePitFall");
+                Set(game, "rollRemaining", .24f);
+                Set(game, "rollDirection", Vector2.right);
+                Invoke(game, "UpdatePlayer", null, .1f);
+                Assert.IsTrue((bool)Invoke(game, "IsPit", game.PlayerPosition), "The roll must actually pass over the hole");
+                Assert.AreEqual(health, game.State.Health, "The airborne part of a dodge crosses the pit safely");
+                Invoke(game, "UpdatePlayer", null, .15f);
+                Assert.Greater(game.PlayerPosition.x, pit.xMax);
+                Assert.AreEqual(health, game.State.Health, "Reaching the other bank avoids fall damage");
+                Vector2 safe = Field<Vector2>(game, "safeGround");
+                Set(game, "playerPosition", pit.center);
+                Set(game, "rollRemaining", 0f);
+                Set(game, "invincible", 0f);
+                Invoke(game, "ResolvePitFall");
+                Assert.AreEqual(health - 1, game.State.Health);
+                Assert.AreEqual(safe, game.PlayerPosition, "A failed crossing returns to the last safe bank");
+                Assert.IsFalse((bool)Invoke(game, "IsPit", game.PlayerPosition));
+                Assert.Greater(Field<float>(game, "invincible"), 0, "The recovery must protect against immediate contact damage");
+                Invoke(game, "HurtPlayer");
+                Assert.AreEqual(health - 1, game.State.Health);
+                Invoke(game, "EnterRoom", game.Floor.Entrance, Vector2.zero);
+                Assert.AreEqual(0, pits.Count, "Room transitions must remove the previous pit collision areas");
+                Assert.IsFalse((bool)Invoke(game, "IsPit", pit.center));
+                Assert.AreEqual(Vector2.zero, Field<Vector2>(game, "safeGround"));
+                Invoke(game, "EnterRoom", room, Vector2.zero);
+                Assert.Greater(pits.Count, 0);
+                Invoke(game, "OpenShop");
+                Assert.AreEqual(0, pits.Count, "The walkable market cannot retain combat pits");
+                yield return null;
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally { UnityEngine.Object.Destroy(root); }
+        }
+
+        [UnityTest]
+        public IEnumerator SelectedHeroesEquipTheirOwnWeaponAndAttackPattern()
+        {
+            var root = new GameObject("Haunt signature weapons test");
+            try
+            {
+                var game = root.AddComponent<HauntGame>();
+                WeaponKind[] expected = { WeaponKind.HunterCarbine, WeaponKind.VeilWand, WeaponKind.BoneCaster, WeaponKind.ArcCoil };
+                int[] projectiles = { 1, 3, 1, 0 };
+                for (int hero = 0; hero < expected.Length; hero++)
+                {
+                    Set(game, "selectedCharacter", (CharacterKind)hero);
+                    game.BeginRun(42);
+                    Assert.AreEqual(expected[hero], game.State.StartingWeapon);
+                    Assert.AreEqual(expected[hero], game.State.Weapon);
+                    Assert.IsTrue(game.State.Owns(expected[hero]));
+                    Invoke(game, "UpdateWeaponTrigger", Vector2.right, true, .016f);
+                    Assert.AreEqual(projectiles[hero], game.ActiveProjectiles);
+                    foreach (object shot in Field<IList>(game, "shots"))
+                        Assert.AreEqual(expected[hero], Field<WeaponKind>(shot, "Style"));
+                    var beam = Field<SpriteRenderer>(game, "beamVisual");
+                    if (hero == 3) Assert.IsTrue(beam != null && beam.gameObject.activeSelf, "The Alchemist holds a continuous electric ray");
+                    else Assert.IsTrue(beam == null || !beam.gameObject.activeSelf);
+                }
+                yield return null;
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally { UnityEngine.Object.Destroy(root); }
+        }
+
+        [UnityTest]
+        public IEnumerator HeldRayUsesDamageTicksStopsAtCoverAndCancelsOnReleaseDodgeOrTransition()
+        {
+            var root = new GameObject("Haunt continuous ray test");
+            try
+            {
+                var game = root.AddComponent<HauntGame>();
+                Set(game, "selectedCharacter", CharacterKind.Alchemist);
+                game.BeginRun(42);
+                Field<IList>(game, "obstacles").Clear();
+                Invoke(game, "SpawnEnemy", 0, new Vector2(3, 0));
+                FinishEmergence(game);
+                var enemy = Field<IList>(game, "enemies")[0];
+                SetField(enemy, "Health", 30);
+                Invoke(game, "UpdateWeaponTrigger", Vector2.right, true, .016f);
+                var beam = Field<SpriteRenderer>(game, "beamVisual");
+                Assert.IsTrue(beam.gameObject.activeSelf);
+                Assert.AreEqual(0, game.ActiveProjectiles, "A held ray must not create a projectile every frame");
+                Assert.AreEqual(30 - game.State.Damage, Field<int>(enemy, "Health"));
+                Invoke(game, "UpdateWeaponTrigger", Vector2.right, true, .016f);
+                Assert.AreEqual(30 - game.State.Damage, Field<int>(enemy, "Health"), "Frames inside the weapon cooldown cannot deal extra damage");
+                Set(game, "shotCooldown", 0f);
+                Invoke(game, "UpdateWeaponTrigger", Vector2.right, true, .016f);
+                int health = Field<int>(enemy, "Health");
+                Assert.AreEqual(30 - game.State.Damage * 2, health);
+                Field<IList>(game, "obstacles").Add(new Rect(1.5f, -.5f, .3f, 1));
+                Set(game, "shotCooldown", 0f);
+                Invoke(game, "UpdateWeaponTrigger", Vector2.right, true, .016f);
+                Assert.AreEqual(health, Field<int>(enemy, "Health"), "The continuous ray cannot damage through cover");
+                Invoke(game, "UpdateWeaponTrigger", Vector2.right, false, .016f);
+                Assert.IsFalse(beam.gameObject.activeSelf, "Releasing fire stops the visible ray immediately");
+                Invoke(game, "UpdateWeaponTrigger", Vector2.right, true, .016f);
+                Assert.IsTrue(beam.gameObject.activeSelf);
+                Set(game, "rollRemaining", .2f);
+                Invoke(game, "UpdateWeaponTrigger", Vector2.right, true, .016f);
+                Assert.IsFalse(beam.gameObject.activeSelf, "Dodging interrupts a held ray");
+                Set(game, "rollRemaining", 0f);
+                Invoke(game, "UpdateWeaponTrigger", Vector2.right, true, .016f);
+                Assert.IsTrue(beam.gameObject.activeSelf);
+                Invoke(game, "EnterRoom", game.Floor.Rooms.First(r => r.Kind == RoomKind.Combat), Vector2.zero);
+                Assert.IsFalse(beam.gameObject.activeSelf, "A room transition cannot retain an attack from the previous arena");
+                yield return null;
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally { UnityEngine.Object.Destroy(root); }
+        }
+
+        [UnityTest]
+        public IEnumerator MirrorDiscReflectsFromCoverAndRoomCornersThenExhaustsItsBounces()
+        {
+            var root = new GameObject("Haunt ricochet geometry test");
+            try
+            {
+                var game = root.AddComponent<HauntGame>();
+                game.BeginRun(42);
+                game.State.BossDefeated = true;
+                game.State.Coins = 1000;
+                Assert.IsTrue(game.State.TryBuy(ShopItem.MirrorDisc, out _));
+                var obstacles = Field<IList>(game, "obstacles");
+                obstacles.Clear();
+                obstacles.Add(new Rect(2, -.5f, .3f, 1));
+                Invoke(game, "FireWeapon", Vector2.right);
+                var shots = Field<IList>(game, "shots");
+                Assert.AreEqual(1, shots.Count);
+                var disc = shots[0];
+                Assert.AreEqual(2, Field<int>(disc, "Bounces"));
+                Invoke(game, "UpdateShots", .12f);
+                Assert.AreEqual(1, shots.Count);
+                Assert.AreEqual(1, Field<int>(disc, "Bounces"));
+                Assert.Less(Field<Vector2>(disc, "Velocity").x, 0, "Cover must reflect the incoming horizontal velocity");
+                Assert.Less(Field<Vector2>(disc, "Position").x, 2, "A ricochet stays on the free side of cover");
+                obstacles.Clear();
+                SetField(disc, "Position", new Vector2(13.9f, 7.9f));
+                SetField(disc, "Velocity", new Vector2(15, 15));
+                Invoke(game, "UpdateShots", .05f);
+                Assert.AreEqual(1, shots.Count);
+                Assert.AreEqual(0, Field<int>(disc, "Bounces"));
+                Vector2 reflected = Field<Vector2>(disc, "Velocity");
+                Assert.Less(reflected.x, 0, "An exact room corner reflects both axes");
+                Assert.Less(reflected.y, 0);
+                SetField(disc, "Position", new Vector2(14.2f, 0));
+                SetField(disc, "Velocity", Vector2.right * 15);
+                Invoke(game, "UpdateShots", .03f);
+                Assert.AreEqual(0, shots.Count, "The next impact consumes a disc with no bounces remaining");
                 yield return null;
                 LogAssert.NoUnexpectedReceived();
             }
@@ -384,6 +670,7 @@ namespace Ecos.Haunt.Tests
                     StartFloor(game, 42, floor);
                     Invoke(game, "EnterRoom", game.Floor.Boss, Vector2.zero);
                     Assert.AreEqual(1, game.LivingEnemies);
+                    FinishEmergence(game);
                     Invoke(game, "UpdateEnemies", 3f);
                     Assert.Greater(game.ActiveProjectiles, 0, "Every boss must attack on floor " + floor);
                 }
@@ -520,6 +807,7 @@ namespace Ecos.Haunt.Tests
                 Set(game, "invincible", 0f);
                 health = game.State.Health;
                 Invoke(game, "WarnGround", Vector2.zero, 1.1f);
+                room.WavesCleared = room.TotalWaves - 1;
                 Invoke(game, "CompleteRoom", false);
                 Invoke(game, "UpdateWarnings", .01f);
                 Assert.AreEqual(0, warnings.Count, "Purification cancels pending ground attacks");
@@ -750,6 +1038,7 @@ namespace Ecos.Haunt.Tests
                 game.State.Equip(WeaponKind.SpinningTop);
                 for (int x = 1; x <= 3; x++) Invoke(game, "SpawnEnemy", 0, new Vector2(x, 0));
                 var enemies = Field<IList>(game, "enemies");
+                FinishEmergence(game);
                 object[] targets = enemies.Cast<object>().ToArray();
                 int[] health = targets.Select(enemy => Field<int>(enemy, "Health")).ToArray();
                 Invoke(game, "FireWeapon", Vector2.right);
@@ -780,6 +1069,7 @@ namespace Ecos.Haunt.Tests
                 Assert.IsTrue(game.State.TryBuy(ShopItem.SpinningTop, out _));
                 Invoke(game, "SpawnEnemy", 0, new Vector2(3, 0));
                 var enemy = Field<IList>(game, "enemies")[0];
+                FinishEmergence(game);
                 int health = Field<int>(enemy, "Health");
                 Field<IList>(game, "obstacles").Add(new Rect(1.5f, -.5f, .3f, 1));
                 Invoke(game, "FireWeapon", Vector2.right);

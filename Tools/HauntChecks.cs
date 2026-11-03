@@ -10,20 +10,22 @@ static class HauntChecks
     }
 
     static string Signature(DungeonFloor floor) => string.Join(";", floor.Rooms.Select(r =>
-        $"{r.Id},{r.Position.X},{r.Position.Y},{r.Kind}:{string.Join(",", r.Neighbors)}"));
+        $"{r.Id},{r.Position.X},{r.Position.Y},{r.Kind},{r.HasMiniBoss}:{string.Join(",", r.Neighbors)}"));
 
     static void Maps()
     {
         var layouts = new HashSet<string>();
         int[] edgeSeeds = { int.MinValue, -1, 0, 1, int.MaxValue };
         foreach (int seed in edgeSeeds.Concat(Enumerable.Range(-200, 401)))
-            foreach (int number in new[] { 1, 2, 5, 30 })
+            foreach (int number in new[] { 1, 2, 4, 5, 11, 30 })
             {
                 DungeonFloor floor = DungeonFloor.Generate(seed, number);
-                Check(floor.Rooms.Count == 7 + Math.Min(number - 1, 4), "Wrong room count");
+                Check(floor.Rooms.Count == 7 + 2 * Math.Min(number - 1, 10), "Wrong room count");
                 Check(floor.Rooms.Select(r => r.Position).Distinct().Count() == floor.Rooms.Count, "Overlapping rooms");
                 Check(floor.Entrance.Kind == RoomKind.Entrance && floor.Entrance.Cleared, "Entrance must be safe");
                 Check(floor.Rooms.Count(r => r.Kind == RoomKind.Boss) == 1, "One boss per floor");
+                Check(floor.Rooms.Count(r => r.HasMiniBoss) == (number >= 4 ? 2 : 1), "Miniboss rooms must scale from floor four");
+                Check(!floor.Entrance.HasMiniBoss && !floor.Boss.HasMiniBoss, "Miniboss cannot occupy entrance or main boss room");
                 Check(!floor.Boss.Cleared && floor.Boss.Neighbors.Count == 1, "Boss must begin uncleared at a dead end");
                 var distances = new Dictionary<int, int> { [floor.Entrance.Id] = 0 };
                 var pending = new Queue<int>();
@@ -33,6 +35,9 @@ static class HauntChecks
                     int id = pending.Dequeue();
                     DungeonRoom room = floor.GetRoom(id);
                     Check(room.Id == id, "Stable room ID lookup");
+                    Check(room.WavesCleared == 0, "New room must start without completed waves");
+                    Check(room.TotalWaves == (room.Kind == RoomKind.Combat ? 3 : 1), "Combat rooms require three waves");
+                    Check(!room.HasMiniBoss || room.Kind == RoomKind.Combat, "Miniboss must accompany a combat room");
                     Check(room.Neighbors.Count == room.Neighbors.Distinct().Count(), "Duplicate neighbor");
                     foreach (int adjacent in room.Neighbors)
                     {
@@ -54,8 +59,18 @@ static class HauntChecks
             }
         Check(layouts.Count > 1000, "Different seeds need different layouts");
         Check(DungeonFloor.Generate(12, 0).Number == 1, "Invalid floor must normalize");
-        Check(DungeonFloor.Generate(12, int.MaxValue).Rooms.Count == 11, "Late floor generation overflow");
-        Console.WriteLine($"Maps: {406 * 4} seeded floors checked; {layouts.Count} distinct layouts.");
+        Check(DungeonFloor.Generate(12, int.MaxValue).Rooms.Count == 27, "Late floor generation overflow");
+        Check(DungeonFloor.RoomCountForNumber(int.MinValue) == 7 && DungeonFloor.RoomCountForNumber(0) == 7,
+            "Invalid floor room counts normalize without overflow");
+        for (int number = 1; number <= 11; number++)
+            Check(DungeonFloor.RoomCountForNumber(number) == 7 + (number - 1) * 2, "Each early floor adds two rooms");
+        Check(DungeonFloor.RoomCountForNumber(12) == 27 && DungeonFloor.RoomCountForNumber(int.MaxValue) == 27,
+            "Room count growth stays bounded on late floors");
+        var encounter = DungeonFloor.Generate(77, 4).Rooms.First(room => room.HasMiniBoss);
+        encounter.WavesCleared = 2;
+        Check(!encounter.Cleared && encounter.WavesCleared < encounter.TotalWaves, "Two completed waves cannot imply full room completion");
+        Check(DungeonFloor.Generate(77, 4).GetRoom(encounter.Id).WavesCleared == 0, "Wave progress belongs only to the current floor instance");
+        Console.WriteLine($"Maps: {406 * 6} seeded floors checked; {layouts.Count} distinct layouts, three-wave rooms and miniboss placement.");
     }
 
     static void BossRosters()
@@ -94,17 +109,9 @@ static class HauntChecks
         Check(DungeonFloor.BossCandidatesForTheme(late.ThemeIndex).Contains(late.BossArchetype),
             "Extreme seed and floor must produce an eligible boss without overflow");
 
-        // Captured before encounter selection was introduced: this protects existing
-        // shared seeds from accidental changes to room layout or boss-room position.
-        var signatures = new List<string>();
-        foreach (int seed in new[] { int.MinValue, -200, -1, 0, 1, 42, 71319, int.MaxValue })
-            foreach (int number in new[] { 1, 2, 5, 30 })
-                signatures.Add(Signature(DungeonFloor.Generate(seed, number)));
-        string fingerprint = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
-            System.Text.Encoding.UTF8.GetBytes(string.Join("\n", signatures))));
-        Check(fingerprint == "0F953328F10A398980518CA186AD970A012FA87848478ECD96869569040564E9",
-            "Adding encounter randomness must preserve previously generated room layouts");
-        Console.WriteLine("Boss rosters: three candidates per theme, seeded replay, full pool coverage and preserved maps checked.");
+        // Larger floors intentionally change the old layout fingerprint. Maps()
+        // instead checks reproducibility of the expanded graph and miniboss rooms.
+        Console.WriteLine("Boss rosters: three candidates per theme, seeded replay and full pool coverage checked.");
     }
 
     static void Economy()
@@ -224,9 +231,18 @@ static class HauntChecks
 
     static void CharactersAndArsenal()
     {
+        WeaponKind[] starters = { WeaponKind.HunterCarbine, WeaponKind.VeilWand, WeaponKind.BoneCaster, WeaponKind.ArcCoil };
+        float[] starterCadences = { 1f, 1.4f, 1.8f, .65f };
         foreach (CharacterKind character in Enum.GetValues<CharacterKind>())
         {
             var run = new RunState(42, character);
+            WeaponKind starter = starters[(int)character];
+            Check(run.StartingWeapon == starter && RunState.StartingWeaponFor(character) == starter && run.Weapon == starter,
+                "Each character begins with its specific weapon equipped");
+            Check(run.Owns(starter) && run.Owns(WeaponKind.Pistol), "Starter and legacy revolver are owned from the beginning");
+            Check(Math.Abs(run.WeaponInterval - run.ShotInterval * starterCadences[(int)character]) < .00001f,
+                "Character starting weapons have distinct cadence");
+            Check(starters.All(weapon => weapon == starter || !run.Owns(weapon)), "Characters cannot access another hero's starter");
             if (character == CharacterKind.Alchemist) run.Hurt(2);
             Check(run.Character == character && run.TryUsePower(), "Selected character has ready power");
             Check(!run.TryUsePower(), "Power cannot be spammed");
@@ -262,7 +278,15 @@ static class HauntChecks
             Check(!run.TryUsePower() && !run.Equip(WeaponKind.Pistol), "Dead character cannot use power or equip");
             var fresh = new RunState(42, character);
             Check(!fresh.Owns(WeaponKind.SoulCannon) && fresh.PowerCooldown == 0, "Restart clears arsenal and cooldown");
+            Check(fresh.Weapon == starter && fresh.Owns(starter), "Restart restores the selected character's starter");
         }
+        foreach (WeaponKind weapon in Enum.GetValues<WeaponKind>())
+            Check(RunState.WeaponName(weapon).All(letter => letter < 128 && !char.IsLower(letter)),
+                "Weapon names must support uppercase pixel lettering");
+        bool rejectedCharacter = false;
+        try { RunState.StartingWeaponFor((CharacterKind)999); }
+        catch (ArgumentOutOfRangeException) { rejectedCharacter = true; }
+        Check(rejectedCharacter, "Invalid character cannot silently receive a starter");
         Check(new RunState(1, CharacterKind.Hunter).PowerDuration == 9, "Hunter retains nine-second cooldown");
         Check(new RunState(1, CharacterKind.Medium).PowerDuration == 7, "Medium retains seven-second cooldown");
         var reaper = new RunState(1, CharacterKind.Reaper);
@@ -296,15 +320,21 @@ static class HauntChecks
 
     static void CuriousShopWeapons()
     {
-        ShopItem[] items = { ShopItem.Stapler, ShopItem.Banana, ShopItem.SpinningTop };
-        WeaponKind[] weapons = { WeaponKind.Stapler, WeaponKind.Banana, WeaponKind.SpinningTop };
-        string[] names = { "GRAMPEADOR", "BANANA", "PIAO DO CAOS" };
-        int[] basePrices = { 55, 65, 80 };
-        float[] multipliers = { 1.4f, 2.2f, 3.5f };
+        ShopItem[] items = { ShopItem.Stapler, ShopItem.Banana, ShopItem.SpinningTop, ShopItem.MirrorDisc, ShopItem.RayLantern, ShopItem.BoneFlute };
+        WeaponKind[] weapons = { WeaponKind.Stapler, WeaponKind.Banana, WeaponKind.SpinningTop, WeaponKind.MirrorDisc, WeaponKind.RayLantern, WeaponKind.BoneFlute };
+        string[] names = { "GRAMPEADOR", "BANANA", "PIAO DO CAOS", "DISCO ESPELHO", "LANTERNA DE RAIOS", "FLAUTA DE OSSOS" };
+        int[] basePrices = { 55, 65, 80, 70, 90, 75 };
+        float[] multipliers = { 1.4f, 2.2f, 3.5f, 1.7f, .6f, 2f };
         var run = new RunState(71319) { Coins = 1000 };
+        foreach (var item in new[] { ShopItem.Heal, ShopItem.Damage, ShopItem.FireRate, ShopItem.MaxHealth, (ShopItem)(-1), (ShopItem)999 })
+            Check(!RunState.TryWeaponForItem(item, out _), "Upgrades and invalid items cannot map to weapons");
+        Check(RunState.TryWeaponForItem(ShopItem.Scattergun, out var scattergun) && scattergun == WeaponKind.Scattergun
+            && RunState.TryWeaponForItem(ShopItem.Repeater, out var repeater) && repeater == WeaponKind.Repeater
+            && RunState.TryWeaponForItem(ShopItem.SoulCannon, out var cannon) && cannon == WeaponKind.SoulCannon,
+            "Legacy shop weapons retain explicit mapping");
         for (int i = 0; i < items.Length; i++)
         {
-            Check((int)items[i] - 3 == (int)weapons[i], "Shop and weapon identifiers must retain their mapping");
+            Check(RunState.TryWeaponForItem(items[i], out var mapped) && mapped == weapons[i], "Shop item maps to its matching weapon");
             Check(RunState.WeaponName(weapons[i]) == names[i], "Curious weapons need their own displayed names");
             Check(run.Price(items[i]) == basePrices[i], "Curious weapon initial price");
             Check(!run.Owns(weapons[i]) && !run.Equip(weapons[i]), "Curious weapons must be acquired before equipping");
@@ -323,9 +353,9 @@ static class HauntChecks
                 "Duplicate purchase must preserve money and equipment");
         }
         run.NextFloor();
-        Check(run.Floor == 2 && run.Weapon == WeaponKind.SpinningTop, "Equipped curious weapon persists into the next floor");
+        Check(run.Floor == 2 && run.Weapon == WeaponKind.BoneFlute, "Equipped curious weapon persists into the next floor");
         run.BossDefeated = true;
-        float previousInterval = 0;
+        var cadences = new HashSet<float>();
         for (int i = 0; i < items.Length; i++)
         {
             Check(!run.Sold(items[i]) && run.Owns(weapons[i]), "Visit stock resets without deleting owned curious weapons");
@@ -333,8 +363,7 @@ static class HauntChecks
             int before = run.Coins;
             Check(!run.TryBuy(items[i], out _) && run.Coins == before, "Later visits cannot charge for already owned curious weapons");
             Check(run.Equip(weapons[i]) && run.Weapon == weapons[i], "Owned curious weapons can be reequipped");
-            Check(run.WeaponInterval > previousInterval, "Curious weapon cadences remain distinct");
-            previousInterval = run.WeaponInterval;
+            Check(cadences.Add(run.WeaponInterval), "Curious weapon cadences remain distinct");
         }
         run.Equip(WeaponKind.Stapler);
         float interval = run.WeaponInterval;
@@ -350,12 +379,12 @@ static class HauntChecks
         Check(rejectedName, "Unknown weapon name must not masquerade as a soul cannon");
         var fresh = new RunState(run.Seed);
         foreach (var weapon in weapons) Check(!fresh.Owns(weapon), "Restart removes curious weapon ownership");
-        Check(fresh.Weapon == WeaponKind.Pistol, "Restart returns to the initial weapon");
+        Check(fresh.Weapon == fresh.StartingWeapon, "Restart returns to the character's initial weapon");
         for (int i = 0; i < items.Length; i++)
         {
             var poor = new RunState(1) { BossDefeated = true, Coins = basePrices[i] - 1 };
             Check(!poor.TryBuy(items[i], out _) && poor.Coins == basePrices[i] - 1 && !poor.Owns(weapons[i])
-                && !poor.Sold(items[i]) && poor.Weapon == WeaponKind.Pistol, "Unaffordable curious weapon purchase is atomic");
+                && !poor.Sold(items[i]) && poor.Weapon == poor.StartingWeapon, "Unaffordable curious weapon purchase is atomic");
         }
         run.Hurt(100);
         Check(!run.Equip(WeaponKind.Banana) && !run.TryBuy(ShopItem.Banana, out _) && run.Coins == savedCoins,

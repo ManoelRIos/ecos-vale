@@ -6,13 +6,20 @@ namespace Ecos.Haunt
 {
     public sealed partial class HauntGame
     {
-        static readonly string[] EnemyArt = { "pumpkin", "ghost", "cultist", "bat", "boss", "larva", "sentinel", "acolyte" };
+        static readonly string[] EnemyArt = { "pumpkin", "ghost", "cultist", "bat", "boss", "larva", "sentinel", "acolyte", "skeleton", "slime", "spider", "miniboss" };
         static readonly Color PlayerAccent = new Color(.32f, 1f, .85f);
         static readonly Color HostileAccent = new Color(1f, .31f, .43f);
         readonly List<RoomAnimation> roomAnimations = new List<RoomAnimation>();
         readonly List<SpriteRenderer> roomGlows = new List<SpriteRenderer>();
         readonly List<SpriteRenderer> doorGlows = new List<SpriteRenderer>();
         readonly Stack<SpriteRenderer> effectPool = new Stack<SpriteRenderer>();
+        readonly List<FogPatch> fogPatches = new List<FogPatch>();
+        sealed class FogPatch
+        {
+            public SpriteRenderer Sprite;
+            public Vector2 Anchor;
+            public float Phase;
+        }
         Material glowMaterial;
         Vector2 cameraPosition;
         SpriteRenderer playerMarker, playerGlow, crosshair;
@@ -23,7 +30,11 @@ namespace Ecos.Haunt
         static readonly Color[] FloorColors = { new Color(.88f, .98f, .84f), new Color(.78f, .9f, 1), new Color(1, .78f, .72f), new Color(.72f, .91f, .55f), new Color(.83f, .65f, .92f) };
         string PlayerArt => State == null || State.Character == CharacterKind.Hunter ? "player" : State.Character == CharacterKind.Medium ? "medium" : State.Character == CharacterKind.Reaper ? "reaper" : "alchemist";
         Color CharacterAccent => State == null || State.Character == CharacterKind.Hunter ? PlayerAccent : State.Character == CharacterKind.Medium ? new Color(.82f, .58f, 1) : State.Character == CharacterKind.Reaper ? new Color(.6f, .8f, 1) : new Color(.65f, 1, .35f);
-        string WeaponArt => State.Weapon == WeaponKind.Scattergun ? "scattergun" : State.Weapon == WeaponKind.Repeater ? "repeater" : State.Weapon == WeaponKind.SoulCannon ? "cannon" : State.Weapon == WeaponKind.Stapler ? "stapler" : State.Weapon == WeaponKind.Banana ? "banana-gun" : State.Weapon == WeaponKind.SpinningTop ? "spinning-top" : "weapon";
+        string WeaponArt => State.Weapon == WeaponKind.Scattergun ? "scattergun" : State.Weapon == WeaponKind.Repeater ? "repeater" : State.Weapon == WeaponKind.SoulCannon ? "cannon" : State.Weapon == WeaponKind.Stapler ? "stapler" : State.Weapon == WeaponKind.Banana ? "banana-gun" : State.Weapon == WeaponKind.SpinningTop ? "spinning-top"
+            : State.Weapon == WeaponKind.HunterCarbine ? "hunter-carbine" : State.Weapon == WeaponKind.VeilWand ? "veil-wand"
+            : State.Weapon == WeaponKind.BoneCaster ? "bone-caster" : State.Weapon == WeaponKind.ArcCoil ? "arc-coil"
+            : State.Weapon == WeaponKind.MirrorDisc ? "mirror-disc" : State.Weapon == WeaponKind.RayLantern ? "ray-lantern"
+            : State.Weapon == WeaponKind.BoneFlute ? "bone-flute" : "weapon";
         string RoomThemeName => InShop || State == null ? "MERCADO DAS ALMAS" : FloorThemes[ThemeVariant];
 
         sealed class RoomAnimation
@@ -55,7 +66,7 @@ namespace Ecos.Haunt
             if (roomRoot) { roomRoot.SetActive(false); Destroy(roomRoot); }
             roomRoot = new GameObject(shop ? "Mercado das Almas" : "Cripta • sala " + CurrentRoom.Id);
             roomRoot.transform.SetParent(transform, false);
-            doors.Clear(); doorGlows.Clear(); obstacles.Clear(); roomAnimations.Clear(); roomGlows.Clear(); portal = null;
+            doors.Clear(); doorGlows.Clear(); obstacles.Clear(); pits.Clear(); fogPatches.Clear(); roomAnimations.Clear(); roomGlows.Clear(); portal = null;
             int seed = State == null ? 71319 : unchecked(State.Seed * 397 ^ State.Floor * 7919 ^ CurrentRoom.Id * 104729);
             roomRandom = new System.Random(seed);
             roomTheme = shop ? 0 : ThemeVariant;
@@ -85,11 +96,11 @@ namespace Ecos.Haunt
                 MakeSprite("shop-counter", new Vector2(0, 2.7f), roomRoot.transform, Depth(2.4f));
                 obstacles.Add(new Rect(-3, 1.95f, 6, 1.15f));
                 obstacles.Add(new Rect(-.5f, MerchantPosition.y - .4f, 1, .8f));
-                for (int i = 0; i < 3; i++)
+                for (int i = 0; i < 6; i++)
                 {
                     Vector2 point = ShopPosition(i);
                     MakeSprite("shop-case", point, roomRoot.transform, Depth(point.y));
-                    string[] goods = { "stapler", "banana-gun", "spinning-top" };
+                    string[] goods = { "stapler", "banana-gun", "spinning-top", "mirror-disc", "ray-lantern", "bone-flute" };
                     MakeSprite(goods[i], point + Vector2.up * .65f, roomRoot.transform, Depth(point.y) + 1);
                     obstacles.Add(new Rect(point.x - 1, point.y - .4f, 2, .75f));
                     AddGroundGlow(point, new Color(1, .75f, .35f), 2.5f, .25f);
@@ -154,6 +165,24 @@ namespace Ecos.Haunt
                     stain.transform.localScale = Vector3.one * (roomTheme >= 3 ? .6f : 1.5f);
                 }
             }
+            if (!shop && CurrentRoom.Kind == RoomKind.Combat && State.Floor >= 2 && CurrentRoom.Id % 3 == 0)
+            {
+                foreach (Vector2 point in new[] { new Vector2(-2.8f, -2.8f), new Vector2(2.8f, 2.8f) })
+                {
+                    pits.Add(new Rect(point.x - 1, point.y - .6f, 2, 1.2f));
+                    MakeSprite("pit", point, roomRoot.transform, -165);
+                    AddGroundGlow(point + Vector2.down * .8f, new Color(.4f, .8f, 1), 1.8f, .2f);
+                }
+            }
+            if (!shop && CurrentRoom.Kind == RoomKind.Combat && (roomTheme == 1 || roomTheme >= 3))
+                for (int i = 0; i < 6; i++)
+                {
+                    Vector2 point = new Vector2(-10 + i * 4, i % 2 == 0 ? -4 : 4);
+                    var fog = MakeSprite("fog", point, roomRoot.transform, -75);
+                    fog.transform.localScale = new Vector3(2.8f, 1.7f, 1);
+                    fog.color = new Color(.6f, .75f, .8f, .42f);
+                    fogPatches.Add(new FogPatch { Sprite = fog, Anchor = point, Phase = i * 1.7f });
+                }
             for (int side = -1; side <= 1; side += 2)
                 for (int row = -1; row <= 1; row += 2)
                 {
@@ -212,6 +241,12 @@ namespace Ecos.Haunt
 
         void UpdateRoomAmbience(float dt)
         {
+            foreach (var fog in fogPatches)
+                if (fog.Sprite)
+                {
+                    fog.Sprite.transform.position = Snap(fog.Anchor + new Vector2(Mathf.Sin(simulationTime * .18f + fog.Phase) * 1.3f, Mathf.Cos(simulationTime * .12f + fog.Phase) * .4f));
+                    fog.Sprite.color = new Color(.65f, .76f, .83f, .42f + .06f * Mathf.Sin(simulationTime + fog.Phase));
+                }
             if (Playing && !InShop && dt > 0 && Mathf.FloorToInt(simulationTime * 12) != Mathf.FloorToInt((simulationTime - dt) * 12))
             {
                 // Time-derived positions keep visual ambience out of the seeded spawn RNG.
@@ -250,7 +285,7 @@ namespace Ecos.Haunt
             if (muzzleTime > 0) frame = 2;
             player.sprite = art.Frame(PlayerArt, frame);
             gun.sprite = art.Get(WeaponArt);
-            float bob = rolling ? 0 : playerMoving ? Mathf.Sin(walkDistance * 14) * .045f : Mathf.Sin(simulationTime * 2) * .02f;
+            float bob = rolling ? Mathf.Sin((1 - rollRemaining / RollTime) * Mathf.PI) * .65f : playerMoving ? Mathf.Sin(walkDistance * 14) * .045f : Mathf.Sin(simulationTime * 2) * .02f;
             player.transform.position = Snap(playerPosition + Vector2.up * (.38f + bob));
             player.sortingOrder = Depth(playerPosition.y);
             player.flipX = aim.x < 0;
@@ -259,7 +294,9 @@ namespace Ecos.Haunt
             float tilt = rolling ? (1 - rollRemaining / RollTime) * (rollDirection.x < 0 ? -360 : 360) : playerMoving ? Mathf.Sin(walkDistance * 8) * 3 : 0;
             player.transform.rotation = Quaternion.Euler(0, 0, tilt);
             player.transform.localScale = rolling ? new Vector3(1.05f, .78f, 1) : new Vector3(1, 1 + Mathf.Sin(simulationTime * 2) * .015f, 1);
-            shadow.transform.position = Snap(playerPosition + Vector2.down * .25f);
+            shadow.transform.position = Snap(playerPosition + new Vector2(.16f, -.25f));
+            shadow.transform.localScale = new Vector3(1.8f - bob * .35f, .95f - bob * .15f, 1);
+            shadow.color = new Color(1, 1, 1, .95f);
             playerMarker.transform.position = Snap(playerPosition + Vector2.down * .2f);
             playerMarker.color = new Color(PlayerAccent.r, PlayerAccent.g, PlayerAccent.b, rolling ? .65f : .95f);
             playerGlow.transform.position = Snap(playerPosition);
@@ -289,7 +326,15 @@ namespace Ecos.Haunt
             int frame = enemy.Kind == 4 && enemy.Cooldown < .5f ? 2 : Mathf.FloorToInt(enemy.Phase * (enemy.Kind == 4 ? 4 : enemy.Kind == 3 ? 10 : 6));
             enemy.Sprite.sprite = art.Frame(EnemySprite(enemy.Kind), frame);
             float floatHeight = enemy.Kind == 1 || enemy.Kind == 3 ? Mathf.Sin(enemy.Phase * 4) * .12f : Mathf.Sin(enemy.Phase * 5) * .025f;
-            enemy.Sprite.transform.position = Snap(enemy.Position + Vector2.up * (.38f + floatHeight));
+            float emerged = Mathf.Clamp01(1 - enemy.SpawnRemaining / .9f);
+            enemy.Sprite.transform.position = Snap(enemy.Position + Vector2.up * (.38f + floatHeight - (1 - emerged) * .65f));
+            if (enemy.Rift)
+            {
+                enemy.Rift.enabled = enemy.SpawnRemaining > 0;
+                enemy.Rift.sprite = art.Frame("spawn-rift", Mathf.FloorToInt((.9f - enemy.SpawnRemaining) * 10));
+                enemy.Rift.transform.position = Snap(enemy.Position);
+                enemy.Rift.transform.localScale = Vector3.one * (enemy.Kind == 11 || enemy.Kind == 4 ? 1.5f : 1);
+            }
             enemy.Sprite.flipX = direction.x < 0;
             Color normal = enemy.Kind == 4 && BossVariant == 1 ? new Color(.72f, 1, .97f)
                 : enemy.Kind == 4 && BossVariant == 2 ? new Color(1, .74f, .91f) : Color.white;
@@ -302,8 +347,9 @@ namespace Ecos.Haunt
                 enemy.Aura.transform.position = Snap(enemy.Position);
                 enemy.Aura.transform.localScale = Vector3.one * (4 + Mathf.Sin(enemy.Phase * 3) * .35f + enemy.Tell);
             }
-            float scale = enemy.Kind == 4 ? 1.15f : 1;
-            enemy.Sprite.transform.localScale = new Vector3(scale * (1 - stretch), scale * (1 + stretch), 1);
+            Color emergingColor = enemy.Sprite.color; emergingColor.a = emerged; enemy.Sprite.color = emergingColor;
+            float scale = enemy.Kind == 4 ? 1.15f : enemy.Kind == 11 ? 1.1f : 1;
+            enemy.Sprite.transform.localScale = new Vector3(scale * (1 - stretch), scale * (1 + stretch) * (.2f + .8f * emerged), 1);
             enemy.Shadow.transform.position = Snap(enemy.Position + Vector2.down * .25f);
             enemy.Ring.transform.position = Snap(enemy.Position + Vector2.down * .2f);
             enemy.Ring.color = new Color(HostileAccent.r, HostileAccent.g, HostileAccent.b, enemy.Tell > 0 ? .9f : .4f);
@@ -420,6 +466,7 @@ namespace Ecos.Haunt
             Burst(enemy.Position + Vector2.up * .4f, enemy.Kind == 1 ? new Color(.85f, .95f, 1) : HostileAccent, enemy.Kind == 4 ? 22 : 10);
             RingEffect(enemy.Position, enemy.Kind == 4 ? new Color(1, .65f, .24f) : HostileAccent, enemy.Kind == 4 ? 2.2f : .6f);
             Emit(EnemySprite(enemy.Kind), enemy.Position + Vector2.up * .4f, Vector2.up * 1.2f, new Color(.7f, .5f, .7f, .45f), .35f, .75f, 6, 90);
+            if (enemy.Rift) Destroy(enemy.Rift.gameObject);
             if (enemy.Aura) Destroy(enemy.Aura.gameObject);
             Destroy(enemy.Sprite.gameObject); Destroy(enemy.Shadow.gameObject); Destroy(enemy.Ring.gameObject); Destroy(enemy.Telegraph.gameObject);
         }

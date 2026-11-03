@@ -3,9 +3,9 @@ using System.Collections.Generic;
 
 namespace Ecos.Haunt
 {
-    public enum ShopItem { Heal, Damage, FireRate, MaxHealth, Scattergun, Repeater, SoulCannon, Stapler, Banana, SpinningTop }
+    public enum ShopItem { Heal, Damage, FireRate, MaxHealth, Scattergun, Repeater, SoulCannon, Stapler, Banana, SpinningTop, MirrorDisc, RayLantern, BoneFlute }
     public enum CharacterKind { Hunter, Medium, Reaper, Alchemist }
-    public enum WeaponKind { Pistol, Scattergun, Repeater, SoulCannon, Stapler, Banana, SpinningTop }
+    public enum WeaponKind { Pistol, Scattergun, Repeater, SoulCannon, Stapler, Banana, SpinningTop, HunterCarbine, VeilWand, BoneCaster, ArcCoil, MirrorDisc, RayLantern, BoneFlute }
 
     /// <summary>Run-only progression: purchases survive floors, never a new run.</summary>
     public sealed class RunState
@@ -14,6 +14,7 @@ namespace Ecos.Haunt
         public float ShotInterval = .22f;
         public bool BossDefeated;
         public CharacterKind Character { get; }
+        public WeaponKind StartingWeapon => StartingWeaponFor(Character);
         public WeaponKind Weapon { get; private set; }
         public float PowerCooldown { get; private set; }
         public float PowerDuration => Character == CharacterKind.Hunter ? 9f
@@ -42,6 +43,13 @@ namespace Ecos.Haunt
                     case WeaponKind.Stapler: return ShotInterval * 1.4f;
                     case WeaponKind.Banana: return ShotInterval * 2.2f;
                     case WeaponKind.SpinningTop: return ShotInterval * 3.5f;
+                    case WeaponKind.HunterCarbine: return ShotInterval;
+                    case WeaponKind.VeilWand: return ShotInterval * 1.4f;
+                    case WeaponKind.BoneCaster: return ShotInterval * 1.8f;
+                    case WeaponKind.ArcCoil: return ShotInterval * .65f;
+                    case WeaponKind.MirrorDisc: return ShotInterval * 1.7f;
+                    case WeaponKind.RayLantern: return ShotInterval * .6f;
+                    case WeaponKind.BoneFlute: return ShotInterval * 2f;
                     default: throw new ArgumentOutOfRangeException(nameof(Weapon));
                 }
             }
@@ -57,7 +65,42 @@ namespace Ecos.Haunt
                 case WeaponKind.Stapler: return "GRAMPEADOR";
                 case WeaponKind.Banana: return "BANANA";
                 case WeaponKind.SpinningTop: return "PIAO DO CAOS";
+                case WeaponKind.HunterCarbine: return "CARABINA DA AURORA";
+                case WeaponKind.VeilWand: return "VARINHA DO VEU";
+                case WeaponKind.BoneCaster: return "CEIFADOR DE OSSOS";
+                case WeaponKind.ArcCoil: return "BOBINA VOLTAICA";
+                case WeaponKind.MirrorDisc: return "DISCO ESPELHO";
+                case WeaponKind.RayLantern: return "LANTERNA DE RAIOS";
+                case WeaponKind.BoneFlute: return "FLAUTA DE OSSOS";
                 default: throw new ArgumentOutOfRangeException(nameof(weapon));
+            }
+        }
+        public static WeaponKind StartingWeaponFor(CharacterKind character)
+        {
+            switch (character)
+            {
+                case CharacterKind.Hunter: return WeaponKind.HunterCarbine;
+                case CharacterKind.Medium: return WeaponKind.VeilWand;
+                case CharacterKind.Reaper: return WeaponKind.BoneCaster;
+                case CharacterKind.Alchemist: return WeaponKind.ArcCoil;
+                default: throw new ArgumentOutOfRangeException(nameof(character));
+            }
+        }
+
+        public static bool TryWeaponForItem(ShopItem item, out WeaponKind weapon)
+        {
+            switch (item)
+            {
+                case ShopItem.Scattergun: weapon = WeaponKind.Scattergun; return true;
+                case ShopItem.Repeater: weapon = WeaponKind.Repeater; return true;
+                case ShopItem.SoulCannon: weapon = WeaponKind.SoulCannon; return true;
+                case ShopItem.Stapler: weapon = WeaponKind.Stapler; return true;
+                case ShopItem.Banana: weapon = WeaponKind.Banana; return true;
+                case ShopItem.SpinningTop: weapon = WeaponKind.SpinningTop; return true;
+                case ShopItem.MirrorDisc: weapon = WeaponKind.MirrorDisc; return true;
+                case ShopItem.RayLantern: weapon = WeaponKind.RayLantern; return true;
+                case ShopItem.BoneFlute: weapon = WeaponKind.BoneFlute; return true;
+                default: weapon = default; return false;
             }
         }
         public void TickPower(float dt) { if (dt > 0 && !float.IsInfinity(dt)) PowerCooldown = Math.Max(0, PowerCooldown - dt); }
@@ -81,6 +124,8 @@ namespace Ecos.Haunt
         {
             if (!Enum.IsDefined(typeof(CharacterKind), character)) throw new ArgumentOutOfRangeException(nameof(character));
             Seed = seed; Character = character;
+            Weapon = StartingWeapon;
+            weapons.Add(Weapon);
         }
 
         public bool Hurt(int amount)
@@ -115,6 +160,9 @@ namespace Ecos.Haunt
                 case ShopItem.Stapler: return 55 + scaling;
                 case ShopItem.Banana: return 65 + scaling;
                 case ShopItem.SpinningTop: return 80 + scaling;
+                case ShopItem.MirrorDisc: return 70 + scaling;
+                case ShopItem.RayLantern: return 90 + scaling;
+                case ShopItem.BoneFlute: return 75 + scaling;
                 default: throw new ArgumentOutOfRangeException(nameof(item));
             }
         }
@@ -126,7 +174,8 @@ namespace Ecos.Haunt
             if (!Enum.IsDefined(typeof(ShopItem), item)) { message = "ITEM DESCONHECIDO."; return false; }
             if (IsDead) { message = "A JORNADA TERMINOU."; return false; }
             if (!BossDefeated) { message = "MERCADO FECHADO."; return false; }
-            if ((int)item >= (int)ShopItem.Scattergun && Owns((WeaponKind)((int)item - 3))) { message = "ARMA JA ADQUIRIDA."; return false; }
+            bool weaponItem = TryWeaponForItem(item, out WeaponKind purchasedWeapon);
+            if (weaponItem && Owns(purchasedWeapon)) { message = "ARMA JA ADQUIRIDA."; return false; }
             if (Sold(item)) { message = "ESGOTADO NESTA VISITA."; return false; }
             if (item == ShopItem.Heal && Health >= MaxHealth) { message = "VIDA COMPLETA."; return false; }
             if (item == ShopItem.Damage && Damage >= 10) { message = "DANO MAXIMO."; return false; }
@@ -158,7 +207,7 @@ namespace Ecos.Haunt
                     message = "VIDA MAXIMA +2.";
                     break;
                 default:
-                    Weapon = (WeaponKind)((int)item - 3);
+                    Weapon = purchasedWeapon;
                     weapons.Add(Weapon);
                     message = WeaponName(Weapon) + " EQUIPADO.";
                     break;
