@@ -17,7 +17,7 @@ O projeto mantém a infraestrutura Unity existente. A cena antiga `Valley.unity`
 
 O atalho antigo `ABRIR_ECOS_DO_VALE.cmd` encaminha para o novo, preservando os argumentos. `Distribution/EcosDaMeiaNoite.zip` e `Distribution/EcosDoVale.zip` agora contêm a mesma versão atualizada para que links antigos não entreguem o vale anterior. O log dessa abertura fica em `Logs/MeiaNoite-Editor.log`. A verificação sem abrir o Editor pode ser executada com `ABRIR_ECOS_DA_MEIA_NOITE.cmd /check`. Os atalhos receberam testes de contrato estático; ainda não foram executados no Windows.
 
-O log enviado mostrou a importação e abertura de `Valley.unity`, sem referências ao novo modo `Haunt` e sem erros de compilação C#. Isso indica uma abertura da cópia anterior. O aviso de ausência de AudioListener, isoladamente, não identifica uma falha do roguelike. Se não aparecer **Ecos → Abrir roguelike**, confirme que o Hub está abrindo a pasta recém-extraída e que ela contém `Assets/_Game/Scenes/Haunt.unity`.
+O primeiro log enviado mostrou a versão anterior (`Valley.unity`). O log seguinte já abriu `Haunt.unity` e revelou um atributo de testes incompatível com o NUnit personalizado do Unity; esse atributo foi removido, mantendo os testes e suas verificações. O aviso de ausência de AudioListener, isoladamente, não identifica uma falha do roguelike. Se não aparecer **Ecos → Abrir roguelike**, confirme que o Hub está abrindo a pasta recém-extraída e que ela contém `Assets/_Game/Scenes/Haunt.unity`.
 
 ## A primeira versão
 

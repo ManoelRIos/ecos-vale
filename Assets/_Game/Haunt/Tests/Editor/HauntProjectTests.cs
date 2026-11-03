@@ -67,7 +67,8 @@ namespace Ecos.Haunt.Tests
     }
 
     /// <summary>These check generated objects and simulation state, not rendered image correctness.</summary>
-    [NonParallelizable]
+    // Unity's custom NUnit omits the parallel-execution attributes. Editor
+    // coroutine tests use the Unity Test Runner and keep their per-test scene isolation.
     public sealed class HauntRuntimeTests
     {
         const string SceneSnapshotKey = "Ecos.Haunt.Tests.SceneSnapshot";
