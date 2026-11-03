@@ -16,16 +16,17 @@ namespace Ecos.Haunt.Tests
     public sealed class HauntProjectTests
     {
         [Test]
-        public void BuildStartsInRoguelikeAndKeepsValleyDisabled()
+        public void BuildContainsOnlyRoguelike()
         {
             var scenes = EditorBuildSettings.scenes;
             Assert.AreEqual(HauntProject.ScenePath, scenes.First(s => s.enabled).path);
-            Assert.IsTrue(scenes.Any(s => s.path == "Assets/_Game/Scenes/Valley.unity" && !s.enabled));
+            Assert.AreEqual(1, scenes.Length);
+            Assert.IsTrue(scenes[0].enabled);
             Assert.AreEqual(1, scenes.Count(s => s.path == HauntProject.ScenePath));
         }
 
         [Test]
-        public void AuthoredSceneHasOneRoguelikeAndNoLegacyBootstrap()
+        public void AuthoredSceneHasExactlyOneBootstrap()
         {
             var previous = SceneManager.GetActiveScene();
             var existing = SceneManager.GetSceneByPath(HauntProject.ScenePath);
@@ -34,7 +35,7 @@ namespace Ecos.Haunt.Tests
             try
             {
                 Assert.AreEqual(1, scene.GetRootGameObjects().Sum(g => g.GetComponentsInChildren<HauntGame>(true).Length));
-                Assert.AreEqual(0, scene.GetRootGameObjects().Sum(g => g.GetComponentsInChildren<GameBootstrap>(true).Length));
+                Assert.AreEqual(1, scene.GetRootGameObjects().Length);
             }
             finally
             {
@@ -111,7 +112,7 @@ namespace Ecos.Haunt.Tests
                 scenes = setup.Select(s => new SavedScene { path = s.path, loaded = s.isLoaded, active = s.isActive }).ToArray()
             };
             // SessionState survives the domain reload caused by EnterPlayMode/ExitPlayMode.
-            SessionState.SetString(SceneSnapshotKey, JsonUtility.ToJson(saved));
+            UnityEditor.SessionState.SetString(SceneSnapshotKey, JsonUtility.ToJson(saved));
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             yield return new EnterPlayMode();
         }
@@ -120,13 +121,13 @@ namespace Ecos.Haunt.Tests
         public IEnumerator RestoreRuntimeScene()
         {
             if (Application.isPlaying) yield return new ExitPlayMode();
-            string json = SessionState.GetString(SceneSnapshotKey, "");
+            string json = UnityEditor.SessionState.GetString(SceneSnapshotKey, "");
             if (string.IsNullOrEmpty(json)) yield break;
             var saved = JsonUtility.FromJson<SavedWorkspace>(json);
             if (saved.empty) EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             else EditorSceneManager.RestoreSceneManagerSetup(saved.scenes.Select(s => new SceneSetup
                 { path = s.path, isLoaded = s.loaded, isActive = s.active }).ToArray());
-            SessionState.EraseString(SceneSnapshotKey);
+            UnityEditor.SessionState.EraseString(SceneSnapshotKey);
         }
 
         static void Invoke(HauntGame game, string method, params object[] args)

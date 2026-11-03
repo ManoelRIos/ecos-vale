@@ -1,6 +1,14 @@
 {
   "name": "Haunt.Tests",
-  "references": ["Ecos.Runtime", "Haunt.Editor"],
-  "includePlatforms": ["Editor"],
-  "optionalUnityReferences": ["TestAssemblies"]
+  "references": [
+    "Haunt.Runtime",
+    "Haunt.Editor",
+    "Unity.RenderPipelines.Universal.Runtime"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
 }

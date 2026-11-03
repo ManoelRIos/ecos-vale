@@ -1,33 +1,31 @@
 # Ecos da Meia-Noite
 
-Primeira versão do novo **roguelike 2D em pixel art para Unity 6.0 LTS 6000.0.85f1**. Uma cripta de Halloween substitui a exploração em terceira pessoa como experiência principal: entrar em salas, enfrentar criaturas e projéteis, derrotar o chefe e visitar um mercado seguro antes de descer ao próximo andar.
+Roguelike 2D em pixel art para **Unity 6.0 LTS 6000.0.85f1**. Explore uma cripta de Halloween, enfrente criaturas e projéteis, derrote o guardião do andar e visite o Mercado das Almas antes de continuar.
 
-O projeto mantém a infraestrutura Unity existente. A cena antiga `Valley.unity` continua disponível para referência e não entra no build padrão. Os recursos visuais do novo jogo são sprites originais gerados por código, com filtro de ponto; esta etapa não usa arte de Enter the Gungeon nem depende de assets pagos.
+O projeto contém somente este jogo: cena `Haunt.unity`, combate, geração de salas, loja, interface e ferramentas de desenvolvimento. Os sprites são originais, gerados por código e exibidos com filtro de ponto.
 
-**Validação nesta revisão:** passaram 23 testes Python e 99.935 asserções do núcleo C# do roguelike, incluindo 1.624 andares gerados por seed. A análise estática verifica sintaxe e referências, sem substituir a compilação Unity. O Editor Unity não está instalado aqui: importação, compilação completa Unity, Play Mode, apresentação visual e build Windows ainda precisam de execução no Editor. Não há um executável Windows validado desta versão.
+[**Baixar o projeto em ZIP**](https://github.com/ManoelRIos/ecos-vale/raw/refs/heads/codex/ecos-do-vale-vertical-slice/Distribution/EcosDaMeiaNoite.zip)
 
 ## Abrir e jogar
 
-[**Baixar o projeto atualizado em ZIP**](https://github.com/ManoelRIos/ecos-vale/raw/refs/heads/codex/ecos-do-vale-vertical-slice/Distribution/EcosDaMeiaNoite.zip)
+1. Instale **Unity 6000.0.85f1** pelo Unity Hub. Inclua **Windows Build Support** se quiser gerar um executável Windows.
+2. Extraia todo o ZIP em uma **pasta nova e curta**, por exemplo `C:\Dev\EcosDaMeiaNoite`. A pasta deve conter `Assets`, `Packages`, `ProjectSettings` e `ABRIR_ECOS_DA_MEIA_NOITE.cmd`.
+3. Feche o Editor aberto em outra cópia e execute **ABRIR_ECOS_DA_MEIA_NOITE.cmd**. O atalho confere os arquivos e solicita a abertura de `Haunt.unity` após a importação. Se a instalação do Editor estiver fora do caminho padrão do Hub, adicione essa pasta pelo Hub e use **Ecos → Abrir roguelike**, com o Play parado.
+4. Aguarde a resolução dos pacotes e a compilação, pressione **Play** e inicie uma incursão pelo menu. Uma semente numérica repete a disposição das salas; campo vazio gera outra semente.
 
-1. Instale **Unity 6000.0.85f1** pelo Unity Hub. Para gerar o executável Windows, inclua **Windows Build Support**.
-2. Extraia **todo** o ZIP atualizado em uma pasta nova e curta, por exemplo `C:\Dev\EcosDoVale`, preservando sua cópia anterior e alterações próprias. A pasta deve conter `Assets`, `Packages`, `ProjectSettings` e `ABRIR_ECOS_DA_MEIA_NOITE.cmd`.
-3. Feche o Editor que estiver com a cópia antiga aberta. Execute **ABRIR_ECOS_DA_MEIA_NOITE.cmd** nessa pasta nova. O atalho confere se o código e a cena do roguelike estão presentes e solicita a abertura de `Haunt.unity` após a importação. Se o Editor estiver fora do caminho padrão do Hub, adicione essa pasta pelo Hub e use **Ecos → Abrir roguelike**, com o Play parado.
-4. Aguarde a resolução dos pacotes e a compilação, pressione **Play** e inicie uma nova partida pelo menu. A seed permite repetir a disposição das salas; uma nova partida pode gerar outra seed.
+Use uma extração nova para atualizar uma cópia recebida por ZIP: sobrepor arquivos não remove arquivos que deixaram de fazer parte do projeto. Preserve alterações próprias antes de trocar de pasta. Em um clone Git, a atualização da branch também aplica as remoções dos arquivos rastreados.
 
-O atalho antigo `ABRIR_ECOS_DO_VALE.cmd` encaminha para o novo, preservando os argumentos. `Distribution/EcosDaMeiaNoite.zip` e `Distribution/EcosDoVale.zip` agora contêm a mesma versão atualizada para que links antigos não entreguem o vale anterior. O log dessa abertura fica em `Logs/MeiaNoite-Editor.log`. A verificação sem abrir o Editor pode ser executada com `ABRIR_ECOS_DA_MEIA_NOITE.cmd /check`. Os atalhos receberam testes de contrato estático; ainda não foram executados no Windows.
+O log do atalho fica em `Logs/MeiaNoite-Editor.log`. `ABRIR_ECOS_DA_MEIA_NOITE.cmd /check` verifica a pasta sem abrir o Editor. O atalho recebeu verificação estática, sem execução Windows neste ambiente.
 
-O primeiro log enviado mostrou a versão anterior (`Valley.unity`). O log seguinte já abriu `Haunt.unity` e revelou um atributo de testes incompatível com o NUnit personalizado do Unity; esse atributo foi removido, mantendo os testes e suas verificações. O aviso de ausência de AudioListener, isoladamente, não identifica uma falha do roguelike. Se não aparecer **Ecos → Abrir roguelike**, confirme que o Hub está abrindo a pasta recém-extraída e que ela contém `Assets/_Game/Scenes/Haunt.unity`.
+## Combate e progressão
 
-## A primeira versão
-
-- Salas conectadas em uma grade, sem sobreposição, com disposição determinada pela seed. A entrada começa segura; salas de combate fecham as saídas até todos os inimigos morrerem.
+- Andares com 7–11 salas conectadas por portas, determinadas pela semente. A entrada é segura; as saídas de uma sala de combate ficam seladas até todos os inimigos morrerem.
 - Movimento em oito direções, mira pelo mouse, disparos e esquiva com invulnerabilidade temporária.
-- Quatro inimigos: abóbora perseguidora, fantasma atirador, cultista com rajadas e morcego veloz.
-- Um chefe por andar, com padrões de projéteis. Três variações alternam conforme a progressão; dificuldade e recompensas aumentam nos andares seguintes.
-- Ao vencer o chefe, um portal leva a uma área de compras separada. Os botões da loja podem ser usados de qualquer ponto do mercado. Moedas compram até 3 pontos de cura, +1 de dano, intervalo entre tiros 15% menor ou +2 de vida máxima. As compras têm custo, limite por visita e não consomem dinheiro se falharem.
-- Sair da loja inicia outro andar, preservando vida, moedas e melhorias. Morrer encerra a partida e permite começar outra.
-- HUD de vida, moedas, andar, chefe e mapa de salas; pausa e reinício pelo menu.
+- Quatro criaturas: abóbora perseguidora, fantasma atirador, cultista com rajadas e morcego que prepara um bote.
+- Um chefe por andar. Três variações de ataques alternam com a progressão; dificuldade e recompensas aumentam.
+- Após vencer o chefe, um portal leva ao Mercado das Almas. Compre até 3 pontos de cura, +1 de dano, intervalo entre tiros 15% menor ou +2 de vida máxima. Cada item pode ser comprado uma vez por visita; uma compra recusada não consome moedas.
+- O próximo andar preserva vida, moedas e melhorias. Morrer encerra a incursão e permite repetir a semente ou gerar outra.
+- HUD de vida, moedas, andar e chefe; mapa das salas, pausa e reinício.
 
 | Controle | Ação |
 | --- | --- |
@@ -37,24 +35,24 @@ O primeiro log enviado mostrou a versão anterior (`Valley.unity`). O log seguin
 | Espaço / botão direito | Esquivar |
 | Caminhar até uma saída aberta | Trocar de sala |
 | E | Usar portal / sair da loja |
+| Botões da loja | Comprar de qualquer ponto do mercado |
 | M | Alternar mapa |
 | Esc | Pausar / retomar |
 
-Esta é uma base de combate e progressão para evoluir. As armas e melhorias são iniciais; arte, animação, áudio, variedade de salas e balanceamento ainda precisam de refinamento. As partidas novas são locais, sem multiplayer e sem persistência de uma run entre sessões. Os saves do vale antigo não são convertidos nem apagados pelo novo modo.
+## Desenvolvimento e validação
 
-## Verificações de desenvolvimento
+O jogo é local e não exige serviços externos, contas de API ou segredos. A configuração de renderização prepara somente o URP e os recursos usados pelo roguelike.
 
 ```bash
 python3 -m pip install -r Tools/requirements-validation.txt
 python3 Tools/validate_project.py
 python3 -m unittest discover -s Tools -p 'test_*.py'
 dotnet run --project Tools/HauntChecks.csproj
-dotnet run --project Tools/CoreChecks.csproj
 ```
 
-`HauntChecks` compila os arquivos reais do núcleo do roguelike, sem stubs Unity. Verifica conectividade, determinismo e variação de mapas, posição do chefe, compras, recompensas, morte e passagem entre andares. `CoreChecks` cobre o vale legado. Nenhum desses comandos verifica o render ou o comportamento em Play Mode.
+`HauntChecks` compila o núcleo real em C# puro, sem stubs Unity, e verifica mapas, progressão, compras e colisões de projéteis. Os checks Python verificam a estrutura, os metadados, as versões e o empacotamento. Eles não substituem a compilação ou a execução no Editor.
 
-Os testes Unity ficam em `Assets/_Game/Haunt/Tests/Editor`: cena inicial e configuração do build, integridade dos sprites, reinício após morte, combate/recompensa sem respawn, proteção da esquiva e abertura segura durante Play. Eles verificam objetos e estado, sem validar imagens renderizadas. Os testes de runtime isolam uma cena vazia e restauram a configuração anterior; preservam alterações de cena não salvas, pulando esse grupo com motivo explícito se necessário. Execute pelo Test Runner do Editor. Para rodar checks em lote com um Editor licenciado:
+Com um Editor licenciado, execute os testes em `Assets/_Game/Haunt/Tests/Editor` pelo Test Runner, ou use:
 
 ```bash
 export UNITY_EDITOR_PATH='/caminho/para/Unity'
@@ -64,17 +62,20 @@ bash Tools/unity-check.sh tests
 bash Tools/unity-check.sh build
 ```
 
-O smoke de importação confirma recursos, bootstrap da cena e geração inicial; ele não entra em Play Mode. Confira os logs e o XML atual da execução dos testes em `/tmp`. Saída padrão do build: `Builds/Windows/EcosDaMeiaNoite.exe`. O lockfile transitivo de pacotes deve ser gerado pelo UPM real durante a importação.
+O build Windows usa `Builds/Windows/EcosDaMeiaNoite.exe`. Para empacotar as fontes, inclua os arquivos novos no índice Git e execute `python3 Tools/package_project.py`; o resultado é `Distribution/EcosDaMeiaNoite.zip`, com raiz `EcosDaMeiaNoite/`.
 
-Antes de considerar a versão jogável validada, teste no Editor: iniciar e repetir uma seed; entrar em combate; esquivar atravessando projéteis; derrotar cada tipo de inimigo e um chefe; atravessar o portal; comprar na loja; avançar de andar; pausar; morrer e reiniciar. Verifique ainda colisão com paredes/obstáculos, mira em resoluções diferentes e legibilidade das cores.
+**Estado da verificação:** o Editor Unity não está instalado neste ambiente. A importação desta limpeza, a compilação completa Unity, o Play Mode, os shaders e o build ainda precisam ser executados no Editor. Os testes Unity verificam objetos e estado, sem certificar a aparência renderizada. Consulte [VALIDATION.md](Documentation/VALIDATION.md) para o roteiro de verificação e [UNITY_TROUBLESHOOTING.md](Documentation/UNITY_TROUBLESHOOTING.md) se a abertura falhar.
+
+Esta é uma base de combate e progressão. Armas, áudio, animação, arte e balanceamento ainda precisam de refinamento. As incursões não têm persistência entre sessões nem multiplayer.
 
 ## Organização
 
-- `Assets/_Game/Haunt/Core`: geração de andares e estado de partida em C# puro.
-- `Assets/_Game/Haunt/Runtime`: combate, apresentação e interface do novo modo.
-- `Assets/_Game/Haunt/Art`: sprites procedurais e shader sem iluminação.
-- `Assets/_Game/Haunt/Editor`: abertura segura da cena e smoke de importação.
-- `Assets/_Game/Scenes/Haunt.unity`: entrada principal do jogo.
-- Demais pastas de `_Game`: vale legado, preservado.
+- `Assets/_Game/Haunt/Core`: geração de andares, estado da incursão e geometria em C# puro.
+- `Assets/_Game/Haunt/Runtime`: combate, renderização e interface.
+- `Assets/_Game/Haunt/Art`: sprites procedurais e shader.
+- `Assets/_Game/Haunt/Editor`: configuração URP, abertura da cena e build.
+- `Assets/_Game/Haunt/Tests/Editor`: testes de integração no Unity.
+- `Assets/_Game/Scenes/Haunt.unity`: única cena do jogo e entrada do build.
+- `Assets/_Game/Resources`: material de sprites e recursos URP usados pelo jogo.
 
-Para consultar a etapa anterior, veja `Documentation/ARCHITECTURE.md` e os documentos do vale. Para recriar uma distribuição de fontes, inclua os arquivos novos no índice Git antes de executar `python3 Tools/package_project.py`; a ferramenta empacota o índice e não gera executáveis.
+Veja [ARCHITECTURE.md](Documentation/ARCHITECTURE.md) e [PACKAGES.md](Documentation/PACKAGES.md).

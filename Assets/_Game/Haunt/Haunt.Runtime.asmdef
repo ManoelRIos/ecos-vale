@@ -1,0 +1,10 @@
+{
+  "name": "Haunt.Runtime",
+  "rootNamespace": "Ecos.Haunt",
+  "references": [
+    "Unity.InputSystem",
+    "Unity.RenderPipelines.Universal.Runtime",
+    "Unity.RenderPipelines.Core.Runtime"
+  ],
+  "autoReferenced": true
+}

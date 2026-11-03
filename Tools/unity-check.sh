@@ -10,9 +10,9 @@ editor_version=$("$UNITY_EDITOR_PATH" -version)
 python3 Tools/check_editor_version.py "$editor_version"
 mode=${1:-import}
 case "$mode" in
-  import) "$UNITY_EDITOR_PATH" -batchmode -nographics -projectPath "$PWD" -executeMethod Ecos.Editor.ProjectSetup.CreateDefaults -quit -logFile /tmp/ecos-import.log ;;
+  import) "$UNITY_EDITOR_PATH" -batchmode -nographics -projectPath "$PWD" -executeMethod Ecos.Haunt.Editor.HauntSetup.CreateDefaults -quit -logFile /tmp/haunt-import.log ;;
   smoke) "$UNITY_EDITOR_PATH" -batchmode -nographics -projectPath "$PWD" -executeMethod Ecos.Haunt.Editor.HauntProject.SmokeCheck -quit -logFile /tmp/haunt-smoke.log ;;
-  tests) "$UNITY_EDITOR_PATH" -batchmode -nographics -projectPath "$PWD" -runTests -testPlatform EditMode -testResults /tmp/ecos-tests.xml -logFile /tmp/ecos-tests.log ;;
-  build) "$UNITY_EDITOR_PATH" -batchmode -nographics -projectPath "$PWD" -executeMethod Ecos.Editor.ProjectSetup.BuildWindows -quit -logFile /tmp/ecos-build.log ;;
+  tests) "$UNITY_EDITOR_PATH" -batchmode -nographics -projectPath "$PWD" -runTests -testPlatform EditMode -testResults /tmp/haunt-tests.xml -logFile /tmp/haunt-tests.log ;;
+  build) "$UNITY_EDITOR_PATH" -batchmode -nographics -projectPath "$PWD" -executeMethod Ecos.Haunt.Editor.HauntSetup.BuildWindows -quit -logFile /tmp/haunt-build.log ;;
   *) printf '%s\n' 'Usage: Tools/unity-check.sh [import|smoke|tests|build]' >&2; exit 2 ;;
 esac

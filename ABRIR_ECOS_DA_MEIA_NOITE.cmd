@@ -14,11 +14,8 @@ if not exist "ProjectSettings\ProjectVersion.txt" goto MISSING_PROJECT
 if not exist "Assets\_Game\Scenes\Haunt.unity" goto MISSING_ROGUELIKE
 if not exist "Assets\_Game\Haunt\Runtime\HauntGame.cs" goto MISSING_ROGUELIKE
 if not exist "Assets\_Game\Haunt\Editor\HauntProject.cs" goto MISSING_ROGUELIKE
-findstr /L /C:"com.unity.modules.physics2d" "Packages\manifest.json" >nul
-if errorlevel 1 goto MISSING_PHYSICS2D
 findstr /B /L /C:"m_EditorVersion: 6000.0.85f1" "ProjectSettings\ProjectVersion.txt" >nul
 if errorlevel 1 goto WRONG_VERSION
-echo [OK] Physics 2D declarado no manifest desta pasta.
 echo [OK] Roguelike encontrado. Projeto preparado para Unity 6000.0.85f1.
 if /I "%~1"=="/check" exit /b 0
 
@@ -34,7 +31,7 @@ exit /b 0
 :PATH_TOO_LONG
 echo [ERRO] O caminho desta pasta tem mais de 60 caracteres.
 echo O Windows pode falhar ao extrair DLLs e shaders dos pacotes em caminhos longos.
-echo Feche o Unity e coloque o projeto em C:\Dev\EcosDoVale.
+echo Feche o Unity e coloque o projeto em C:\Dev\EcosDaMeiaNoite.
 echo Se este projeto ja falhou na importacao, renomeie Library para Library_backup
 echo antes de reabrir, preservando o cache anterior em vez de apaga-lo.
 goto FAILED
@@ -47,11 +44,6 @@ goto FAILED
 echo [ERRO] Esta pasta nao contem a versao completa de Ecos da Meia-Noite.
 echo Baixe o ZIP atualizado e extraia tudo em uma pasta nova.
 echo Preserve sua copia antiga e alteracoes proprias.
-goto FAILED
-
-:MISSING_PHYSICS2D
-echo [ERRO] Esta copia ainda nao declara Physics 2D.
-echo Use a pasta nova do ZIP atualizado, ou habilite Physics 2D no Package Manager.
 goto FAILED
 
 :WRONG_VERSION

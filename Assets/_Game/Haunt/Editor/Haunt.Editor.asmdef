@@ -1,5 +1,11 @@
 {
   "name": "Haunt.Editor",
-  "references": ["Ecos.Runtime"],
-  "includePlatforms": ["Editor"]
+  "references": [
+    "Haunt.Runtime",
+    "Unity.RenderPipelines.Universal.Runtime",
+    "Unity.RenderPipelines.Core.Runtime"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ]
 }

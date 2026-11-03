@@ -1,68 +1,29 @@
-# Arquitetura
+# Arquitetura de Ecos da Meia-Noite
 
-## Módulos
+A única cena é `Assets/_Game/Scenes/Haunt.unity`. Ela contém o componente `HauntGame`, que constrói os objetos visuais e controla a incursão local. A assembly de runtime é `Haunt.Runtime`; as ferramentas e os testes do Editor usam `Haunt.Editor` e `Haunt.Tests`.
 
-`Ecos.Runtime` abrange os módulos de jogo; `Ecos.Editor` depende do runtime e URP, apenas no Editor. `Ecos.Tests` depende do runtime e Unity Test Framework, apenas no Editor. Os módulos abaixo são pastas dentro do assembly runtime; não são assemblies independentes, evitando dependências circulares prematuras.
+## Núcleo independente do Unity
 
-| Pasta | Responsabilidade |
-| --- | --- |
-| Core | Composição de sessão, configurações e persistência |
-| World / Biomes | Ruído determinístico, mesh, streaming, pool e configurações ambientais |
-| Art | Materiais/meshes compartilhados, viajante e variantes de vegetação |
-| Player | Motor CharacterController e câmera Input System |
-| Environment | Hora, iluminação, partículas climáticas e estrelas |
-| Inventory | Definições estáveis, catálogo e dados serializáveis de pilhas |
-| Gameplay / Quests | Alvos interativos, fauna, guia de campo e regras de progressão |
-| Multiplayer | Contrato de autoridade offline e estado global NGO preparatório |
-| UI / Audio | Interface inicial e canais de áudio configuráveis |
-| Editor | Geração idempotente de assets ausentes, URP e build |
+`DungeonFloor` gera uma árvore de salas em uma grade. A mesma semente e o mesmo número de andar reproduzem o mapa. As portas são cardinais, as conexões são recíprocas e o chefe ocupa uma folha de distância máxima da entrada. Apenas a sala atual é instanciada no Unity.
 
-`GameBootstrap` compõe a sessão e encaminha entradas de UI/interação. Não gera meshes nem decide regras de inventário. `WorldSettings` e os assets de bioma/item são configuração; `SaveData` é persistência; componentes, tarefas, partículas e cache são estado temporário.
+`RunState` mantém vida, moedas, dano, cadência, vitória sobre o chefe e compras da visita atual. As compras são atômicas: validar e cobrar acontecem antes de aplicar a melhoria. A passagem de andar exige chefe vencido e uma incursão viva; ela reinicia o estoque da loja e preserva as melhorias.
 
-## Streaming
+`CombatGeometry` calcula a primeira interseção de um segmento com círculos e caixas. O runtime compara as frações de contato para que um alvo antes de uma coluna receba o disparo e um alvo depois dela fique protegido. As verificações de `Tools/HauntChecks.csproj` compilam esses mesmos arquivos de produção.
 
-1. O observador local informa a célula atual. `SetObservers` permite a união dos raios de múltiplos jogadores, sem presumir uma única câmera no contrato de interesse.
-2. O gerenciador cancela requisições obsoletas e devolve props de chunks descarregados ao pool.
-3. `TerrainMeshGenerator` calcula arrays em até dois workers. Usa matemática, estruturas de valor e um token de cancelamento; não cria objetos Unity nem consulta Transform/Physics nos workers.
-4. O resultado é instalado na thread principal. No máximo um upload de chunk por frame. O cache de arrays mantém 32 entradas; meshes fora do raio são destruídas.
-5. Coordenadas globais alimentam o ruído e as diferenças centrais das normais. Vizinhos compartilham altura/cor/normal na borda. A resolução do terreno é uniforme para evitar rachaduras entre LODs diferentes.
+## Simulação e apresentação
 
-`lastGenerationMs` mede **upload de mesh na thread principal**. `LastWorkerMs` mede a geração do worker e `LastPropFrameMs` mede a etapa de decoração no frame. Pool e cache pertencem à sessão e são descartados ao iniciar outra. Mudanças de seed devem iniciar uma nova sessão. O interesse de múltiplos observadores é uma capacidade de dados; não significa que personagens remotos já existem.
+`HauntGame` possui o jogador, inimigos, projéteis, obstáculos, efeitos e estado das salas. O movimento usa passos pequenos e deslizamento por eixos. A esquiva bloqueia dano durante sua duração; o dano recebido também concede uma breve proteção. Projéteis hostis deixam de causar dano quando a sala é purificada.
 
-## Interações e multiplayer futuro
+O fluxo é: menu → entrada → salas de combate → chefe → Mercado das Almas → próximo andar. A loja é uma área separada e segura. Morrer oferece reinício com a mesma semente ou outra; não há persistência de incursões entre sessões.
 
-O cliente local seleciona um ID e envia `WorldCommand` à autoridade offline. A autoridade resolve o ID no registro, valida distância, idempotência e inventário antes de consumir/conceder algo. IDs de coletas e santuários são estáveis na sessão.
+`HauntGame.UI.cs` contém o menu, HUD, mapa, loja, pausa e tela de morte em IMGUI. O Input System lê teclado e mouse. `HauntPixelArt` gera e mantém sprites e texturas com filtro de ponto e 16 pixels por unidade. O material `HauntSprites` usa um shader URP sem iluminação. Esses recursos pertencem à instância e são liberados ao encerrá-la.
 
-Na integração NGO, implementar um gateway de RPCs que obtenha o jogador pela identidade de conexão e sua posição autoritativa. **Nunca aceitar a posição enviada pelo cliente como prova de alcance**, nem permitir ao cliente escolher quantidade/recompensa. O gateway deve aplicar rate limiting, validar propriedade de inventário e publicar apenas mudanças confirmadas.
+## Preparação do projeto
 
-`SessionState` é um NetworkBehaviour preparatório: seed e hora têm escrita exclusiva do servidor. Não está anexado a um NetworkObject na cena e não inicia rede. Um próximo marco deve configurar NetworkManager + UnityTransport, prefab de jogador com ownership, snapshots/clock interpolado e ciclo de conexão/reconexão.
+`HauntSetup` prepara apenas o pipeline `HauntURP`, o renderer `HauntRenderer`, as configurações gráficas e a cena habilitada no build. Os recursos URP são criados no Editor com as APIs do pacote. `HauntRendering` seleciona o pipeline preparado antes da construção da apresentação.
 
-Árvores/rochas decorativas são reconstruídas localmente pela seed. Coletas, missões e mudanças de estruturas precisam de replicação por ID. O save atual é um agregado offline; uma sessão cooperativa deverá separar estado global da sessão e inventário/posição por identidade de jogador. Não há sincronização de objetos decorativos.
+`HauntProject` abre a cena somente com o Play parado e aguarda importação/compilação quando chamado pelo atalho. O comando de smoke confere a cena, os recursos e a geração inicial, sem executar combate ou validar imagens.
 
-## Persistência e recursos
+## Limites
 
-O save v3 (com migração de v1/v2) guarda o estado independente dos assets, incluindo espécies observadas e a recompensa do guia. O arquivo anterior é copiado para `.bak`; um temporário é substituído sobre o arquivo principal. Versões desconhecidas e estruturas inválidas falham com mensagem, sem sobrescrever o arquivo ao carregar. A recuperação do `.bak` é manual nesta versão.
-
-A fábrica usa meshes próprios e primitivas nativas, materiais URP compartilhados e luzes sem assets externos. Os prefabs de referência estão serializados no projeto. O pipeline URP é criado pelo Editor para usar a serialização oficial da versão instalada, sem inventar referências internas do renderer. Sons e mixer podem ser atribuídos ao sistema de áudio, mas nenhum conteúdo sonoro foi entregue.
-
-## Preparação de renderização
-
-`RenderingSetup` aplica o `ValleyURP` dos Resources antes da sessão e após mudanças de qualidade. O Editor também valida pipeline/renderer e shaders dos materiais antes de Play. O reparo explícito renova somente os recursos gerados mantendo suas identidades de asset e valores básicos de qualidade; o diagnóstico expõe o estado e mensagens de shader. `WorldClock` mantém uma instância do material do céu durante a sessão, atualizada pelo horário e descartada ao encerrar. As novas meshes de props são compartilhadas e preservadas ao salvar prefabs pelo Editor.
-
-## Vale compacto e progressão
-
-O padrão atual é 1024 m com um anel extra de terreno. `PropDistribution` produz dados puros determinísticos; `ChunkManager` cria até 8 candidatos/frame sob orçamento flexível de 2 ms e retira objetos progressivamente. O pool tem limite global 256 e 48 por tipo. A malha distante permanece sem povoar todos os chunks.
-
-Cada candidato carrega bioma, tipo e variante. O pool usa essas três dimensões como chave; `VegetationFactory` compartilha geometrias e materiais entre instâncias. `Landmarks` mantém 16 localidades, a rota e os alvos fixos; `ExplorationDressing` monta os novos conjuntos com LOD e colisores estruturais simples. Os alvos de coleta/interação têm IDs separados dos props decorativos.
-
-`ProgressionState` contém inventário e progresso serializáveis; `SaveData` herda esses campos e acrescenta dados do mundo. `ProgressionRules` executa receitas atômicas, XP e recompensas únicas sem Unity API. `OfflineWorldAuthority` valida tipo, distância e alvo antes de chamar essas regras. Descobertas offline também usam a mesma regra pura; uma futura sessão online deve encaminhar a descoberta validada pelo host.
-
-`PlayerVisualAnimator` mantém um rig rígido de duas partes por membro sob `VisualRoot`, separado do CharacterController. `MenuBackdrop` tem câmera/luzes em layer própria e é desativado antes do jogo. O scanner é uma apresentação local, sem conceder loot diretamente.
-
-## Fauna e observação
-
-`CreatureCatalog` é C# puro: IDs, hábitos, descrições e seleção determinística por habitat/bioma/horário. `WildlifeSettings` controla população/raios/intervalos. `WildlifeDirector` cria e retira gradualmente os atores próximos ao jogador sobre chunks carregados. Captura o registro da própria sessão e remove os alvos ao retirar os atores ou destruir a sessão.
-
-`CreatureActor` decide repouso/passeio/fuga/curiosidade/alerta localmente e consulta terreno/obstáculos somente na thread principal. `CreatureVisual` anima membros usando meshes e materiais compartilhados. Observar encaminha o ID do alvo e o comando à autoridade; a espécie vem do alvo validado, sem permitir ao jogador escolher recompensa. `ProgressionRules` concede XP por espécie e recompensa o guia completo de forma atômica e única. UI e scanner apenas apresentam o estado.
-
-Esses atores possuem estado de gameplay e precisam de autoridade/replicação do host em uma futura sessão NGO. A IA atual é offline; somente as observações e recompensas são persistidas, não as posições dos animais.
+O protótipo usa uma arma inicial com melhorias, quatro inimigos e três variações de padrões do chefe. O combate, a arte, as animações e o áudio ainda precisam de refinamento. Não há multiplayer, serviços externos ou gravação de incursões. As verificações fora do Editor não certificam a importação, os shaders ou a execução no Unity.

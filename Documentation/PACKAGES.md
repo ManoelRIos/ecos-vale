@@ -1,22 +1,18 @@
-# Dependências verificadas
+# Pacotes e ferramentas
 
-As versões diretas estão fixadas em `Packages/manifest.json`. Evidências dos manifests consultados estão em `PackageManifests/`.
+O projeto usa **Unity 6.0 LTS 6000.0.85f1**. As dependências diretas são declaradas em `Packages/manifest.json`.
 
-| Pacote | Versão | Evidência |
+| Dependência | Versão declarada | Uso |
 | --- | --- | --- |
-| URP | 17.0.4 | `Unity-Technologies/Graphics`, branch `6000.0/staging`, `Packages/com.unity.render-pipelines.universal/package.json`, Unity mínima 6000.0; uso também confirmado em `arfoundation-samples/6.0` (Editor 6000.0.70f1) |
-| Input System | 1.11.2 | `Unity-Technologies/InputSystem`, tag `1.11.2`, manifest oficial |
-| Cinemachine | 3.1.0 | espelho público `needle-mirror/com.unity.cinemachine`, tag `3.1.0`, Unity mínima 2022.3 |
-| Netcode for GameObjects | 2.0.0 | `Unity-Technologies/com.unity.netcode.gameobjects`, tag `ngo/2.0.0`, Unity mínima 6000.0; requer Transport 2.3.0 |
-| Unity Transport | 2.3.0 | espelho público `needle-mirror/com.unity.transport`, tag `2.3.0`, Unity mínima 2022.3 |
-| Test Framework | 1.4.5 | espelho público `needle-mirror/com.unity.test-framework`, tag `1.4.5` |
+| Universal Render Pipeline | 17.0.4 | Câmera ortográfica e shader dos sprites |
+| Input System | 1.11.2 | Teclado e mouse |
+| Test Framework | 1.4.5 | Test Runner e testes de integração |
+| Módulos nativos de áudio, IMGUI e JSON | 1.0.0 | AudioListener, interface e estado dos testes |
 
-As fontes oficiais estão em `https://raw.githubusercontent.com/` com os caminhos acima; os espelhos preservam manifests publicados, mas não substituem a resolução pelo registro da Unity. As versões existem nos manifests consultados e atendem às versões mínimas declaradas. **A resolução conjunta e compilação ainda precisam do Unity Package Manager/Editor.**
+Os manifests consultados dos três pacotes principais estão em `PackageManifests/`. Eles descrevem o que os pacotes publicam; a resolução final e as dependências transitivas precisam ser verificadas pelo Unity Package Manager. O lockfile transitivo deve ser gerado pelo UPM real, sem inventar versões ou checksums.
 
-URP depende de Core/Shader Graph 17.0.4 e Universal Config 17.0.3. Cinemachine depende de Splines 2.0.0. Transport depende de Collections 2.2.1, Burst 1.8.12 e Mathematics 1.3.1. O UPM deverá gerar o lockfile transitivo real.
+O jogo calcula movimento e colisão no próprio runtime e não declara pacotes de câmera, rede, física ou partículas que não utiliza. O UPM pode resolver módulos adicionais exigidos pelos pacotes restantes.
 
-Os GUIDs de Lit e ParticlesUnlit foram conferidos nos respectivos `.shader.meta` da branch oficial Graphics `6000.0/staging`; `Tools/external_guids.json` é a lista explícita de referências externas permitidas na checagem estática. Os GUIDs locais são únicos e acompanhados de `.meta`.
+Para validação fora do Editor, `Tools/setup-cloud.sh` prepara o SDK **.NET 8.0.427** e os pacotes Python fixados em `Tools/requirements-validation.txt`. O script executa apenas as verificações deste jogo. Ele não instala nem licencia o Unity. As instalações mantêm verificação TLS e não usam credenciais de aplicação.
 
-O patch de referência do projeto foi atualizado para 6000.0.85f1 por causa da CVE-2025-59489. Evidências e fontes estão em [UnityCompatibility.json](UnityCompatibility.json); a abertura ainda depende de validação real no Editor.
-
-Para NGO 2.0.0, o projeto habilita ambos os módulos nativos `com.unity.modules.physics` e `com.unity.modules.physics2d`, versão 1.0.0. O log do usuário confirmou `CS1069` quando Physics 2D estava ausente; `NetworkRigidBodyBase` referencia tipos dos dois módulos mesmo em um jogo 3D. A fonte correspondente é `Runtime/Components/NetworkRigidBodyBase.cs` na tag oficial `ngo/2.0.0`.
+Os testes devem usar as APIs disponíveis no NUnit personalizado fornecido pelo Test Framework da Unity. Os testes de corrotina do Editor são executados pelo Unity Test Runner; não dependem de atributos de paralelismo de outras distribuições do NUnit.

@@ -88,7 +88,7 @@ namespace Ecos.Haunt
             actorsRoot.transform.SetParent(transform, false);
             try
             {
-                if (!RenderingSetup.TryApply(out string pipelineError))
+                if (!HauntRendering.TryApply(out string pipelineError))
                     throw new InvalidOperationException(pipelineError);
                 if (!art.Material || !art.Material.shader)
                     throw new InvalidOperationException("O material HauntSprites ou seu shader não está disponível.");

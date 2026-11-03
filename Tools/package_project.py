@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a deterministic Unity source ZIP with the short root EcosDoVale/.
+"""Build a deterministic Unity source ZIP with the short root EcosDaMeiaNoite/.
 
 Files come from the Git index, but their current working contents are packaged.
 No Unity import, compilation or Play Mode validation is performed by this tool.
@@ -14,14 +14,32 @@ import tempfile
 import zipfile
 from pathlib import Path, PurePosixPath
 
-ARCHIVE_ROOT = 'EcosDoVale'
+ARCHIVE_ROOT = 'EcosDaMeiaNoite'
 EDITOR_VERSION = '6000.0.85f1'
 FIXED_TIMESTAMP = (1980, 1, 1, 0, 0, 0)
 EXCLUDED_DIRECTORIES = {
     '.git', '.vs', '__pycache__', 'library', 'temp', 'obj', 'build', 'builds',
     'logs', 'usersettings', 'node_modules',
 }
-REQUIRED_FILES = {'Packages/manifest.json', 'ProjectSettings/ProjectVersion.txt'}
+REQUIRED_FILES = {
+    'Packages/manifest.json', 'ProjectSettings/ProjectVersion.txt',
+    'ProjectSettings/EditorBuildSettings.asset',
+    'ABRIR_ECOS_DA_MEIA_NOITE.cmd',
+    'Assets/_Game/Scenes/Haunt.unity', 'Assets/_Game/Scenes/Haunt.unity.meta',
+    'Assets/_Game/Haunt/Runtime/HauntGame.cs', 'Assets/_Game/Haunt/Runtime/HauntGame.cs.meta',
+    'Assets/_Game/Haunt/Runtime/HauntGame.UI.cs', 'Assets/_Game/Haunt/Runtime/HauntGame.UI.cs.meta',
+    'Assets/_Game/Haunt/Runtime/HauntRendering.cs', 'Assets/_Game/Haunt/Runtime/HauntRendering.cs.meta',
+    'Assets/_Game/Haunt/Art/HauntPixelArt.cs', 'Assets/_Game/Haunt/Art/HauntPixelArt.cs.meta',
+    'Assets/_Game/Haunt/Core/DungeonFloor.cs', 'Assets/_Game/Haunt/Core/DungeonFloor.cs.meta',
+    'Assets/_Game/Haunt/Core/RunState.cs', 'Assets/_Game/Haunt/Core/RunState.cs.meta',
+    'Assets/_Game/Haunt/Core/CombatGeometry.cs', 'Assets/_Game/Haunt/Core/CombatGeometry.cs.meta',
+    'Assets/_Game/Haunt/Editor/HauntProject.cs', 'Assets/_Game/Haunt/Editor/HauntProject.cs.meta',
+    'Assets/_Game/Haunt/Editor/HauntSetup.cs', 'Assets/_Game/Haunt/Editor/HauntSetup.cs.meta',
+    'Assets/_Game/Haunt/Haunt.Runtime.asmdef', 'Assets/_Game/Haunt/Haunt.Runtime.asmdef.meta',
+    'Assets/_Game/Haunt/Editor/Haunt.Editor.asmdef', 'Assets/_Game/Haunt/Editor/Haunt.Editor.asmdef.meta',
+    'Assets/_Game/Haunt/Art/HauntSprites.shader', 'Assets/_Game/Haunt/Art/HauntSprites.shader.meta',
+    'Assets/_Game/Resources/HauntSprites.mat', 'Assets/_Game/Resources/HauntSprites.mat.meta',
+}
 
 
 class PackagingError(ValueError):
@@ -112,8 +130,17 @@ def _validate_project(root):
         dependencies = json.loads((root / 'Packages/manifest.json').read_text())['dependencies']
     except (OSError, ValueError, KeyError, TypeError) as exc:
         raise PackagingError('Packages/manifest.json is invalid.') from exc
-    if dependencies.get('com.unity.modules.physics2d') != '1.0.0':
-        raise PackagingError('The delivery must declare Physics2D 1.0.0.')
+    for package, version in {
+        'com.unity.render-pipelines.universal': '17.0.4',
+        'com.unity.inputsystem': '1.11.2',
+        'com.unity.test-framework': '1.4.5',
+    }.items():
+        if dependencies.get(package) != version:
+            raise PackagingError(f'The delivery must declare {package} {version}.')
+    build = (root / 'ProjectSettings/EditorBuildSettings.asset').read_text()
+    scenes = re.findall(r'^    path: (.+)$', build, re.M)
+    if scenes != ['Assets/_Game/Scenes/Haunt.unity']:
+        raise PackagingError('The delivery must contain only the Haunt build scene.')
     version = (root / 'ProjectSettings/ProjectVersion.txt').read_text()
     if not re.search(r'^m_EditorVersion: ' + re.escape(EDITOR_VERSION) + r'$', version, re.M):
         raise PackagingError(f'The delivery must pin Unity {EDITOR_VERSION}.')
@@ -135,7 +162,7 @@ def create_archive(project_root, destination=None):
     if requested_root.is_symlink():
         raise PackagingError('The project root must not be a symlink.')
     root = requested_root.resolve(strict=True)
-    requested_output = Path(destination) if destination is not None else Path('Distribution/EcosDoVale.zip')
+    requested_output = Path(destination) if destination is not None else Path('Distribution/EcosDaMeiaNoite.zip')
     output = requested_output if requested_output.is_absolute() else root / requested_output
     _reject_symlinks(output, root)
     output = output.resolve(strict=False)
@@ -167,7 +194,7 @@ def create_archive(project_root, destination=None):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--project-root', type=Path, default=Path(__file__).resolve().parents[1])
-    parser.add_argument('--output', type=Path, default=Path('Distribution/EcosDoVale.zip'))
+    parser.add_argument('--output', type=Path, default=Path('Distribution/EcosDaMeiaNoite.zip'))
     args = parser.parse_args()
     try:
         output = create_archive(args.project_root, args.output)

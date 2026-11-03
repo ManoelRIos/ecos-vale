@@ -8,7 +8,4 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/_Game/Scenes/Haunt.unity
     guid: f20b9dfead604d24b5804a239b5cff78
-  - enabled: 0
-    path: Assets/_Game/Scenes/Valley.unity
-    guid: 4840441e49835547b5a3ad1123cf6e9c
   m_configObjects: {}
