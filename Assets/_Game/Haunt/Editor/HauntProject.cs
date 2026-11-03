@@ -24,6 +24,29 @@ namespace Ecos.Haunt.Editor
                 EditorSceneManager.OpenScene(ScenePath);
         }
 
+        // -executeMethod runs after script import; delay once more so the generated
+        // project resources and any pending asset refresh finish before scene opening.
+        public static void OpenFromCommandLine()
+        {
+            EditorApplication.delayCall -= OpenWhenReady;
+            EditorApplication.delayCall += OpenWhenReady;
+        }
+
+        static void OpenWhenReady()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                Debug.LogWarning("Ecos: pare o Play Mode antes de abrir o roguelike pelo atalho.");
+                return;
+            }
+            if (EditorApplication.isCompiling || EditorApplication.isUpdating)
+            {
+                EditorApplication.delayCall += OpenWhenReady;
+                return;
+            }
+            Open();
+        }
+
         [MenuItem("Ecos/Abrir roguelike", true)]
         public static bool CanOpen()
         {

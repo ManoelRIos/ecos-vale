@@ -4,18 +4,20 @@ Primeira versão do novo **roguelike 2D em pixel art para Unity 6.0 LTS 6000.0.8
 
 O projeto mantém a infraestrutura Unity existente. A cena antiga `Valley.unity` continua disponível para referência e não entra no build padrão. Os recursos visuais do novo jogo são sprites originais gerados por código, com filtro de ponto; esta etapa não usa arte de Enter the Gungeon nem depende de assets pagos.
 
-**Validação nesta revisão:** passaram 17 testes Python e 99.935 asserções do núcleo C# do roguelike, incluindo 1.624 andares gerados por seed. A análise estática verifica sintaxe e referências, sem substituir a compilação Unity. O Editor Unity não está instalado aqui: importação, compilação completa Unity, Play Mode, apresentação visual e build Windows ainda precisam de execução no Editor. Não há um executável Windows validado desta versão.
+**Validação nesta revisão:** passaram 23 testes Python e 99.935 asserções do núcleo C# do roguelike, incluindo 1.624 andares gerados por seed. A análise estática verifica sintaxe e referências, sem substituir a compilação Unity. O Editor Unity não está instalado aqui: importação, compilação completa Unity, Play Mode, apresentação visual e build Windows ainda precisam de execução no Editor. Não há um executável Windows validado desta versão.
 
 ## Abrir e jogar
 
 [**Baixar o projeto atualizado em ZIP**](https://github.com/ManoelRIos/ecos-vale/raw/refs/heads/codex/ecos-do-vale-vertical-slice/Distribution/EcosDaMeiaNoite.zip)
 
 1. Instale **Unity 6000.0.85f1** pelo Unity Hub. Para gerar o executável Windows, inclua **Windows Build Support**.
-2. Abra o clone atualizado deste repositório em um caminho curto, por exemplo `C:\Dev\EcosDoVale`. A pasta adicionada ao Hub deve conter `Assets`, `Packages` e `ProjectSettings`.
-3. Aguarde a resolução dos pacotes e a compilação. Com o Play parado, use **Ecos → Abrir roguelike**, ou abra `Assets/_Game/Scenes/Haunt.unity`.
-4. Pressione **Play**. Inicie uma nova partida pelo menu. A seed permite repetir a disposição das salas; uma nova partida pode gerar outra seed.
+2. Extraia **todo** o ZIP atualizado em uma pasta nova e curta, por exemplo `C:\Dev\EcosDoVale`, preservando sua cópia anterior e alterações próprias. A pasta deve conter `Assets`, `Packages`, `ProjectSettings` e `ABRIR_ECOS_DA_MEIA_NOITE.cmd`.
+3. Feche o Editor que estiver com a cópia antiga aberta. Execute **ABRIR_ECOS_DA_MEIA_NOITE.cmd** nessa pasta nova. O atalho confere se o código e a cena do roguelike estão presentes e solicita a abertura de `Haunt.unity` após a importação. Se o Editor estiver fora do caminho padrão do Hub, adicione essa pasta pelo Hub e use **Ecos → Abrir roguelike**, com o Play parado.
+4. Aguarde a resolução dos pacotes e a compilação, pressione **Play** e inicie uma nova partida pelo menu. A seed permite repetir a disposição das salas; uma nova partida pode gerar outra seed.
 
-O atalho `ABRIR_ECOS_DO_VALE.cmd` continua abrindo este mesmo projeto. O ZIP atualizado é `Distribution/EcosDaMeiaNoite.zip`. Extraia todo o conteúdo e abra a pasta `EcosDoVale` no Hub. O arquivo `Distribution/EcosDoVale.zip` pertence à versão antiga.
+O atalho antigo `ABRIR_ECOS_DO_VALE.cmd` encaminha para o novo, preservando os argumentos. `Distribution/EcosDaMeiaNoite.zip` e `Distribution/EcosDoVale.zip` agora contêm a mesma versão atualizada para que links antigos não entreguem o vale anterior. O log dessa abertura fica em `Logs/MeiaNoite-Editor.log`. A verificação sem abrir o Editor pode ser executada com `ABRIR_ECOS_DA_MEIA_NOITE.cmd /check`. Os atalhos receberam testes de contrato estático; ainda não foram executados no Windows.
+
+O log enviado mostrou a importação e abertura de `Valley.unity`, sem referências ao novo modo `Haunt` e sem erros de compilação C#. Isso indica uma abertura da cópia anterior. O aviso de ausência de AudioListener, isoladamente, não identifica uma falha do roguelike. Se não aparecer **Ecos → Abrir roguelike**, confirme que o Hub está abrindo a pasta recém-extraída e que ela contém `Assets/_Game/Scenes/Haunt.unity`.
 
 ## A primeira versão
 

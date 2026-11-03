@@ -1,25 +1,31 @@
 ECOS DA MEIA-NOITE — NOVA VERSAO UNITY
 
-Este repositorio agora inicia um roguelike 2D de Halloween.
-A cena de exploracao do vale foi preservada como legado.
-
 1. Instale Unity 6000.0.85f1 pelo Unity Hub.
-2. Adicione a pasta deste projeto, preferindo C:\Dev\EcosDoVale.
-3. Aguarde a resolucao dos pacotes e a compilacao.
-4. Com Play parado, escolha Ecos > Abrir roguelike.
-5. Pressione Play e inicie uma nova partida no menu.
+2. Extraia TODO o ZIP atualizado em uma pasta nova, como C:\Dev\EcosDoVale.
+   Preserve a copia anterior e quaisquer alteracoes proprias.
+3. Feche o Editor que estiver aberto na pasta antiga.
+4. Execute ABRIR_ECOS_DA_MEIA_NOITE.cmd na pasta nova.
+   Ele confere os arquivos do roguelike e abre Haunt.unity apos a importacao.
+5. Aguarde a resolucao dos pacotes e a compilacao. Pressione Play e inicie
+   uma partida no menu. Se abriu pelo Hub, use Ecos > Abrir roguelike
+   enquanto o Play estiver parado.
 
-Cena principal: Assets/_Game/Scenes/Haunt.unity
-Controles: WASD, mouse para mirar, esquerdo para atirar,
-Espaco/direito para esquivar, E para portal/sair da loja, M mapa, Esc pausa.
-Caminhe ate uma porta aberta para mudar de sala. Compre nos botoes da loja.
+Se o Editor nao estiver no caminho padrao do Hub, adicione esta mesma pasta
+pelo Hub. O atalho ABRIR_ECOS_DO_VALE.cmd encaminha para o novo atalho.
+Log do atalho: Logs/MeiaNoite-Editor.log.
 
-Venca o chefe para abrir o portal do mercado. Compre melhorias e
-continue ao proximo andar. Morrer encerra a run; nao ha save da run.
+O log enviado anteriormente abriu Valley.unity e nao importou o modo Haunt.
+Ele nao apresentou erros de compilacao C#. Confira a pasta aberta no Hub:
+a versao nova precisa conter Assets/_Game/Scenes/Haunt.unity.
+Os dois ZIPs publicados (EcosDaMeiaNoite.zip e EcosDoVale.zip) agora contem
+a mesma versao atualizada. A cena antiga foi preservada como legado.
 
-O Editor nao esta instalado no ambiente desta revisao. Os testes do
-nucleo C# e checks estaticos nao substituem importacao/Play Mode.
-Nao ha executavel Windows validado desta versao.
-Use o ZIP EcosDaMeiaNoite.zip; extraia tudo antes de abrir no Hub.
-O ZIP EcosDoVale.zip e da versao anterior.
+Controles: WASD mover, mouse mirar, esquerdo atirar, Espaco/direito esquivar,
+E para portal/sair da loja, M mapa, Esc pausa. Caminhe ate portas abertas
+para mudar de sala. Compre pelos botoes do mercado apos vencer o chefe.
+Morrer encerra a partida; nao ha save da run.
+
+O Editor nao esta instalado no ambiente desta revisao. Os testes do nucleo
+C# e checks estaticos nao substituem importacao/Play Mode. Os atalhos ainda
+nao foram executados no Windows. Nao ha executavel Windows validado.
 Veja README.md para instrucoes, testes e limites atuais.

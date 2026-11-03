@@ -240,6 +240,17 @@ namespace Ecos.Haunt.Tests
         }
 
         [UnityTest]
+        public IEnumerator CommandLineOpeningDuringPlayPreservesCurrentScene()
+        {
+            var scene = SceneManager.GetActiveScene();
+            LogAssert.Expect(LogType.Warning, new Regex("^Ecos: pare o Play Mode"));
+            HauntProject.OpenFromCommandLine();
+            yield return null;
+            yield return null;
+            Assert.AreEqual(scene.handle, SceneManager.GetActiveScene().handle);
+        }
+
+        [UnityTest]
         public IEnumerator OpeningRoguelikeDuringPlayPreservesCurrentScene()
         {
             var scene = SceneManager.GetActiveScene();

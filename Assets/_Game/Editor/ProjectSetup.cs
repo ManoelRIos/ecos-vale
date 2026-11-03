@@ -322,6 +322,7 @@ namespace Ecos.Editor
         [MenuItem("Ecos/Criar assets e atualizar cena", true)]
         [MenuItem("Ecos/Reparar renderização URP", true)]
         [MenuItem("Ecos/Abrir cena principal", true)]
+        [MenuItem("Ecos/Legado/Abrir vale", true)]
         public static bool CanRunEditModeCommands()
         {
             return !EditorApplication.isPlayingOrWillChangePlaymode
@@ -577,6 +578,18 @@ namespace Ecos.Editor
             if (!CanRunEditModeCommands())
             {
                 Debug.LogWarning("Ecos: pare o Play Mode e aguarde o fim da compilação/importação antes de abrir a cena principal.");
+                return;
+            }
+            if (EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+                EditorSceneManager.OpenScene("Assets/_Game/Scenes/Haunt.unity");
+        }
+
+        [MenuItem("Ecos/Legado/Abrir vale")]
+        public static void OpenLegacy()
+        {
+            if (!CanRunEditModeCommands())
+            {
+                Debug.LogWarning("Ecos: pare o Play Mode e aguarde compilação/importação antes de abrir o vale legado.");
                 return;
             }
             if (EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
