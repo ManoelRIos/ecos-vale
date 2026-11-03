@@ -4,7 +4,7 @@ O Editor Unity não está disponível neste ambiente. Esta expansão deve ser va
 
 ## Checks sem Unity
 
-Nesta revisão passaram 24 testes Python, a análise de sintaxe de 14 arquivos C# e 396.051 asserções do núcleo C#, incluindo 2.436 andares gerados. O validador estrutural conferiu 20 assets e 30 GUIDs. A compilação Unity e os testes do Editor permanecem pendentes.
+Nesta revisão passaram 24 testes Python, a análise de sintaxe de 15 arquivos C# e 396.051 asserções do núcleo C#, incluindo 2.436 andares gerados. O validador estrutural conferiu 21 assets e 31 GUIDs. A compilação Unity e os testes do Editor permanecem pendentes.
 
 Execute na raiz do projeto:
 
@@ -74,8 +74,8 @@ A compilação completa, o Play Mode, o render e o executável desta expansão p
 - Conferir a câmera ortográfica de tamanho 6,3 em 1280×720 e 860×500: seguir o personagem suavemente, respeitar limites nas bordas e reposicionar imediatamente ao trocar de sala. Testar mira pelo mouse com a câmera deslocada. Conferir HUD, atlas e cartões nas duas resoluções. Não há coop nesta revisão.
 - Durante o combate, conferir ausência da seta de saída. Purificar a sala e caminhar entre duas portas para conferir a indicação da mais próxima. Após vencer o chefe, conferir que a seta aponta ao portal mesmo perto de uma porta; na loja/pausa, a orientação deve ficar oculta.
 - Para cada tema, testar sementes até observar os três candidatos documentados no README. Repetir uma semente e andar para conferir mapa e chefe iguais. Conferir que o piso, as paredes e os inimigos comuns permanecem associados ao tema, mesmo quando muda o guardião sorteado.
-- Disparar repetidamente as armas iniciais e as seis de loja contra paredes, cobertura e inimigos; conferir halo seguindo cada tiro, transparência e mistura aditiva das chamas/clarões sem apagar balas hostis. Expirar ou colidir os tiros e verificar que seus halos desaparecem junto. Reiniciar e voltar ao menu várias vezes; confirmar que o pool reaproveita o par projétil/halo e que a contagem de objetos não cresce sem limite. Os raios devem desaparecer ao soltar o disparo, esquivar, morrer, pausar ou abrir o catálogo.
-- Destruir o objeto `HauntGame` ou sair do Play Mode e conferir liberação do material aditivo `Haunt / additive light`, materiais e texturas da biblioteca de arte. Inspecionar o Console para referências destruídas ou halos órfãos; o pool e sua limpeza não são certificados pelo parser C#.
+- Disparar repetidamente as armas iniciais e as seis de loja contra paredes, cobertura e inimigos; conferir ausência de halo nas munições físicas, halo pequeno e alinhado nas energéticas e rastros discretos, sem apagar balas hostis. Expirar ou colidir os tiros e verificar que seus halos desaparecem junto. Reiniciar e voltar ao menu várias vezes; confirmar que o pool reaproveita o par projétil/halo e que a contagem de objetos não cresce sem limite. O núcleo e o brilho dos raios devem desaparecer juntos ao soltar o disparo, esquivar, morrer, pausar ou abrir o catálogo.
+- Destruir o objeto `HauntGame` ou sair do Play Mode e conferir liberação do material ambiente `Haunt / additive light`, o material de tiro `Haunt / soft shot light`, materiais e texturas da biblioteca de arte. Inspecionar o Console para referências destruídas ou halos órfãos; o pool e sua limpeza não são certificados pelo parser C#.
 
 Os testes Unity foram ampliados para geometria, portas/chegadas, câmera, orientação da saída, seleção e identidades dos chefes, alternância de ataques, avisos de chão, poderes novos e reciclagem do halo com o projétil; permanecem não executados. A prévia PNG apenas mostra os pixels do desenho procedural, sem renderização Unity.
 
@@ -107,3 +107,11 @@ Os checks sem Unity desta revisão passaram; os testes visuais, a integração d
 - Esquivar durante os 0,24 s a 12,5 unidades/s sobre um abismo de 2 × 1,2, conferindo salto e sombra. Testar queda durante proteção de dano e após pausa; a queda ainda custa 1 de vida e nunca deve devolver o jogador ao próprio buraco.
 
 As simulações de ondas, emergência, inimigos novos, raios, ricochetes e quedas dependem dos testes no Editor para comprovar integração. A suíte independente certifica seus dados de progressão, inventário e geometria básica, sem executar o runtime Unity.
+
+## Tiros e áudio desta revisão
+
+- Comparar tiros físicos e mágicos em pisos claros e escuros: sem manchas luminosas no chão, sem estrelas contínuas e sem luz separada do corpo. Conferir leitura das bordas rosadas/vermelhas das balas hostis.
+- Conferir feixes finos em diagonais, rastros curtos e o clarão breve do cano. Repetir tiros e trocar armas para conferir que o pool restaura material, escala, orientação e ativação do halo.
+- Ouvir disparos, impactos, esquiva, ondas, compra, portas e mortes. Manter o raio pressionado, soltar e pausar para verificar início/fim sem cliques ou loop persistente. Testar o botão de som, reinício e troca de sala; repetir uma sala densa para conferir volume e limite de vozes.
+
+Checks de estrutura e sintaxe não certificam iluminação renderizada ou reprodução de áudio. Esses pontos permanecem dependentes do Editor e de uma saída de som.

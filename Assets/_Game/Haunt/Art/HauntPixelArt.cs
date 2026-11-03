@@ -63,6 +63,9 @@ namespace Ecos.Haunt
                 case "shot-shock": pixels = ShotShock(); break;
                 case "shot-disc": pixels = ShotDisc(frame); break;
                 case "shot-ray": pixels = ShotRay(); break;
+                case "shot-halo": pixels = ShotHalo(); break;
+                case "shot-trail": pixels = ShotTrail(); break;
+                case "impact-dust": pixels = ImpactDust(); break;
                 case "boss-bar0": pixels = BossBar(0); break;
                 case "boss-bar1": pixels = BossBar(1); break;
                 case "boss-bar2": pixels = BossBar(2); break;
@@ -329,14 +332,16 @@ namespace Ecos.Haunt
         static Canvas StapleShot()
         {
             var c = new Canvas(6,6);
-            c.Rect(1,1,4,3,Shade); c.Rect(2,1,3,2,Pale); c.Set(1,3,LightStone); c.Set(3,3,Gold);
+            c.Rect(1,2,4,2,Hex(0x7b8790)); c.Rect(2,2,3,1,Hex(0xe9e9df));
+            c.Set(4,3,Hex(0xb5bec0)); c.Set(0,2,Alpha(Hex(0xb5bec0),75));
             return c;
         }
 
         static Canvas BananaShot()
         {
             var c = new Canvas(6,6);
-            c.Ellipse(0,0,6,6,Alpha(Orange,110)); c.Ellipse(1,1,4,4,Gold); c.Rect(2,1,2,2,Pale);
+            c.Ellipse(1,1,4,4,Hex(0xb6a46b)); c.Ellipse(2,1,3,3,Hex(0xe7d8a0));
+            c.Rect(3,2,2,1,Hex(0xfff0cf)); c.Set(1,3,Hex(0x837b61));
             return c;
         }
 
@@ -579,31 +584,73 @@ namespace Ecos.Haunt
 
         static Canvas ShotDot()
         {
-            var c = new Canvas(6,6); c.Ellipse(0,0,6,6,Alpha(Teal,90));
-            c.Ellipse(1,1,4,4,Mint); c.Rect(2,1,2,3,Pale); return c;
+            var c = new Canvas(6,6);
+            c.Ellipse(1,1,4,4,Hex(0x8c9b96)); c.Ellipse(2,1,3,3,Hex(0xd6e1d5));
+            c.Rect(3,2,2,1,Hex(0xfff6df)); c.Set(1,3,Hex(0x64716e)); return c;
         }
         static Canvas ShotBone()
         {
-            var c = new Canvas(8,4); c.Rect(2,1,4,2,Bone);
-            c.Rect(0,0,2,4,LightStone); c.Rect(6,0,2,4,LightStone);
-            c.Set(1,0,Pale); c.Set(6,0,Bone); c.Line(2,1,5,1,Pale); return c;
+            var c = new Canvas(8,4); c.Rect(1,1,6,2,Hex(0xaaa594));
+            c.Rect(2,1,5,1,Hex(0xeee4cc)); c.Set(1,0,Hex(0xd3cbb7));
+            c.Set(6,0,Hex(0xe3dac2)); c.Set(6,2,Hex(0xc5bca7)); return c;
         }
         static Canvas ShotShock()
         {
-            var c = new Canvas(8,6); c.Polygon(new[]{0,3,3,0,3,2,7,1,5,4,7,4,4,6,4,4},Mint);
-            c.Line(2,3,5,2,Pale); return c;
+            var c = new Canvas(8,6); c.Rect(1,2,6,2,Hex(0x819e9e));
+            c.Rect(3,1,3,1,Alpha(Hex(0xa7c6c3),170)); c.Rect(2,4,3,1,Alpha(Hex(0xa7c6c3),120));
+            c.Line(2,3,4,2,Hex(0xe4efdf)); c.Line(4,2,6,2,Hex(0xf8f5df)); return c;
         }
         static Canvas ShotDisc(int frame)
         {
-            var c = new Canvas(8,8); c.Ellipse(0,0,8,8,Alpha(Violet,100)); c.Ellipse(1,1,6,6,Teal);
-            c.Ellipse(2,2,4,4,Ink); c.Ellipse(3,3,2,2,Mint);
-            int[][] points={new[]{1,2,5,6},new[]{2,6,6,2},new[]{5,6,1,2},new[]{6,2,2,6}};
-            var p=points[frame%4]; c.Set(p[0],p[1],Pale); c.Set(p[2],p[3],Pink); return c;
+            var c = new Canvas(8,8); c.Ellipse(1,1,6,6,Hex(0x718589));
+            c.Ellipse(2,2,4,4,Hex(0xb8c7c3)); c.Ellipse(3,3,2,2,Hex(0xeee8d5));
+            int[][] points={new[]{2,2,5,5},new[]{3,1,4,6},new[]{5,2,2,5},new[]{6,3,1,4}};
+            var p=points[frame%4]; c.Set(p[0],p[1],Hex(0xdce3d5));
+            c.Set(p[2],p[3],Hex(0x889b9a)); return c;
         }
         static Canvas ShotRay()
         {
-            var c = new Canvas(8,4); c.Rect(0,1,8,2,Alpha(Teal,150));
-            c.Rect(0,1,8,1,Mint); c.Rect(0,2,8,1,Pale); return c;
+            var c = new Canvas(8,4);
+            for(int x=0;x<8;x++)
+            {
+                byte core=(byte)(x==0||x==7?95:x==1||x==6?190:235);
+                c.Set(x,1,Alpha(Hex(0xe7eee0),core)); c.Set(x,2,Alpha(Hex(0xd2e0d9),(byte)(core*3/4)));
+                c.Set(x,0,Alpha(Hex(0xc5d8d0),(byte)(core/8))); c.Set(x,3,Alpha(Hex(0xc5d8d0),(byte)(core/8)));
+            }
+            return c;
+        }
+
+        static Canvas ShotHalo()
+        {
+            var c = new Canvas(16,16);
+            for(int y=0;y<16;y++) for(int x=0;x<16;x++)
+            {
+                double dx=(x-7.5)/7.5,dy=(y-7.5)/7.5,d=dx*dx+dy*dy;
+                if(d<1) c.Set(x,y,new Color32(255,247,230,(byte)(Math.Pow(1-d,3)*62)));
+            }
+            return c;
+        }
+
+        static Canvas ShotTrail()
+        {
+            var c = new Canvas(12,4);
+            // Local +X is the tip; the low opacity tail stays behind the moving shot.
+            byte[] opacity={0,8,16,28,42,58,78,98,122,146,124,60};
+            for(int x=0;x<12;x++)
+            {
+                c.Set(x,1,new Color32(244,241,228,opacity[x]));
+                if(x>3) c.Set(x,2,new Color32(235,236,226,(byte)(opacity[x]/2)));
+                if(x>7&&x<11) c.Set(x,0,new Color32(235,236,226,(byte)(opacity[x]/9)));
+            }
+            return c;
+        }
+
+        static Canvas ImpactDust()
+        {
+            var c = new Canvas(8,8); Color32 dust=Hex(0xc6beae);
+            c.Rect(1,3,3,3,Alpha(dust,34)); c.Rect(1,4,3,2,Alpha(dust,110));
+            c.Rect(4,1,3,3,Alpha(dust,26)); c.Rect(4,2,2,2,Alpha(dust,85));
+            c.Rect(5,5,2,2,Alpha(dust,28)); c.Rect(5,6,2,1,Alpha(dust,75)); return c;
         }
         static Canvas SpawnRift(int frame)
         {
@@ -1485,8 +1532,8 @@ namespace Ecos.Haunt
         {
             if (!enemy) return ShotDot();
             var c = new Canvas(8,8);
-            c.Ellipse(0,0,8,8,Alpha(Rust,120)); c.Ellipse(1,1,6,6,Rust);
-            c.Ellipse(2,2,4,4,Pink); c.Rect(3,2,2,3,Pale); return c;
+            c.Ellipse(1,1,6,6,Hex(0x9c465c)); c.Ellipse(2,2,4,4,Hex(0xe58b9e));
+            c.Rect(3,2,2,3,Hex(0xffebd7)); c.Set(5,3,Hex(0xffebd7)); return c;
         }
         static Canvas Muzzle()
         {

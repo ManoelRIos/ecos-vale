@@ -85,6 +85,7 @@ namespace Ecos.Haunt
             public SpriteRenderer Sprite;
             public Vector2 Velocity;
             public float Life, Duration, Scale, Gravity, Spin;
+            public float Aspect = 1;
             public bool Expanding;
             public Color Color;
         }
@@ -127,6 +128,7 @@ namespace Ecos.Haunt
         public void BeginRun(int seed)
         {
             if (!string.IsNullOrEmpty(renderingFailure)) return;
+            PauseAudio(false);
             ClearActors();
             State = new RunState(seed, selectedCharacter);
             Floor = DungeonFloor.Generate(seed, State.Floor);
@@ -195,7 +197,8 @@ namespace Ecos.Haunt
                 Paused = !Paused;
                 showMap = false;
             }
-            if (Paused) { StopBeam(); Cursor.visible = true; return; }
+            if (Paused) { PauseAudio(true); StopBeam(); Cursor.visible = true; return; }
+            PauseAudio(false);
             if (!InShop && keyboard != null && keyboard.mKey.wasPressedThisFrame) showMap = !showMap;
             // Clamp large frame gaps so a stalled frame cannot jump across an entire room.
             float dt = Mathf.Min(Time.deltaTime, .05f);
@@ -229,6 +232,7 @@ namespace Ecos.Haunt
             if (State.IsDead)
             {
                 StopBeam();
+                PlaySound(SoundCue.PlayerDeath);
                 RollEnd();
                 Notify("A noite levou mais uma alma. Uma nova incursão terá outra semente.");
                 return;
@@ -262,6 +266,7 @@ namespace Ecos.Haunt
                 rollReady = RollCooldown;
                 rollDirection = input.sqrMagnitude > 0 ? input.normalized : lastMove;
                 Burst(playerPosition, new Color(.35f, .95f, .8f), 6);
+                PlaySound(SoundCue.Dodge);
             }
             if (rollRemaining > 0)
             {
@@ -383,10 +388,12 @@ namespace Ecos.Haunt
             UpdateDoorArt();
             UpdateCamera(0, true);
             UpdatePresentation();
+            PlaySound(SoundCue.Door, .6f);
         }
 
         void SpawnWave()
         {
+            PlaySound(SoundCue.Wave, .6f);
             var points = new List<Vector2> { new Vector2(-10, 5.5f), new Vector2(10, 5.5f), new Vector2(-10, -5.5f), new Vector2(10, -5.5f), new Vector2(-3, 6), new Vector2(3, -6), new Vector2(-10, 0), new Vector2(10, 0) };
             int count = Mathf.Min(6, 3 + State.Floor / 3 + CurrentRoom.WavesCleared + CurrentRoom.Id % 2);
             while (points.Count > 0 && enemies.Count < count)
@@ -426,6 +433,7 @@ namespace Ecos.Haunt
             {
                 RingEffect(playerPosition, HostileAccent, 1.2f);
                 State.Hurt(1);
+                PlaySound(SoundCue.PlayerHit);
                 playerPosition = safeGround;
                 invincible = Mathf.Max(invincible, .9f); flash = .15f;
                 StopBeam();
@@ -725,6 +733,7 @@ namespace Ecos.Haunt
         {
             if (invincible > 0 || rollRemaining > 0 || State.IsDead || InShop) return;
             State.Hurt(1);
+            PlaySound(SoundCue.PlayerHit);
             invincible = 1.1f;
             flash = .18f;
             shake = .22f;
@@ -842,6 +851,7 @@ namespace Ecos.Haunt
             RollEnd();
             noticeTime = 0;
             Cursor.visible = true;
+            PlaySound(SoundCue.Door, .3f);
         }
 
         void CloseMerchant()
@@ -869,6 +879,7 @@ namespace Ecos.Haunt
         {
             if (!InShop || !shopMenuOpen || !Playing || Paused || State.IsDead) return;
             bool bought = State.TryBuy(item, out string message);
+            if (bought) PlaySound(SoundCue.Purchase);
             if (bought) { RingEffect(playerPosition, PlayerAccent, 1.5f); Burst(playerPosition + Vector2.up, new Color(1, .75f, .2f), 10); }
             Notify(message);
         }
@@ -926,6 +937,7 @@ namespace Ecos.Haunt
 
         void ReturnToMenu()
         {
+            PauseAudio(false);
             ClearActors();
             Playing = Paused = InShop = shopMenuOpen = false;
             State = null; Floor = null; CurrentRoom = null;
@@ -934,8 +946,10 @@ namespace Ecos.Haunt
 
         void OnDestroy()
         {
+            DisposeAudio();
             Cursor.visible = true;
             if (glowMaterial) Destroy(glowMaterial);
+            if (projectileLightMaterial) Destroy(projectileLightMaterial);
             if (pixelText != null) pixelText.Dispose();
             if (art != null) art.Dispose();
             if (panelTexture) Destroy(panelTexture);

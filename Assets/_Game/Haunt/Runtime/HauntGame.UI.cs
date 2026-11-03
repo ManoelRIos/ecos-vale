@@ -414,12 +414,13 @@ namespace Ecos.Haunt
         void DrawPause()
         {
             Fill(new Rect(0, 0, 1280, 720), new Color(0, 0, .025f, .78f));
-            Panel(new Rect(410, 170, 460, 370), Orange);
+            Panel(new Rect(410, 170, 460, 390), Orange);
             Text(new Rect(445, 197, 390, 45), "A NOITE ESPERA", headingStyle, Orange);
             Text(new Rect(445, 255, 390, 50), "INCURSAO PAUSADA", bodyStyle, Color.white);
             if (Button(new Rect(445, 330, 390, 52), "CONTINUAR", Mint)) Paused = false;
             if (Button(new Rect(445, 401, 390, 48), "ENCERRAR INCURSÃO", new Color(.65f, .58f, .73f))) ReturnToMenu();
-            Text(new Rect(445, 484, 390, 28), "ESC para voltar", smallStyle, Muted);
+            if (Button(new Rect(445, 465, 390, 36), soundEnabled ? "SOM: LIGADO" : "SOM: DESLIGADO", Muted)) SetSoundEnabled(!soundEnabled);
+            Text(new Rect(445, 525, 390, 23), "ESC para voltar", smallStyle, Muted);
         }
 
         void DrawDeath()

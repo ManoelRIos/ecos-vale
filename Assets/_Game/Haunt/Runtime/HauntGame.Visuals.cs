@@ -20,7 +20,7 @@ namespace Ecos.Haunt
             public Vector2 Anchor;
             public float Phase;
         }
-        Material glowMaterial;
+        Material glowMaterial, projectileLightMaterial;
         Vector2 cameraPosition;
         SpriteRenderer playerMarker, playerGlow, crosshair;
         float walkDistance, weaponKick, trailTimer, dustTimer, roomBannerTime;
@@ -56,6 +56,21 @@ namespace Ecos.Haunt
                     glowMaterial.SetFloat("_Emission", 2.2f);
                 }
                 return glowMaterial;
+            }
+        }
+
+        Material ProjectileLightMaterial
+        {
+            get
+            {
+                if (!projectileLightMaterial)
+                {
+                    projectileLightMaterial = new Material(art.Material) { name = "Haunt / soft shot light" };
+                    projectileLightMaterial.SetFloat("_SrcBlend", 5);
+                    projectileLightMaterial.SetFloat("_DstBlend", 1);
+                    projectileLightMaterial.SetFloat("_Emission", 1);
+                }
+                return projectileLightMaterial;
             }
         }
 
@@ -309,7 +324,7 @@ namespace Ecos.Haunt
             muzzle.sortingOrder = gun.sortingOrder + 1;
             muzzle.enabled = muzzleTime > 0 && !rolling;
             muzzle.transform.position = Snap(playerPosition + Vector2.up * .35f + aim * 1.05f);
-            muzzle.transform.localScale = Vector3.one * (.7f + weaponKick * .3f);
+            muzzle.transform.localScale = Vector3.one * (.3f + weaponKick * .15f);
             muzzle.transform.rotation = gun.transform.rotation;
             if (crosshair)
             {
@@ -398,7 +413,7 @@ namespace Ecos.Haunt
             if (sparks.Count >= 320 || !actorsRoot) return;
             var sprite = effectPool.Count > 0 ? effectPool.Pop() : MakeSprite(id, position, actorsRoot.transform, 1300);
             sprite.gameObject.SetActive(true);
-            sprite.sharedMaterial = id == "glow" || id == "spark" || id == "muzzle" ? GlowMaterial : art.Material;
+            sprite.sharedMaterial = id == "shot-halo" ? ProjectileLightMaterial : id == "glow" || id == "spark" || id == "muzzle" ? GlowMaterial : art.Material;
             sprite.sprite = id == "player" && player ? player.sprite : art.Get(id == "player" ? PlayerArt : id);
             sprite.flipX = id == "player" && player && player.flipX;
             sprite.flipY = false;
@@ -423,13 +438,36 @@ namespace Ecos.Haunt
 
         void Impact(Vector2 position, Vector2 normal, Color color, bool heavy)
         {
-            // Short impact core plus directional shards: readable against every floor.
-            RingEffect(position, color, heavy ? .8f : .25f);
-            Emit("glow", position, Vector2.zero, new Color(color.r, color.g, color.b, .55f), .1f, heavy ? 1.4f : .6f, 0);
-            int count = heavy ? 15 : 7;
+            PlaySound(SoundCue.Impact, heavy ? .7f : .35f);
+            Color tint = Color.Lerp(color, new Color(.86f, .8f, .68f), .65f);
+            if (heavy) RingEffect(position, tint, .4f);
+            Emit("shot-halo", position, Vector2.zero, new Color(tint.r, tint.g, tint.b, heavy ? .3f : .15f),
+                heavy ? .08f : .045f, heavy ? .65f : .3f, 0);
+            int count = heavy ? 7 : 3;
             for (int i = 0; i < count; i++)
-                Emit(i % 3 == 0 ? "slash" : "spark", position, Rotate(normal, (i - count / 2) * 19) * (1.5f + i % 4), color, .2f + i % 3 * .04f, .16f + i % 2 * .12f, 3, i % 2 == 0 ? 160 : -160);
-            if (heavy) shake = Mathf.Max(shake, .12f);
+            {
+                Color dust = new Color(tint.r, tint.g, tint.b, .55f);
+                Emit("impact-dust", position, Rotate(normal, (i - count / 2) * 24) * (.8f + i % 3 * .45f), dust,
+                    .10f + i % 3 * .025f, .24f + i % 2 * .05f, 2, i % 2 == 0 ? 75 : -75);
+            }
+            if (heavy) shake = Mathf.Max(shake, .09f);
+        }
+
+        void ShotTrail(Shot shot, Vector2 origin)
+        {
+            // A short translucent stroke follows travel instead of spawning stars.
+            if (!shot.Friendly) return;
+            Vector2 direction = shot.Velocity.normalized;
+            Color tint = Color.Lerp(shot.Color, new Color(.78f, .75f, .68f), .6f);
+            tint.a = .22f;
+            int before = sparks.Count;
+            Emit("shot-trail", origin + Vector2.up * .38f - direction * .16f, -direction * .45f,
+                tint, .075f, .3f, 0);
+            if (sparks.Count == before) return;
+            var tail = sparks[sparks.Count - 1];
+            tail.Aspect = Mathf.Clamp(shot.Velocity.magnitude * .08f, 1, 2.2f);
+            tail.Sprite.transform.rotation = Quaternion.Euler(0, 0, Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg);
+            tail.Sprite.transform.localScale = new Vector3(tail.Scale * tail.Aspect, tail.Scale, 1);
         }
 
         void RingEffect(Vector2 position, Color color, float size = 1)
@@ -449,7 +487,7 @@ namespace Ecos.Haunt
                 spark.Sprite.transform.Rotate(0, 0, spark.Spin * dt);
                 float fraction = spark.Life / spark.Duration;
                 float size = spark.Expanding ? spark.Scale * (2 - fraction) : spark.Scale * (.6f + .4f * fraction);
-                spark.Sprite.transform.localScale = Vector3.one * size;
+                spark.Sprite.transform.localScale = new Vector3(size * spark.Aspect, size, 1);
                 spark.Sprite.color = new Color(spark.Color.r, spark.Color.g, spark.Color.b, spark.Color.a * fraction);
             }
         }
@@ -463,6 +501,7 @@ namespace Ecos.Haunt
 
         void EnemyDeath(Enemy enemy)
         {
+            if (enemy.Kind == 4) PlaySound(SoundCue.BossDeath);
             Burst(enemy.Position + Vector2.up * .4f, enemy.Kind == 1 ? new Color(.85f, .95f, 1) : HostileAccent, enemy.Kind == 4 ? 22 : 10);
             RingEffect(enemy.Position, enemy.Kind == 4 ? new Color(1, .65f, .24f) : HostileAccent, enemy.Kind == 4 ? 2.2f : .6f);
             Emit(EnemySprite(enemy.Kind), enemy.Position + Vector2.up * .4f, Vector2.up * 1.2f, new Color(.7f, .5f, .7f, .45f), .35f, .75f, 6, 90);

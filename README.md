@@ -25,7 +25,7 @@ As quatro almas têm roupas, armas e silhuetas próprias, com contornos, sombras
 
 Portas abertas mostram passagem e seta luminosa; portas seladas exibem grades e cadeado; a passagem do guardião tem moldura dourada. Cada um dos cinco temas usa paredes e pisos próprios, relevos, velas e candelabros macabros animados. Quatro variantes de piso por tema recebem tom, espelhamento e rotação determinados pela semente e posição do ladrilho. O mercado é uma sala explorável com balcão, atendente, prateleiras e seis armas expostas em vitrines.
 
-Há rastro de esquiva, poeira de passos, recuo e clarão da arma, halo luminoso e rastro nos tiros, avisos de ataque, partículas de impacto/morte e pulsos de vitória. Os efeitos têm limites e reaproveitam objetos. A apresentação eleva os sprites mantendo as posições físicas do combate. A câmera próxima acompanha o personagem dentro dos limites da arena e reposiciona imediatamente nas chegadas. Após purificar uma sala, uma seta aponta para a porta mais próxima; depois do chefe, ela prioriza o portal do mercado.
+Há rastro de esquiva, poeira de passos, recuo e clarão da arma, projéteis compactos e rastros curtos, avisos de ataque, partículas de impacto/morte e pulsos de vitória. Os efeitos têm limites e reaproveitam objetos. A apresentação eleva os sprites mantendo as posições físicas do combate. A câmera próxima acompanha o personagem dentro dos limites da arena e reposiciona imediatamente nas chegadas. Após purificar uma sala, uma seta aponta para a porta mais próxima; depois do chefe, ela prioriza o portal do mercado.
 
 O shader segue o contrato de cor e espelhamento do SpriteRenderer do URP 17/Unity 6. A prévia abaixo mostra os desenhos gerados; a renderização desta revisão no Editor ainda precisa ser validada.
 
@@ -61,7 +61,7 @@ Os preços recebem a escala normal do andar. Os grampos viajam a 19 unidades/s; 
 
 As armas duram até o fim da incursão e são equipadas na compra. Use `1` para voltar à arma inicial do personagem, `2` para grampeador, `3` para banana, `4` para pião, `5` para disco, `6` para lanterna e `7` para flauta. Uma nova incursão restaura a arma específica da alma escolhida.
 
-Os cinco temas são Jardins da Colheita, Galeria dos Véus, Catedral das Cinzas, Ninho da Peste e Abismo dos Sinos. Cada um tem pisos, paredes, cobertura e decoração próprios: raízes e madeira, mármore e teias, altares e cinzas, ovos e quitina, obsidiana e sinos; a corrupção visual aumenta com a profundidade sem apagar os projéteis. O mapa usa miniaturas ilustradas com a mesma identidade do andar, corredores e retratos dos guardiões. Cantos verdes identificam a sala atual. Há partículas ambientes, halos nos disparos, clarões e estilhaços nos impactos e até 320 efeitos reutilizáveis. Halos, chamas e efeitos luminosos usam sprites com mistura aditiva; não há iluminação física dinâmica URP.
+Os cinco temas são Jardins da Colheita, Galeria dos Véus, Catedral das Cinzas, Ninho da Peste e Abismo dos Sinos. Cada um tem pisos, paredes, cobertura e decoração próprios: raízes e madeira, mármore e teias, altares e cinzas, ovos e quitina, obsidiana e sinos; a corrupção visual aumenta com a profundidade sem apagar os projéteis. O mapa usa miniaturas ilustradas com a mesma identidade do andar, corredores e retratos dos guardiões. Cantos verdes identificam a sala atual. Há partículas ambientes, brilho discreto apenas nos projéteis de energia e poeira nos impactos e até 320 efeitos reutilizáveis. Halos, chamas e efeitos luminosos usam sprites com mistura aditiva; não há iluminação física dinâmica URP.
 
 ## Combate e progressão
 
@@ -132,7 +132,7 @@ bash Tools/unity-check.sh build
 
 O build Windows usa `Builds/Windows/EcosDaMeiaNoite.exe`. Para empacotar as fontes, inclua os arquivos novos no índice Git e execute `python3 Tools/package_project.py`; o resultado é `Distribution/EcosDaMeiaNoite.zip`, com raiz `EcosDaMeiaNoite/`.
 
-**Estado da verificação:** passaram 24 testes Python, análise de sintaxe de 14 arquivos C# e 396.051 asserções do núcleo; a estrutura conferida contém 20 assets e 30 GUIDs. O Editor Unity não está instalado neste ambiente. A importação desta versão, a compilação completa Unity, o Play Mode, os shaders e o build ainda precisam ser executados no Editor. Os testes Unity verificam objetos e estado, sem certificar a aparência renderizada. Consulte [VALIDATION.md](Documentation/VALIDATION.md) para o roteiro de verificação e [UNITY_TROUBLESHOOTING.md](Documentation/UNITY_TROUBLESHOOTING.md) se a abertura falhar.
+**Estado da verificação:** passaram 24 testes Python, análise de sintaxe de 15 arquivos C# e 396.051 asserções do núcleo; a estrutura conferida contém 21 assets e 31 GUIDs. O Editor Unity não está instalado neste ambiente. A importação desta versão, a compilação completa Unity, o Play Mode, os shaders e o build ainda precisam ser executados no Editor. Os testes Unity verificam objetos e estado, sem certificar a aparência renderizada. Consulte [VALIDATION.md](Documentation/VALIDATION.md) para o roteiro de verificação e [UNITY_TROUBLESHOOTING.md](Documentation/UNITY_TROUBLESHOOTING.md) se a abertura falhar.
 
 Esta é uma base de combate e progressão. Áudio, animação, arte e balanceamento ainda precisam de refinamento. Esta expansão possui validação do núcleo e de sintaxe; a nova aparência e os testes de integração aguardam execução no Editor. As incursões não têm persistência entre sessões nem multiplayer.
 
@@ -147,3 +147,9 @@ Esta é uma base de combate e progressão. Áudio, animação, arte e balanceame
 - `Assets/_Game/Resources`: material de sprites e recursos URP usados pelo jogo.
 
 Veja [ARCHITECTURE.md](Documentation/ARCHITECTURE.md) e [PACKAGES.md](Documentation/PACKAGES.md).
+
+## Efeitos de tiro e som
+
+Munição física tem corpo compacto e rastro curto, sem uma luz circular no chão. A energia usa um halo pequeno na própria altura do projétil; os raios têm núcleo fino e brilho suave, com menos oscilação. Impactos comuns usam poucos fragmentos e um clarão breve. Balas inimigas mantêm borda rosa/vermelha e centro claro para leitura durante as ondas.
+
+O projeto também gera efeitos sonoros originais para disparos, raio contínuo, impactos, esquiva, dano, ondas, portas, compras e morte. O volume é moderado e o número de vozes é limitado. No menu de pausa, use **SOM: LIGADO / DESLIGADO**. Os sons são sintetizados localmente; não precisam de arquivos ou serviços externos. A aparência e a reprodução de áudio ainda precisam ser conferidas no Unity.
