@@ -29,6 +29,7 @@ class PackageProjectTests(unittest.TestCase):
         self.write('ABRIR_ECOS_DA_MEIA_NOITE.cmd', '@echo off\n')
         for relative in ['Assets/_Game/Haunt/Runtime/HauntGame.cs',
                          'Assets/_Game/Haunt/Runtime/HauntGame.UI.cs',
+                         'Assets/_Game/Haunt/Runtime/HauntGame.Visuals.cs',
                          'Assets/_Game/Haunt/Runtime/HauntRendering.cs',
                          'Assets/_Game/Haunt/Art/HauntPixelArt.cs',
                          'Assets/_Game/Haunt/Core/DungeonFloor.cs',

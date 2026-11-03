@@ -100,7 +100,7 @@ check(re.findall(r'^    path: (.+)$', build, re.M) == ['Assets/_Game/Scenes/Haun
 check(re.findall(r'^  - enabled: (\d+)$', build, re.M) == ['1'], 'The roguelike build scene must be enabled')
 check('activeInputHandler: 1' in (ROOT / 'ProjectSettings/ProjectSettings.asset').read_text(),
       'Input System disabled')
-for relative in ('Haunt/Runtime/HauntGame.cs', 'Haunt/Runtime/HauntRendering.cs',
+for relative in ('Haunt/Runtime/HauntGame.cs', 'Haunt/Runtime/HauntGame.Visuals.cs', 'Haunt/Runtime/HauntRendering.cs',
                  'Haunt/Editor/HauntSetup.cs', 'Resources/HauntSprites.mat'):
     check((assets / '_Game' / relative).exists(), f'Missing roguelike resource: {relative}')
 for name in ('Art', 'Audio', 'Biomes', 'Core', 'Editor', 'Environment', 'Gameplay', 'Inventory',

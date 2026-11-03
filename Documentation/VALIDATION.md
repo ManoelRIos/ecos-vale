@@ -4,7 +4,7 @@ O Editor Unity não está disponível neste ambiente. A limpeza do projeto deve 
 
 ## Checks sem Unity
 
-Nesta revisão passaram 24 testes Python, a análise de sintaxe de 11 arquivos C# e 99.935 asserções do núcleo C#, incluindo 1.624 andares gerados. A compilação Unity e os testes do Editor permanecem pendentes.
+Nesta revisão passaram 24 testes Python, a análise de sintaxe de 12 arquivos C# e 99.935 asserções do núcleo C#, incluindo 1.624 andares gerados. A compilação Unity e os testes do Editor permanecem pendentes.
 
 Execute na raiz do projeto:
 
@@ -48,6 +48,9 @@ No Editor, abra **Ecos → Abrir roguelike**, pressione Play e confira:
 5. Chefe, vitória, portal e chegada segura ao Mercado das Almas.
 6. Compras, saldo insuficiente, limite por visita e preservação das melhorias no próximo andar.
 7. Pausa, morte e reinício.
-8. Legibilidade e mira em janelas de tamanhos diferentes.
+8. Legibilidade e mira em janelas de tamanhos diferentes, incluindo 860 × 500.
+9. Sprite do jogador e de cada inimigo visíveis nas duas direções; cores preservadas após dano e esquiva.
+10. Ciclos de quatro quadros de movimento, asas e velas; portas aberta/selada/guardião; rastro, recuo e partículas.
+11. Ausência de tiros ao clicar no HUD ou no minimapa, pausa com cursor visível e restauração após reinício.
 
 A compilação completa, o Play Mode, o render e o executável desta limpeza permanecem pendentes até esses checks serem executados no Editor.

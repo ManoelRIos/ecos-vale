@@ -16,7 +16,9 @@ A única cena é `Assets/_Game/Scenes/Haunt.unity`. Ela contém o componente `Ha
 
 O fluxo é: menu → entrada → salas de combate → chefe → Mercado das Almas → próximo andar. A loja é uma área separada e segura. Morrer oferece reinício com a mesma semente ou outra; não há persistência de incursões entre sessões.
 
-`HauntGame.UI.cs` contém o menu, HUD, mapa, loja, pausa e tela de morte em IMGUI. O Input System lê teclado e mouse. `HauntPixelArt` gera e mantém sprites e texturas com filtro de ponto e 16 pixels por unidade. O material `HauntSprites` usa um shader URP sem iluminação. Esses recursos pertencem à instância e são liberados ao encerrá-la.
+`HauntGame.Visuals.cs` reúne a construção visual das salas, profundidade por posição, sprites animados, marcadores, partículas e luzes de velas/portas. Os atores usam animações em cache; as partículas reutilizam até 160 objetos ativos. O deslocamento visual vertical de atores e projéteis não altera suas coordenadas de colisão.
+
+`HauntGame.UI.cs` contém o menu, HUD, mapa, loja, pausa e tela de morte em IMGUI. O Input System lê teclado e mouse. `HauntPixelArt` gera e mantém sprites e texturas com filtro de ponto e 16 pixels por unidade. O material `HauntSprites` usa um shader URP sem iluminação, com `unity_SpriteProps`/`unity_SpriteColor` conforme o shader oficial do URP 17. A biblioteca fornece `Frame(id, frame)` com quatro quadros por ciclo e seis tipos de piso. Esses recursos pertencem à instância e são liberados ao encerrá-la.
 
 ## Preparação do projeto
 

@@ -17,6 +17,18 @@ Use uma extração nova para atualizar uma cópia recebida por ZIP: sobrepor arq
 
 O log do atalho fica em `Logs/MeiaNoite-Editor.log`. `ABRIR_ECOS_DA_MEIA_NOITE.cmd /check` verifica a pasta sem abrir o Editor. O atalho recebeu verificação estática, sem execução Windows neste ambiente.
 
+## Leitura visual e animação
+
+O caçador usa capa turquesa e marfim, chapéu largo e um marcador verde-água nos pés. Inimigos têm silhuetas próprias: abóbora laranja, fantasma claro, cultista violeta e morcego de asas largas. Sprites maiores e animações de quatro quadros por criatura ajudam a reconhecer movimento e ataques.
+
+Portas abertas mostram passagem e seta luminosa; portas seladas exibem grades e cadeado; a passagem do guardião tem moldura dourada. As salas alternam entre Cripta das Raízes, Capela das Cinzas e Ossuário Lunar, com pisos irregulares, runas, musgo, velas e colunas. O mercado tem tapete e mercador próprios.
+
+Há rastro de esquiva, poeira de passos, recuo e clarão da arma, avisos de ataque, partículas de impacto/morte e pulsos de vitória. Os efeitos têm limites e reaproveitam objetos. A apresentação eleva os sprites mantendo as posições físicas do combate. O HUD e o minimapa deixam livres as saídas centrais da sala.
+
+O shader segue o contrato de cor e espelhamento do SpriteRenderer do URP 17/Unity 6. A prévia abaixo mostra os desenhos gerados; a renderização desta revisão no Editor ainda precisa ser validada.
+
+![Prévia dos sprites e poses, sem renderização do Unity](Documentation/PIXEL_ART.png)
+
 ## Combate e progressão
 
 - Andares com 7–11 salas conectadas por portas, determinadas pela semente. A entrada é segura; as saídas de uma sala de combate ficam seladas até todos os inimigos morrerem.
@@ -64,7 +76,7 @@ bash Tools/unity-check.sh build
 
 O build Windows usa `Builds/Windows/EcosDaMeiaNoite.exe`. Para empacotar as fontes, inclua os arquivos novos no índice Git e execute `python3 Tools/package_project.py`; o resultado é `Distribution/EcosDaMeiaNoite.zip`, com raiz `EcosDaMeiaNoite/`.
 
-**Estado da verificação:** o Editor Unity não está instalado neste ambiente. A importação desta limpeza, a compilação completa Unity, o Play Mode, os shaders e o build ainda precisam ser executados no Editor. Os testes Unity verificam objetos e estado, sem certificar a aparência renderizada. Consulte [VALIDATION.md](Documentation/VALIDATION.md) para o roteiro de verificação e [UNITY_TROUBLESHOOTING.md](Documentation/UNITY_TROUBLESHOOTING.md) se a abertura falhar.
+**Estado da verificação:** o Editor Unity não está instalado neste ambiente. A importação desta versão, a compilação completa Unity, o Play Mode, os shaders e o build ainda precisam ser executados no Editor. Os testes Unity verificam objetos e estado, sem certificar a aparência renderizada. Consulte [VALIDATION.md](Documentation/VALIDATION.md) para o roteiro de verificação e [UNITY_TROUBLESHOOTING.md](Documentation/UNITY_TROUBLESHOOTING.md) se a abertura falhar.
 
 Esta é uma base de combate e progressão. Armas, áudio, animação, arte e balanceamento ainda precisam de refinamento. As incursões não têm persistência entre sessões nem multiplayer.
 

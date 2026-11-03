@@ -28,6 +28,7 @@ REQUIRED_FILES = {
     'Assets/_Game/Scenes/Haunt.unity', 'Assets/_Game/Scenes/Haunt.unity.meta',
     'Assets/_Game/Haunt/Runtime/HauntGame.cs', 'Assets/_Game/Haunt/Runtime/HauntGame.cs.meta',
     'Assets/_Game/Haunt/Runtime/HauntGame.UI.cs', 'Assets/_Game/Haunt/Runtime/HauntGame.UI.cs.meta',
+    'Assets/_Game/Haunt/Runtime/HauntGame.Visuals.cs', 'Assets/_Game/Haunt/Runtime/HauntGame.Visuals.cs.meta',
     'Assets/_Game/Haunt/Runtime/HauntRendering.cs', 'Assets/_Game/Haunt/Runtime/HauntRendering.cs.meta',
     'Assets/_Game/Haunt/Art/HauntPixelArt.cs', 'Assets/_Game/Haunt/Art/HauntPixelArt.cs.meta',
     'Assets/_Game/Haunt/Core/DungeonFloor.cs', 'Assets/_Game/Haunt/Core/DungeonFloor.cs.meta',

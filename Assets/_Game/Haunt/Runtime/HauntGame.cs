@@ -45,7 +45,7 @@ namespace Ecos.Haunt
 
         sealed class Enemy
         {
-            public SpriteRenderer Sprite;
+            public SpriteRenderer Sprite, Shadow, Ring, Telegraph;
             public Vector2 Position, Dash;
             public int Kind, Health, MaxHealth;
             public float Cooldown, Phase, Tell, HurtFlash, DashTime;
@@ -62,7 +62,8 @@ namespace Ecos.Haunt
         {
             public SpriteRenderer Sprite;
             public Vector2 Velocity;
-            public float Life, Duration;
+            public float Life, Duration, Scale, Gravity, Spin;
+            public bool Expanding;
             public Color Color;
         }
 
@@ -77,10 +78,10 @@ namespace Ecos.Haunt
             view = cameraObject.AddComponent<Camera>();
             view.tag = "MainCamera";
             view.orthographic = true;
-            view.orthographicSize = 7.25f;
+            view.orthographicSize = 7.9f;
             view.nearClipPlane = .1f;
             view.farClipPlane = 50;
-            view.transform.position = new Vector3(0, 0, -20);
+            view.transform.position = new Vector3(0, .3f, -20);
             view.clearFlags = CameraClearFlags.SolidColor;
             view.backgroundColor = new Color(.025f, .018f, .05f);
             cameraObject.AddComponent<AudioListener>();
@@ -116,11 +117,17 @@ namespace Ecos.Haunt
             playerPosition = Vector2.zero;
             shotCooldown = rollRemaining = rollReady = invincible = shake = simulationTime = 0;
             player = MakeSprite("player", playerPosition, actorsRoot.transform, 20);
-            shadow = MakeSprite("muzzle", playerPosition, actorsRoot.transform, 10);
-            shadow.color = new Color(0, 0, 0, .35f);
-            shadow.transform.localScale = new Vector3(1.7f, .5f, 1);
-            gun = MakeSprite("bullet-player", playerPosition, actorsRoot.transform, 30);
-            gun.transform.localScale = new Vector3(2.6f, 1.3f, 1);
+            shadow = MakeSprite("shadow", playerPosition, actorsRoot.transform, 0);
+            shadow.color = new Color(1, 1, 1, .75f);
+            shadow.transform.localScale = new Vector3(1.6f, .8f, 1);
+            playerMarker = MakeSprite("player-ring", playerPosition, actorsRoot.transform, 20);
+            playerGlow = MakeSprite("glow", playerPosition, actorsRoot.transform, -160);
+            playerGlow.color = new Color(.3f, 1, .85f, .13f);
+            playerGlow.transform.localScale = Vector3.one * 2;
+            crosshair = MakeSprite("effect-ring", playerPosition, actorsRoot.transform, 1400);
+            walkDistance = weaponKick = 0;
+            gun = MakeSprite("weapon", playerPosition, actorsRoot.transform, 30);
+            gun.transform.localScale = Vector3.one * .75f;
             muzzle = MakeSprite("muzzle", playerPosition, actorsRoot.transform, 31);
             muzzle.enabled = false;
             EnterRoom(CurrentRoom, Vector2.zero);
@@ -146,16 +153,25 @@ namespace Ecos.Haunt
             noticeTime = Mathf.Max(0, noticeTime - realDelta);
             if (!Playing)
             {
+                Cursor.visible = true;
+                simulationTime += Mathf.Min(realDelta, .05f);
+                UpdateRoomAmbience(Mathf.Min(realDelta, .05f));
                 if (keyboard != null && keyboard.enterKey.wasPressedThisFrame) StartFromMenu();
                 return;
             }
-            if (State.IsDead) return;
+            if (State.IsDead)
+            {
+                Cursor.visible = true;
+                flash = Mathf.Max(0, flash - realDelta);
+                UpdateSparks(Mathf.Min(realDelta, .05f));
+                return;
+            }
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
             {
                 Paused = !Paused;
                 showMap = false;
             }
-            if (Paused) return;
+            if (Paused) { Cursor.visible = true; return; }
             if (keyboard != null && keyboard.mKey.wasPressedThisFrame) showMap = !showMap;
             // Clamp large frame gaps so a stalled frame cannot jump across an entire room.
             float dt = Mathf.Min(Time.deltaTime, .05f);
@@ -172,6 +188,7 @@ namespace Ecos.Haunt
             if (!InShop) UpdateEnemies(dt);
             UpdateShots(dt);
             UpdateSparks(dt);
+            UpdateVisualMotion(dt);
             if (State.IsDead)
             {
                 RollEnd();
@@ -193,6 +210,7 @@ namespace Ecos.Haunt
                 input.y = (keyboard.wKey.isPressed || keyboard.upArrowKey.isPressed ? 1 : 0)
                     - (keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed ? 1 : 0);
             }
+            Vector2 previousPosition = playerPosition;
             if (input.sqrMagnitude > 0) lastMove = input.normalized;
             var mouse = Mouse.current;
             bool dodge = (keyboard != null && keyboard.spaceKey.wasPressedThisFrame)
@@ -211,10 +229,14 @@ namespace Ecos.Haunt
                 if (rollRemaining <= 0) RollEnd();
             }
             else playerPosition = Move(playerPosition, Vector2.ClampMagnitude(input, 1) * (5.1f * dt), PlayerRadius);
-            if (!InShop && mouse != null && mouse.leftButton.isPressed && shotCooldown <= 0 && rollRemaining <= 0)
+            playerMoving = Vector2.Distance(previousPosition, playerPosition) > .001f;
+            walkDistance += Vector2.Distance(previousPosition, playerPosition);
+            if (!InShop && !PointerOverInterface() && mouse != null && mouse.leftButton.isPressed && shotCooldown <= 0 && rollRemaining <= 0)
             {
                 Vector2 aim = AimDirection();
                 Fire(playerPosition + aim * .48f, aim * 17f, true, State.Damage);
+                weaponKick = 1;
+                Emit("glow", playerPosition + Vector2.up * .35f + aim, Vector2.zero, new Color(.4f, 1, .85f, .3f), .08f, .7f, 0);
                 shotCooldown = State.ShotInterval;
                 muzzleTime = .045f;
             }
@@ -224,7 +246,7 @@ namespace Ecos.Haunt
         {
             var mouse = Mouse.current;
             if (mouse == null) return lastMove;
-            Vector2 delta = (Vector2)view.ScreenToWorldPoint(mouse.position.ReadValue()) - playerPosition;
+            Vector2 delta = (Vector2)view.ScreenToWorldPoint(mouse.position.ReadValue()) - (playerPosition + Vector2.up * .35f);
             return delta.sqrMagnitude > .001f ? delta.normalized : lastMove;
         }
 
@@ -279,6 +301,7 @@ namespace Ecos.Haunt
             playerPosition = arrival;
             doorGrace = .8f;
             roomElapsed = 0;
+            roomBannerTime = 2.5f;
             RollEnd();
             BuildRoom(false);
             if (!room.Cleared)
@@ -310,14 +333,20 @@ namespace Ecos.Haunt
 
         void SpawnEnemy(int kind, Vector2 position)
         {
-            string[] ids = { "pumpkin", "ghost", "cultist", "bat", "boss" };
             int health = kind == 4 ? 65 + State.Floor * 18 : (kind == 0 ? 5 : kind == 3 ? 2 : 4) + State.Floor;
             var enemy = new Enemy { Kind = kind, Position = position, Health = health, MaxHealth = health,
                 Cooldown = 1.2f + (float)roomRandom.NextDouble(), Phase = (float)roomRandom.NextDouble() * 6 };
-            enemy.Sprite = MakeSprite(ids[kind], position, actorsRoot.transform, 18);
+            enemy.Sprite = MakeSprite(EnemyArt[kind], position, actorsRoot.transform, Depth(position.y));
+            enemy.Shadow = MakeSprite("shadow", position, actorsRoot.transform, 0);
+            enemy.Shadow.transform.localScale = new Vector3(kind == 4 ? 3 : 1.5f, kind == 4 ? 1.4f : .7f, 1);
+            enemy.Ring = MakeSprite("enemy-ring", position, actorsRoot.transform, 15);
+            enemy.Ring.transform.localScale = Vector3.one * (kind == 4 ? 2 : 1);
+            enemy.Telegraph = MakeSprite("slash", position, actorsRoot.transform, 25);
+            enemy.Telegraph.enabled = false;
+            RingEffect(position, HostileAccent, kind == 4 ? 2 : .8f);
             if (kind == 4)
             {
-                enemy.Sprite.transform.localScale = Vector3.one * 1.7f;
+                enemy.Sprite.transform.localScale = Vector3.one * 1.15f;
                 if (State.Floor % 3 == 2) enemy.Sprite.color = new Color(.65f, 1, .9f);
                 if (State.Floor % 3 == 0) enemy.Sprite.color = new Color(1, .6f, .9f);
             }
@@ -379,13 +408,7 @@ namespace Ecos.Haunt
                 else UpdateBoss(enemy, direction, dt);
                 if (enemy.Kind != 3 || enemy.Cooldown > .5f) enemy.Tell = enemy.Cooldown < .45f ? .45f - enemy.Cooldown : 0;
                 if (distance < (enemy.Kind == 4 ? .95f : .6f)) HurtPlayer();
-                enemy.Sprite.transform.position = Snap(enemy.Position + Vector2.up * Mathf.Sin(enemy.Phase * 5) * .055f);
-                enemy.Sprite.flipX = direction.x < 0;
-                Color normal = enemy.Kind == 4 && State.Floor % 3 == 2 ? new Color(.65f, 1, .9f)
-                    : enemy.Kind == 4 && State.Floor % 3 == 0 ? new Color(1, .6f, .9f) : Color.white;
-                enemy.Sprite.color = enemy.HurtFlash > 0 ? new Color(1, .4f, .3f)
-                    : enemy.Tell > 0 ? Color.Lerp(normal, new Color(1, .35f, .45f), .5f + .5f * Mathf.Sin(simulationTime * 25)) : normal;
-                enemy.Sprite.sortingOrder = 20 - Mathf.RoundToInt(enemy.Position.y * 2);
+                PresentEnemy(enemy, direction);
             }
         }
 
@@ -431,14 +454,16 @@ namespace Ecos.Haunt
         void Fire(Vector2 origin, Vector2 velocity, bool friendly, int damage)
         {
             if (shots.Count >= MaxShots) return;
-            SpriteRenderer sprite = shotPool.Count > 0 ? shotPool.Pop() : MakeSprite("bullet-player", origin, actorsRoot.transform, 45);
+            SpriteRenderer sprite = shotPool.Count > 0 ? shotPool.Pop() : MakeSprite("bullet-player", origin, actorsRoot.transform, 1250);
             sprite.gameObject.SetActive(true);
             sprite.sprite = art.Get(friendly ? "bullet-player" : "bullet-enemy");
             sprite.color = Color.white;
-            sprite.transform.position = Snap(origin);
+            sprite.transform.localScale = Vector3.one;
+            sprite.transform.position = Snap(origin + Vector2.up * .38f);
             sprite.transform.rotation = Quaternion.Euler(0, 0, Mathf.Atan2(velocity.y, velocity.x) * Mathf.Rad2Deg);
             shots.Add(new Shot { Sprite = sprite, Position = origin, Velocity = velocity,
                 Friendly = friendly, Damage = damage, Life = 4, Radius = friendly ? .10f : .14f });
+            if (!friendly) Emit("muzzle", origin + Vector2.up * .35f, Vector2.zero, HostileAccent, .12f, .5f, 0);
         }
 
         void UpdateShots(float dt)
@@ -483,11 +508,11 @@ namespace Ecos.Haunt
                         var enemy = enemies[targetIndex];
                         enemy.Health -= shot.Damage;
                         enemy.HurtFlash = .09f;
-                        Burst(enemy.Position, new Color(1, .48f, .18f), 3);
+                        Burst(enemy.Position + Vector2.up * .38f, new Color(1, .48f, .18f), 3);
                         if (enemy.Health <= 0)
                         {
                             bool boss = enemy.Kind == 4;
-                            Destroy(enemy.Sprite.gameObject);
+                            EnemyDeath(enemy);
                             enemies.RemoveAt(targetIndex);
                             enemiesDefeated++;
                             shake = boss ? .3f : .07f;
@@ -501,11 +526,15 @@ namespace Ecos.Haunt
                     nearest = playerContact;
                     HurtPlayer();
                 }
-                if (nearest <= 1) RecycleShot(i);
+                if (nearest <= 1)
+                {
+                    if (targetIndex < 0) Burst(Vector2.Lerp(old, next, Mathf.Clamp01(nearest)) + Vector2.up * .38f, shot.Friendly ? PlayerAccent : HostileAccent, 2);
+                    RecycleShot(i);
+                }
                 else
                 {
                     shot.Position = next;
-                    shot.Sprite.transform.position = Snap(next);
+                    shot.Sprite.transform.position = Snap(next + Vector2.up * .38f);
                 }
             }
         }
@@ -525,6 +554,7 @@ namespace Ecos.Haunt
             invincible = 1.1f;
             flash = .18f;
             shake = .22f;
+            RingEffect(playerPosition, HostileAccent, 1.4f);
             Burst(playerPosition, new Color(1, .2f, .35f), 8);
         }
 
@@ -536,10 +566,13 @@ namespace Ecos.Haunt
             // Invalidate, rather than remove, hostile shots while UpdateShots is iterating.
             foreach (var shot in shots) if (!shot.Friendly) shot.Life = 0;
             State.RewardRoom(boss);
+            RingEffect(playerPosition, PlayerAccent, boss ? 3 : 1.8f);
+            Burst(playerPosition + Vector2.up, new Color(1, .76f, .3f), boss ? 18 : 10);
+            roomBannerTime = 2;
             UpdateDoorArt();
             if (boss)
             {
-                portal = MakeSprite("portal", new Vector2(0, 1.4f), roomRoot.transform, 3);
+                portal = AnimatedProp("portal", new Vector2(0, 1.4f), 450);
                 Notify("Guardião derrotado! Aproxime-se do portal e pressione E para ir ao Mercado das Almas.");
             }
             else Notify("Sala purificada • moedas recebidas. As portas estão abertas.");
@@ -598,112 +631,12 @@ namespace Ecos.Haunt
         void Buy(ShopItem item)
         {
             if (!InShop || !Playing || Paused || State.IsDead) return;
-            State.TryBuy(item, out string message);
+            bool bought = State.TryBuy(item, out string message);
+            if (bought) { RingEffect(playerPosition, PlayerAccent, 1.5f); Burst(playerPosition + Vector2.up, new Color(1, .75f, .2f), 10); }
             Notify(message);
         }
 
-        void BuildRoom(bool shop)
-        {
-            if (roomRoot)
-            {
-                roomRoot.SetActive(false);
-                Destroy(roomRoot);
-            }
-            roomRoot = new GameObject(shop ? "Mercado das Almas" : "Cripta procedural");
-            roomRoot.transform.SetParent(transform, false);
-            doors.Clear(); obstacles.Clear(); portal = null;
-            int seed = State == null ? 71319 : unchecked(State.Seed * 397 ^ State.Floor * 7919 ^ CurrentRoom.Id * 104729);
-            roomRandom = new System.Random(seed);
-            for (int y = -6; y <= 6; y++)
-                for (int x = -11; x <= 11; x++)
-                {
-                    bool wall = Mathf.Abs(x) == 11 || Mathf.Abs(y) == 6;
-                    var tile = MakeSprite(wall ? "wall" : "floor" + roomRandom.Next(3), new Vector2(x, y), roomRoot.transform, wall ? 2 : -20);
-                    if (wall && y == -6) tile.color = new Color(.65f, .65f, .8f);
-                }
-            // Symmetric cover leaves the center and all cardinal entrance lanes open.
-            if (!shop && CurrentRoom != null && CurrentRoom.Kind != RoomKind.Entrance)
-            {
-                bool boss = CurrentRoom.Kind == RoomKind.Boss;
-                int layout = roomRandom.Next(3);
-                for (int side = -1; side <= 1; side += 2)
-                    for (int row = -1; row <= 1; row += 2)
-                    {
-                        Vector2 p = new Vector2(side * (layout == 1 ? 4.5f : 3.5f), row * (boss ? 2.9f : layout == 2 ? 2.8f : 2.2f));
-                        obstacles.Add(new Rect(p.x - .45f, p.y - .38f, .9f, .76f));
-                        MakeSprite(layout == 2 && !boss ? "grave" : "pillar", p, roomRoot.transform, 5 - Mathf.RoundToInt(p.y * 2));
-                    }
-            }
-            for (int side = -1; side <= 1; side += 2)
-                for (int row = -1; row <= 1; row += 2)
-                {
-                    MakeSprite("candle", new Vector2(side * 9.3f, row * 4.6f), roomRoot.transform, 5);
-                    MakeSprite("pumpkin", new Vector2(side * 8.2f, row * 4.8f), roomRoot.transform, 4).color = new Color(.75f, .75f, .85f);
-                }
-            if (shop)
-            {
-                MakeSprite("merchant", new Vector2(0, 2.3f), roomRoot.transform, 10).transform.localScale = Vector3.one * 1.3f;
-                for (int i = 0; i < 4; i++)
-                {
-                    Vector2 p = ShopPosition(i);
-                    MakeSprite("grave", p + Vector2.down * .35f, roomRoot.transform, 4);
-                    string[] icons = { "heart", "bullet-player", "muzzle", "heart" };
-                    MakeSprite(icons[i], p + Vector2.up * .3f, roomRoot.transform, 6).transform.localScale = Vector3.one * 1.5f;
-                }
-                portal = MakeSprite("portal", new Vector2(8.4f, 0), roomRoot.transform, 3);
-            }
-            else if (CurrentRoom != null)
-            {
-                foreach (int id in CurrentRoom.Neighbors)
-                {
-                    DungeonRoom target = Floor.GetRoom(id);
-                    int dx = target.Position.X - CurrentRoom.Position.X, dy = target.Position.Y - CurrentRoom.Position.Y;
-                    var door = MakeSprite("door", new Vector2(dx * 10.45f, dy * 5.45f), roomRoot.transform, 8);
-                    if (dx != 0) door.transform.rotation = Quaternion.Euler(0, 0, dx > 0 ? -90 : 90);
-                    else if (dy < 0) door.transform.rotation = Quaternion.Euler(0, 0, 180);
-                    doors.Add(door);
-                }
-                if (CurrentRoom.Kind == RoomKind.Boss && CurrentRoom.Cleared)
-                    portal = MakeSprite("portal", new Vector2(0, 1.4f), roomRoot.transform, 3);
-            }
-        }
-
         static Vector2 ShopPosition(int index) => new Vector2(-5.4f + index * 3.6f, .5f);
-
-        void UpdateDoorArt()
-        {
-            bool closed = enemies.Count > 0;
-            foreach (var door in doors) door.color = closed ? new Color(1, .2f, .35f) : new Color(.35f, 1, .8f);
-        }
-
-        void UpdatePresentation()
-        {
-            if (!player) return;
-            Vector2 aim = AimDirection();
-            float bob = rollRemaining > 0 ? 0 : Mathf.Sin(simulationTime * 12) * .035f;
-            player.transform.position = Snap(playerPosition + Vector2.up * bob);
-            player.sortingOrder = 20 - Mathf.RoundToInt(playerPosition.y * 2);
-            player.flipX = aim.x < 0;
-            player.color = invincible > 0 && Mathf.Sin(simulationTime * 35) > 0 ? new Color(.4f, 1, .9f, .4f) : Color.white;
-            if (rollRemaining > 0) player.transform.rotation = Quaternion.Euler(0, 0, (1 - rollRemaining / RollTime) * (rollDirection.x < 0 ? -360 : 360));
-            shadow.transform.position = Snap(playerPosition + Vector2.down * .4f);
-            gun.transform.position = Snap(playerPosition + aim * .4f + Vector2.down * .08f);
-            gun.transform.rotation = Quaternion.Euler(0, 0, Mathf.Atan2(aim.y, aim.x) * Mathf.Rad2Deg);
-            gun.sortingOrder = player.sortingOrder + 1;
-            muzzle.enabled = muzzleTime > 0;
-            muzzle.transform.position = Snap(playerPosition + aim * .7f);
-            if (portal) portal.color = Color.Lerp(new Color(.45f, 1, .8f), Color.white, (Mathf.Sin(simulationTime * 3) + 1) * .5f);
-            float height = Mathf.Max(7.25f, 12.6f / Mathf.Max(.5f, view.aspect));
-            view.orthographicSize = height;
-            view.transform.position = new Vector3(Mathf.Sin(simulationTime * 143) * shake * .3f, Mathf.Cos(simulationTime * 157) * shake * .3f, -20);
-            if (InShop)
-            {
-                var keyboard = Keyboard.current;
-                if (keyboard != null && keyboard.eKey.wasPressedThisFrame)
-                    for (int i = 0; i < 4; i++)
-                        if (Vector2.Distance(playerPosition, ShopPosition(i)) < 1.5f) { Buy((ShopItem)i); break; }
-            }
-        }
 
         SpriteRenderer MakeSprite(string id, Vector2 position, Transform parent, int order)
         {
@@ -719,39 +652,18 @@ namespace Ecos.Haunt
 
         static Vector3 Snap(Vector2 position) => new Vector3(Mathf.Round(position.x * 16) / 16f, Mathf.Round(position.y * 16) / 16f, 0);
 
-        void Burst(Vector2 position, Color color, int count)
-        {
-            for (int i = 0; i < count && sparks.Count < 90; i++)
-            {
-                var sprite = MakeSprite("muzzle", position, actorsRoot.transform, 50);
-                sprite.transform.localScale = Vector3.one * .35f;
-                sprite.color = color;
-                float angle = i * 360f / count + simulationTime * 7;
-                float life = .18f + .04f * (i % 3);
-                sparks.Add(new Spark { Sprite = sprite, Velocity = Rotate(Vector2.right, angle) * (2 + i % 3),
-                    Life = life, Duration = life, Color = color });
-            }
-        }
-
-        void UpdateSparks(float dt)
-        {
-            for (int i = sparks.Count - 1; i >= 0; i--)
-            {
-                var spark = sparks[i];
-                spark.Life -= dt;
-                if (spark.Life <= 0) { Destroy(spark.Sprite.gameObject); sparks.RemoveAt(i); continue; }
-                spark.Sprite.transform.position += (Vector3)(spark.Velocity * dt);
-                spark.Sprite.color = new Color(spark.Color.r, spark.Color.g, spark.Color.b, spark.Life / spark.Duration);
-            }
-        }
-
         void ClearCombat()
         {
-            foreach (var enemy in enemies) if (enemy.Sprite) Destroy(enemy.Sprite.gameObject);
+            foreach (var enemy in enemies)
+            {
+                if (enemy.Sprite) Destroy(enemy.Sprite.gameObject);
+                if (enemy.Shadow) Destroy(enemy.Shadow.gameObject);
+                if (enemy.Ring) Destroy(enemy.Ring.gameObject);
+                if (enemy.Telegraph) Destroy(enemy.Telegraph.gameObject);
+            }
             enemies.Clear();
             for (int i = shots.Count - 1; i >= 0; i--) RecycleShot(i);
-            foreach (var spark in sparks) if (spark.Sprite) Destroy(spark.Sprite.gameObject);
-            sparks.Clear();
+            for (int i = sparks.Count - 1; i >= 0; i--) RecycleSpark(i);
         }
 
         void ClearActors()
@@ -761,6 +673,10 @@ namespace Ecos.Haunt
             if (shadow) Destroy(shadow.gameObject);
             if (gun) Destroy(gun.gameObject);
             if (muzzle) Destroy(muzzle.gameObject);
+            if (playerMarker) Destroy(playerMarker.gameObject);
+            if (playerGlow) Destroy(playerGlow.gameObject);
+            if (crosshair) Destroy(crosshair.gameObject);
+            playerMarker = playerGlow = crosshair = null;
             player = shadow = gun = muzzle = null;
         }
 
@@ -776,6 +692,7 @@ namespace Ecos.Haunt
 
         void OnDestroy()
         {
+            Cursor.visible = true;
             if (art != null) art.Dispose();
             if (panelTexture) Destroy(panelTexture);
         }

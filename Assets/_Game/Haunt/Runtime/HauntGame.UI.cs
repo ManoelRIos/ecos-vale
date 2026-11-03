@@ -5,11 +5,11 @@ namespace Ecos.Haunt
     public sealed partial class HauntGame
     {
         static readonly Color Ink = new Color(.035f, .025f, .07f, .97f);
-        static readonly Color Muted = new Color(.56f, .55f, .66f);
+        static readonly Color Muted = new Color(.72f, .72f, .8f);
         static readonly Color Mint = new Color(.48f, .96f, .77f);
         static readonly Color Orange = new Color(1, .58f, .24f);
         Texture2D panelTexture;
-        GUIStyle titleStyle, headingStyle, bodyStyle, smallStyle, buttonStyle, fieldStyle;
+        GUIStyle titleStyle, headingStyle, bodyStyle, smallStyle, hudStyle, buttonStyle, fieldStyle;
         bool stylesReady;
 
         void EnsureStyles()
@@ -21,8 +21,9 @@ namespace Ecos.Haunt
             panelTexture.Apply();
             titleStyle = new GUIStyle(GUI.skin.label) { fontSize = 56, fontStyle = FontStyle.Bold, wordWrap = false };
             headingStyle = new GUIStyle(GUI.skin.label) { fontSize = 22, fontStyle = FontStyle.Bold };
-            bodyStyle = new GUIStyle(GUI.skin.label) { fontSize = 16, wordWrap = true };
-            smallStyle = new GUIStyle(GUI.skin.label) { fontSize = 13, wordWrap = true };
+            bodyStyle = new GUIStyle(GUI.skin.label) { fontSize = 18, wordWrap = true };
+            smallStyle = new GUIStyle(GUI.skin.label) { fontSize = 15, wordWrap = true };
+            hudStyle = new GUIStyle(GUI.skin.label) { fontSize = 18, fontStyle = FontStyle.Bold, wordWrap = false };
             buttonStyle = new GUIStyle(GUI.skin.button) { fontSize = 16, fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter, border = new RectOffset(0, 0, 0, 0) };
             buttonStyle.normal.background = panelTexture;
@@ -63,8 +64,8 @@ namespace Ecos.Haunt
             }
             if (noticeTime > 0 && !Paused)
             {
-                Fill(new Rect(210, 640, 860, 43), new Color(.025f, .02f, .05f, .96f));
-                Text(new Rect(228, 650, 824, 34), notice, smallStyle, Mint);
+                Panel(new Rect(22, 616, 472, 66), new Color(.18f, .4f, .35f));
+                Text(new Rect(36, 624, 444, 54), notice, smallStyle, Mint);
             }
             GUI.matrix = previous;
             GUI.color = color;
@@ -72,7 +73,7 @@ namespace Ecos.Haunt
 
         void DrawMenu()
         {
-            Fill(new Rect(0, 0, 1280, 720), new Color(.02f, .012f, .045f, .8f));
+            Fill(new Rect(0, 0, 1280, 720), new Color(.02f, .012f, .045f, .48f));
             Fill(new Rect(60, 86, 5, 526), Orange);
             Text(new Rect(90, 82, 570, 25), "UM ROGUELIKE DE PÓLVORA E ASSOMBRAÇÕES", smallStyle, Orange);
             Text(new Rect(86, 127, 650, 72), "ECOS DA", titleStyle, new Color(.95f, .92f, .85f));
@@ -82,7 +83,9 @@ namespace Ecos.Haunt
             seedText = GUI.TextField(new Rect(92, 418, 435, 44), seedText, 11, fieldStyle);
             if (Button(new Rect(92, 480, 435, 56), "INICIAR INCURSÃO     →", Orange)) StartFromMenu();
             Text(new Rect(92, 552, 460, 32), "ENTER para começar  •  PC / teclado e mouse", smallStyle, Muted);
-            Text(new Rect(92, 592, 470, 48), "PROTÓTIPO 01  •  salas procedurais / combate / mercado", smallStyle, Mint);
+            Text(new Rect(92, 592, 470, 48), "SALAS PROCEDURAIS  •  COMBATE  •  MERCADO", smallStyle, Mint);
+            DrawIcon(new Rect(570, 398, 110, 138), "player");
+            Text(new Rect(557, 550, 145, 40), "VOCÊ\nCAÇADOR", smallStyle, Mint);
 
             Panel(new Rect(740, 100, 446, 504), new Color(.25f, .22f, .35f));
             Text(new Rect(770, 126, 380, 40), "O QUE HABITA A CRIPTA", headingStyle, Mint);
@@ -102,51 +105,97 @@ namespace Ecos.Haunt
 
         void DrawHud()
         {
-            Fill(new Rect(0, 0, 1280, 77), Ink);
-            Fill(new Rect(0, 76, 1280, 2), new Color(.25f, .18f, .31f));
-            Text(new Rect(28, 14, 240, 30), "ECOS DA MEIA-NOITE", headingStyle, Orange);
-            Text(new Rect(30, 48, 285, 20), "ANDAR " + State.Floor + (InShop ? "  /  MERCADO DAS ALMAS" : "  /  CRIPTA MUTÁVEL"), smallStyle, Muted);
+            // Keep the entire header in one 64px strip; no title or boss bar sits
+            // over a doorway. The interface uses the same bounds for pointer capture.
+            Fill(new Rect(0, 0, 1280, 64), Ink);
+            Fill(new Rect(0, 63, 1280, 2), new Color(.24f, .3f, .34f));
+            Text(new Rect(22, 8, 290, 27), "ECOS DA MEIA-NOITE", hudStyle, Orange);
+            Text(new Rect(23, 35, 290, 25), "ANDAR " + State.Floor + (InShop ? "  /  MERCADO" : "  /  INCURSÃO"), smallStyle, Muted);
             for (int i = 0; i < State.MaxHealth; i++)
             {
-                Rect heart = new Rect(333 + (i % 10) * 25, i < 10 ? 16 : 43, 22, 24);
-                Color old = GUI.color;
+                Rect heart = new Rect(329 + (i % 10) * 22, i < 10 ? 8 : 33, 19, 21);
+                Color previous = GUI.color;
                 GUI.color = i < State.Health ? Color.white : new Color(.3f, .25f, .33f);
                 DrawIcon(heart, "heart");
-                GUI.color = old;
+                GUI.color = previous;
             }
-            DrawIcon(new Rect(667, 24, 24, 24), "coin");
-            Text(new Rect(700, 19, 100, 30), State.Coins.ToString("000"), headingStyle, Orange);
-            Text(new Rect(820, 14, 250, 25), "DANO " + State.Damage + "   •   " + (1f / State.ShotInterval).ToString("0.0") + " TIROS/S", smallStyle, Mint);
-            Text(new Rect(820, 42, 230, 24), rollReady <= 0 ? "ESQUIVA PRONTA" : "ESQUIVA RECARREGANDO", smallStyle, rollReady <= 0 ? Mint : Muted);
-            Fill(new Rect(1060, 26, 160, 7), new Color(.16f, .13f, .22f));
-            Fill(new Rect(1060, 26, 160 * (1 - Mathf.Clamp01(rollReady / RollCooldown)), 7), Mint);
-            Text(new Rect(1060, 43, 190, 22), "ESPAÇO / BOTÃO DIREITO", smallStyle, Muted);
+            DrawIcon(new Rect(582, 18, 24, 26), "coin");
+            Text(new Rect(616, 17, 112, 30), State.Coins.ToString("000"), headingStyle, Orange);
+            Enemy boss = null;
+            foreach (var enemy in enemies) if (enemy.Kind == 4) { boss = enemy; break; }
+            if (boss != null)
+            {
+                Text(new Rect(748, 8, 305, 27), BossNames[(State.Floor - 1) % 3], smallStyle, Orange);
+                Fill(new Rect(750, 40, 294, 8), new Color(.23f, .1f, .18f));
+                Fill(new Rect(750, 40, 294f * boss.Health / boss.MaxHealth, 8), new Color(.96f, .26f, .38f));
+            }
+            else
+            {
+                Text(new Rect(748, 8, 304, 25), "DANO " + State.Damage + "   /   " + (1f / State.ShotInterval).ToString("0.0") + " TIROS/S", smallStyle, Mint);
+                Text(new Rect(748, 35, 304, 25), State.Health + " / " + State.MaxHealth + " VIDA  •  M PARA MAPA", smallStyle, Muted);
+            }
+            Text(new Rect(1080, 8, 190, 25), rollReady <= 0 ? "ESQUIVA PRONTA" : "RECARREGANDO", smallStyle, rollReady <= 0 ? Mint : Muted);
+            Fill(new Rect(1082, 38, 168, 7), new Color(.16f, .13f, .22f));
+            Fill(new Rect(1082, 38, 168 * (1 - Mathf.Clamp01(rollReady / RollCooldown)), 7), Mint);
+
             if (!InShop)
             {
-                DrawMap(new Rect(1094, 92, 164, 155), false);
-                string roomTitle = CurrentRoom.Kind == RoomKind.Boss ? "CÂMARA DO GUARDIÃO" : CurrentRoom.Kind == RoomKind.Entrance ? "LIMIAR DA CRIPTA" : "SALA " + CurrentRoom.Id.ToString("00");
-                Text(new Rect(30, 94, 470, 28), roomTitle, smallStyle, Mint);
-                Text(new Rect(30, 122, 520, 30), enemies.Count > 0 ? enemies.Count + " ameaças • portas seladas" : "Portas abertas • caminhe até uma saída", smallStyle, enemies.Count > 0 ? Orange : Muted);
-                foreach (var enemy in enemies)
-                    if (enemy.Kind == 4)
-                    {
-                        Fill(new Rect(370, 91, 540, 48), Ink);
-                        Text(new Rect(385, 94, 510, 24), BossNames[(State.Floor - 1) % 3], smallStyle, Orange);
-                        Fill(new Rect(385, 122, 510, 6), new Color(.23f, .1f, .18f));
-                        Fill(new Rect(385, 122, 510f * enemy.Health / enemy.MaxHealth, 6), new Color(.91f, .23f, .3f));
-                        break;
-                    }
+                string roomTitle = CurrentRoom.Kind == RoomKind.Boss ? "CÂMARA DO GUARDIÃO"
+                    : CurrentRoom.Kind == RoomKind.Entrance ? "LIMIAR DA CRIPTA" : "SALA " + CurrentRoom.Id.ToString("00");
+                Color accent = enemies.Count > 0 ? Orange : Mint;
+                Color border = Color.Lerp(new Color(.15f, .2f, .25f), accent, Mathf.Clamp01(roomBannerTime));
+                Panel(new Rect(22, 82, 320, 89), border);
+                Text(new Rect(36, 89, 296, 24), roomTitle, hudStyle, accent);
+                Text(new Rect(36, 115, 296, 23), RoomThemeName, smallStyle, Color.white);
+                Text(new Rect(36, 142, 296, 22), enemies.Count > 0 ? enemies.Count + " AMEAÇAS  /  PORTAS SELADAS" : "PURIFICADA  /  SAÍDAS ABERTAS", smallStyle, accent);
+                DrawMap(new Rect(1110, 538, 146, 140), false);
+                DrawDoorLabels();
+                if (roomBannerTime > 0 && !Paused && !State.IsDead)
+                    WorldTag(playerPosition, "VOCÊ", Mint, 2.05f, 92);
                 if (CurrentRoom.Kind == RoomKind.Boss && CurrentRoom.Cleared)
                     WorldTag(new Vector2(0, 1.4f), "[E] MERCADO DAS ALMAS", Mint);
             }
             else
             {
-                Text(new Rect(30, 95, 630, 30), "MERCADO DAS ALMAS  /  AQUI A NOITE DÁ UMA TRÉGUA", smallStyle, Mint);
-                WorldTag(new Vector2(8.4f, .1f), "[E] PRÓXIMO ANDAR", Mint);
+                Panel(new Rect(22, 82, 430, 59), new Color(.3f, .5f, .4f));
+                Text(new Rect(36, 89, 403, 25), "MERCADO DAS ALMAS", hudStyle, Mint);
+                Text(new Rect(36, 116, 403, 23), "ÁREA SEGURA  /  ESCOLHA SUAS MELHORIAS", smallStyle, Muted);
+                WorldTag(new Vector2(8.4f, .1f), "[E] PRÓXIMO ANDAR", Mint, 1.6f, 216);
             }
             Fill(new Rect(0, 692, 1280, 28), Ink);
-            Text(new Rect(25, 696, 1020, 23), "WASD mover   •   Mouse mirar / atirar   •   Espaço esquivar   •   E interagir   •   M mapa   •   Esc pausa", smallStyle, Muted);
-            Text(new Rect(1055, 696, 220, 23), "SEED " + State.Seed, smallStyle, Muted);
+            Text(new Rect(22, 695, 1018, 25), "WASD mover  •  Mouse mirar / atirar  •  Espaço esquivar  •  E interagir  •  M mapa  •  Esc pausa", smallStyle, Muted);
+            Text(new Rect(1056, 695, 220, 25), "SEED " + State.Seed, smallStyle, Muted);
+        }
+
+        void DrawDoorLabels()
+        {
+            if (Paused || State.IsDead) return;
+            for (int i = 0; i < doors.Count && i < CurrentRoom.Neighbors.Count; i++)
+            {
+                Vector2 position = doors[i].transform.position;
+                if (Vector2.Distance(position, playerPosition) > 3.7f) continue;
+                DungeonRoom next = Floor.GetRoom(CurrentRoom.Neighbors[i]);
+                Vector2 direction = new Vector2(next.Position.X - CurrentRoom.Position.X, next.Position.Y - CurrentRoom.Position.Y);
+                bool locked = enemies.Count > 0;
+                string arrow = direction.x > 0 ? "→" : direction.x < 0 ? "←" : direction.y > 0 ? "↑" : "↓";
+                string label = locked ? "×  SELADA" : arrow + (next.Kind == RoomKind.Boss && !next.Cleared ? "  GUARDIÃO" : "  SAÍDA ABERTA");
+                float rise = direction.y > 0 ? -.25f : direction.y < 0 ? 1.7f : 1.45f;
+                WorldTag(position - direction * 1.15f, label, locked ? new Color(1, .48f, .48f) : Mint, rise, 190);
+            }
+        }
+
+        // The world should not fire through a click on an interface panel.
+        bool PointerOverInterface()
+        {
+            if (!Playing || Paused || InShop || State.IsDead || showMap) return true;
+            var mouse = UnityEngine.InputSystem.Mouse.current;
+            if (mouse == null) return false;
+            float scale = Mathf.Max(.01f, Mathf.Min(Screen.width / 1280f, Screen.height / 720f));
+            Vector2 p = mouse.position.ReadValue();
+            p.x = (p.x - (Screen.width - 1280 * scale) * .5f) / scale;
+            p.y = (Screen.height - p.y - (Screen.height - 720 * scale) * .5f) / scale;
+            return new Rect(0, 0, 1280, 64).Contains(p) || new Rect(0, 692, 1280, 28).Contains(p)
+                || new Rect(22, 82, 320, 89).Contains(p) || new Rect(1110, 538, 146, 140).Contains(p);
         }
 
         void DrawShop()
@@ -179,8 +228,8 @@ namespace Ecos.Haunt
                 minX = Mathf.Min(minX, room.Position.X); maxX = Mathf.Max(maxX, room.Position.X);
                 minY = Mathf.Min(minY, room.Position.Y); maxY = Mathf.Max(maxY, room.Position.Y);
             }
-            float top = expanded ? 65 : 16;
-            float bottom = expanded ? 70 : 16;
+            float top = expanded ? 65 : 12;
+            float bottom = expanded ? 70 : 26;
             float spacing = Mathf.Min((rect.width - 40) / (maxX - minX + 1), (rect.height - top - bottom) / (maxY - minY + 1));
             spacing = Mathf.Min(spacing, expanded ? 48 : 24);
             Vector2 center = new Vector2(rect.center.x - (minX + maxX) * .5f * spacing,
@@ -205,8 +254,9 @@ namespace Ecos.Haunt
             }
             if (expanded)
             {
-                Text(new Rect(rect.x + 20, rect.yMax - 53, rect.width - 40, 40), "Branco: você  •  Verde: purificada\nVermelho: guardião  •  M para fechar", smallStyle, Muted);
+                Text(new Rect(rect.x + 20, rect.yMax - 53, rect.width - 40, 44), "Branco: você  •  Verde: purificada\nVermelho: guardião  •  M para fechar", smallStyle, Muted);
             }
+            else Text(new Rect(rect.x + 15, rect.yMax - 26, rect.width - 30, 23), "M  /  MAPA", smallStyle, Muted);
         }
 
         void DrawPause()
@@ -231,16 +281,18 @@ namespace Ecos.Haunt
             if (Button(new Rect(392, 479, 496, 44), "VOLTAR AO MENU", new Color(.65f, .58f, .73f))) ReturnToMenu();
         }
 
-        void WorldTag(Vector2 world, string label, Color color)
+        void WorldTag(Vector2 world, string label, Color color, float rise = 1.3f, float width = 248)
         {
-            Vector3 screen = view.WorldToScreenPoint(world + Vector2.up * 1.3f);
+            Vector3 screen = view.WorldToScreenPoint(world + Vector2.up * rise);
             float scale = Mathf.Min(Screen.width / 1280f, Screen.height / 720f);
             float x = (screen.x - (Screen.width - 1280 * scale) * .5f) / scale;
             float y = (Screen.height - screen.y - (Screen.height - 720 * scale) * .5f) / scale;
-            Fill(new Rect(x - 124, y - 2, 248, 27), Ink);
+            x = Mathf.Clamp(x, width * .5f + 8, 1272 - width * .5f);
+            y = Mathf.Clamp(y, 68, 660);
+            Fill(new Rect(x - width * .5f, y - 2, width, 29), Ink);
             var old = smallStyle.alignment;
             smallStyle.alignment = TextAnchor.MiddleCenter;
-            Text(new Rect(x - 121, y, 242, 24), label, smallStyle, color);
+            Text(new Rect(x - width * .5f + 3, y, width - 6, 26), label, smallStyle, color);
             smallStyle.alignment = old;
         }
 

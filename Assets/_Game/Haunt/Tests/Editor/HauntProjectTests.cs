@@ -45,6 +45,31 @@ namespace Ecos.Haunt.Tests
         }
 
         [Test]
+        public void AnimationFramesReuseTexturesAndKeepStableBounds()
+        {
+            using (var art = new HauntPixelArt())
+            {
+                foreach (string id in new[] { "player", "pumpkin", "ghost", "cultist", "bat", "boss", "merchant", "candle", "portal" })
+                {
+                    var frames = new Sprite[4];
+                    for (int i = 0; i < 4; i++)
+                    {
+                        frames[i] = art.Frame(id, i);
+                        Assert.AreEqual(frames[0].rect, frames[i].rect, "Animation bounds must not jitter: " + id);
+                        Assert.AreEqual(frames[0].pivot, frames[i].pivot, id);
+                        Assert.AreEqual(FilterMode.Point, frames[i].texture.filterMode, id);
+                    }
+                    Assert.AreNotSame(frames[0], frames[1], "Poses need distinct cached sprites: " + id);
+                    Assert.AreSame(frames[3], art.Frame(id, -1), id);
+                    for (int i = 0; i < 240; i++)
+                        Assert.AreSame(frames[i % 4], art.Frame(id, i), "Repeated animation must not allocate more textures: " + id);
+                }
+                foreach (string id in new[] { "floor3", "floor4", "floor5", "door-open", "door-locked", "door-boss", "shadow", "player-ring", "enemy-ring", "glow", "rune", "rug", "weapon", "slash", "dust", "spark", "effect-ring" })
+                    Assert.IsNotNull(art.Get(id), id);
+            }
+        }
+
+        [Test]
         public void PixelArtHasPointFilteredStableSpritesAndMaterial()
         {
             using (var art = new HauntPixelArt())
