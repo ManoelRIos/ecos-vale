@@ -49,7 +49,7 @@ namespace Ecos.Haunt.Tests
         {
             using (var art = new HauntPixelArt())
             {
-                foreach (string id in new[] { "player", "medium", "reaper", "alchemist", "widow", "bishop", "larva", "sentinel", "acolyte", "matriarch", "bell", "pumpkin", "ghost", "cultist", "bat", "boss", "merchant", "candle", "portal" })
+                foreach (string id in new[] { "player", "medium", "reaper", "alchemist", "widow", "bishop", "larva", "sentinel", "acolyte", "matriarch", "bell", "pumpkin", "ghost", "cultist", "bat", "boss", "merchant", "candle", "portal", "top-shot" })
                 {
                     var frames = new Sprite[4];
                     for (int i = 0; i < 4; i++)
@@ -102,6 +102,53 @@ namespace Ecos.Haunt.Tests
                     }
                 }
             }
+        }
+
+        [Test]
+        public void BossBarsAndWhimsicalShopArtUseStablePixelBounds()
+        {
+            using (var art = new HauntPixelArt())
+            {
+                for (int boss = 0; boss < 5; boss++)
+                {
+                    var frame = art.Get("boss-bar" + boss);
+                    var fill = art.Get("boss-fill" + boss);
+                    Assert.AreEqual(new Rect(0, 0, 240, 24), frame.rect, "All boss frames must fit the same health window");
+                    Assert.AreEqual(new Rect(0, 0, 16, 8), fill.rect);
+                    Assert.AreEqual(FilterMode.Point, frame.texture.filterMode);
+                    Assert.AreSame(frame, art.Get("boss-bar" + boss));
+                }
+                foreach (string id in new[] { "stapler", "banana-gun", "spinning-top", "staple-shot", "banana-shot", "top-shot", "shop-counter", "shop-shelf", "shop-case", "shop-board" })
+                {
+                    var sprite = art.Get(id);
+                    Assert.IsNotNull(sprite, id);
+                    Assert.AreEqual(FilterMode.Point, sprite.texture.filterMode, id);
+                    Assert.AreSame(sprite, art.Get(id), id);
+                }
+            }
+        }
+
+        [Test]
+        public void BitmapTextNormalizesPortugueseAndWrapsWordsWithoutDroppingLetters()
+        {
+            const BindingFlags flags = BindingFlags.NonPublic | BindingFlags.Static;
+            var normalize = typeof(HauntPixelText).GetMethod("Normalize", flags);
+            var layout = typeof(HauntPixelText).GetMethod("Layout", flags);
+            Assert.IsNotNull(normalize);
+            Assert.IsNotNull(layout);
+            string normalized = (string)normalize.Invoke(null, new object[] { "Coração · banana → 25% ç" });
+            Assert.AreEqual("CORACAO * BANANA > 25% C", normalized);
+            var words = ((IEnumerable)layout.Invoke(null, new object[] { "COMPRE UMA BANANA", 7, true })).Cast<string>().ToArray();
+            CollectionAssert.AreEqual(new[] { "COMPRE", "UMA", "BANANA" }, words);
+            var split = ((IEnumerable)layout.Invoke(null, new object[] { "GRAMPEADOR", 4, true })).Cast<string>().ToArray();
+            Assert.IsTrue(split.All(line => line.Length <= 4));
+            Assert.AreEqual("GRAMPEADOR", string.Concat(split));
+            var lines = ((IEnumerable)layout.Invoke(null, new object[] { "ALMAS\n50", 3, false })).Cast<string>().ToArray();
+            CollectionAssert.AreEqual(new[] { "ALMAS", "50" }, lines);
+            var text = new HauntPixelText();
+            text.Dispose();
+            Assert.DoesNotThrow(text.Dispose);
+            Assert.Throws<ObjectDisposedException>(() => text.Draw(new Rect(0, 0, 10, 10), "A", 1, Color.white));
         }
 
         [Test]
@@ -202,6 +249,13 @@ namespace Ecos.Haunt.Tests
             var info = typeof(HauntGame).GetField(field, PrivateInstance);
             Assert.IsNotNull(info, "Runtime field missing: " + field);
             info.SetValue(game, value);
+        }
+
+        static T Field<T>(object target, string name)
+        {
+            var field = target.GetType().GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            Assert.IsNotNull(field, "Missing state field: " + name);
+            return (T)field.GetValue(target);
         }
 
         static void StartFloor(HauntGame game, int seed, int number)
@@ -569,7 +623,7 @@ namespace Ecos.Haunt.Tests
                 Assert.IsTrue(NearestExit(game, out destination));
                 Assert.Less(Vector2.Distance(new Vector2(0, 1.4f), destination), .05f, "After a boss, the market portal takes priority over a nearby door");
                 Invoke(game, "OpenShop");
-                Assert.IsFalse(NearestExit(game, out _), "A modal shop must not retain the guide");
+                Assert.IsFalse(NearestExit(game, out _), "The market must not retain the combat exit guide");
                 yield return null;
                 LogAssert.NoUnexpectedReceived();
             }
@@ -599,6 +653,139 @@ namespace Ecos.Haunt.Tests
                 Assert.IsTrue(glow.gameObject.activeInHierarchy);
                 Invoke(game, "ClearCombat");
                 Assert.IsFalse(glow.gameObject.activeInHierarchy, "Room cleanup must leave no luminous projectile behind");
+                yield return null;
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally { UnityEngine.Object.Destroy(root); }
+        }
+
+        [UnityTest]
+        public IEnumerator WalkableMarketRequiresMerchantInteractionBeforeBuying()
+        {
+            var root = new GameObject("Haunt walkable market test");
+            try
+            {
+                var game = root.AddComponent<HauntGame>();
+                game.BeginRun(42);
+                game.State.BossDefeated = true;
+                game.State.Coins = 1000;
+                Invoke(game, "OpenShop");
+                Assert.IsTrue(game.InShop);
+                Assert.IsFalse(Field<bool>(game, "shopMenuOpen"), "Entering the market must show the room, not the catalog");
+                Assert.IsFalse((bool)Invoke(game, "PointerOverInterface"), "The walkable shop must not act as a modal screen");
+                int coins = game.State.Coins;
+                Invoke(game, "Buy", ShopItem.Stapler);
+                Assert.AreEqual(coins, game.State.Coins, "No purchase can occur with the catalog closed");
+                Assert.IsFalse(game.State.Owns(WeaponKind.Stapler));
+                Assert.IsFalse((bool)Invoke(game, "TryOpenMerchantAt", new Vector2(0, 3.6f)), "A distant click cannot open the catalog");
+                Set(game, "playerPosition", new Vector2(0, 1.3f));
+                Assert.IsTrue((bool)Invoke(game, "Blocked", new Vector2(0, 2.4f), .27f), "The counter is real cover, not a walk-through painting");
+                Assert.IsFalse((bool)Invoke(game, "TryOpenMerchantAt", new Vector2(6, 0)), "Clicking a display does not open or buy the catalog");
+                Assert.IsTrue((bool)Invoke(game, "TryOpenMerchantAt", new Vector2(0, 3.6f)));
+                Assert.IsTrue(Field<bool>(game, "shopMenuOpen"));
+                Assert.IsTrue((bool)Invoke(game, "PointerOverInterface"));
+                Vector2 standing = game.PlayerPosition;
+                Set(game, "rollRemaining", .2f);
+                Set(game, "rollDirection", Vector2.right);
+                Invoke(game, "UpdatePlayer", null, .02f);
+                Assert.AreEqual(standing, game.PlayerPosition, "The catalog stops player movement");
+                Invoke(game, "Buy", ShopItem.Stapler);
+                Assert.IsTrue(game.State.Owns(WeaponKind.Stapler));
+                Assert.AreEqual(coins - game.State.Price(ShopItem.Stapler), game.State.Coins);
+                Invoke(game, "Buy", ShopItem.Stapler);
+                Assert.AreEqual(coins - game.State.Price(ShopItem.Stapler), game.State.Coins, "The same weapon cannot charge twice");
+                int number = game.State.Floor;
+                Invoke(game, "LeaveShop");
+                Assert.AreEqual(number, game.State.Floor, "The catalog cannot skip the room's exit portal");
+                Invoke(game, "CloseMerchant");
+                Assert.IsFalse(Field<bool>(game, "shopMenuOpen"));
+                Set(game, "rollRemaining", .2f);
+                Set(game, "rollDirection", Vector2.right);
+                Invoke(game, "UpdatePlayer", null, .02f);
+                Assert.Greater(game.PlayerPosition.x, standing.x, "Movement resumes after closing the catalog");
+                Invoke(game, "FireWeapon", Vector2.right);
+                Assert.AreEqual(0, game.ActiveProjectiles, "The market stays safe even while the room is walkable");
+                Set(game, "playerPosition", new Vector2(12.5f, 0));
+                Invoke(game, "Interact");
+                Assert.IsFalse(game.InShop);
+                Assert.AreEqual(number + 1, game.State.Floor);
+                Assert.IsTrue(game.State.Owns(WeaponKind.Stapler), "Purchases survive the next floor");
+                Assert.AreEqual(0, game.ActiveProjectiles);
+                yield return null;
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally { UnityEngine.Object.Destroy(root); }
+        }
+
+        [UnityTest]
+        public IEnumerator NewWeaponsProducePairedCurvedAndPiercingProjectiles()
+        {
+            var root = new GameObject("Haunt playful weapons test");
+            try
+            {
+                var game = root.AddComponent<HauntGame>();
+                game.BeginRun(42);
+                game.State.BossDefeated = true;
+                game.State.Coins = 1000;
+                foreach (var item in new[] { ShopItem.Stapler, ShopItem.Banana, ShopItem.SpinningTop })
+                    Assert.IsTrue(game.State.TryBuy(item, out _));
+                game.State.Equip(WeaponKind.Stapler);
+                Invoke(game, "FireWeapon", Vector2.right);
+                var shots = Field<IList>(game, "shots");
+                Assert.AreEqual(2, shots.Count, "The stapler emits a pair of staples");
+                Assert.AreEqual(WeaponKind.Stapler, Field<WeaponKind>(shots[0], "Style"));
+                Assert.AreEqual(WeaponKind.Stapler, Field<WeaponKind>(shots[1], "Style"));
+                Assert.Greater(Vector2.Distance(Field<Vector2>(shots[0], "Position"), Field<Vector2>(shots[1], "Position")), .2f);
+                StringAssert.Contains("staple-shot", Field<SpriteRenderer>(shots[0], "Sprite").sprite.name);
+                Invoke(game, "ClearCombat");
+                game.State.Equip(WeaponKind.Banana);
+                Invoke(game, "FireWeapon", Vector2.right);
+                Assert.AreEqual(1, shots.Count);
+                var banana = shots[0];
+                Assert.AreEqual(game.State.Damage * 3, Field<int>(banana, "Damage"));
+                Invoke(game, "UpdateShots", .1f);
+                Assert.Greater(Field<Vector2>(banana, "Velocity").y, 0, "The banana's flight actually bends after launch");
+                Assert.Greater(Field<Vector2>(banana, "Position").y, 0);
+                Invoke(game, "ClearCombat");
+                game.State.Equip(WeaponKind.SpinningTop);
+                for (int x = 1; x <= 3; x++) Invoke(game, "SpawnEnemy", 0, new Vector2(x, 0));
+                var enemies = Field<IList>(game, "enemies");
+                object[] targets = enemies.Cast<object>().ToArray();
+                int[] health = targets.Select(enemy => Field<int>(enemy, "Health")).ToArray();
+                Invoke(game, "FireWeapon", Vector2.right);
+                Invoke(game, "UpdateShots", .01f);
+                Assert.AreEqual(health[0] - game.State.Damage * 2, Field<int>(targets[0], "Health"));
+                Invoke(game, "UpdateShots", .01f);
+                Assert.AreEqual(health[0] - game.State.Damage * 2, Field<int>(targets[0], "Health"), "An overlapping top must not hit the same enemy twice");
+                for (int step = 0; step < 15; step++) Invoke(game, "UpdateShots", .05f);
+                for (int i = 0; i < targets.Length; i++)
+                    Assert.AreEqual(health[i] - game.State.Damage * 2, Field<int>(targets[i], "Health"), "The top pierces three distinct enemies");
+                Assert.AreEqual(0, shots.Count, "The top is consumed after its third target");
+                yield return null;
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally { UnityEngine.Object.Destroy(root); }
+        }
+
+        [UnityTest]
+        public IEnumerator SpinningTopStillStopsAtCoverBeforeAnEnemy()
+        {
+            var root = new GameObject("Haunt top cover test");
+            try
+            {
+                var game = root.AddComponent<HauntGame>();
+                game.BeginRun(42);
+                game.State.BossDefeated = true;
+                game.State.Coins = 1000;
+                Assert.IsTrue(game.State.TryBuy(ShopItem.SpinningTop, out _));
+                Invoke(game, "SpawnEnemy", 0, new Vector2(3, 0));
+                var enemy = Field<IList>(game, "enemies")[0];
+                int health = Field<int>(enemy, "Health");
+                Field<IList>(game, "obstacles").Add(new Rect(1.5f, -.5f, .3f, 1));
+                Invoke(game, "FireWeapon", Vector2.right);
+                for (int step = 0; step < 10; step++) Invoke(game, "UpdateShots", .05f);
+                Assert.AreEqual(0, game.ActiveProjectiles, "Piercing actors must not permit tunnelling through cover");
+                Assert.AreEqual(health, Field<int>(enemy, "Health"));
                 yield return null;
                 LogAssert.NoUnexpectedReceived();
             }

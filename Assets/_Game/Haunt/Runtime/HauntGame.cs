@@ -39,7 +39,8 @@ namespace Ecos.Haunt
         Vector2 playerPosition, lastMove = Vector2.down, rollDirection;
         float shotCooldown, rollRemaining, rollReady, invincible, doorGrace, roomElapsed, flash, shake, muzzleTime;
         float simulationTime;
-        bool showMap;
+        bool showMap, shopMenuOpen;
+        static Vector2 MerchantPosition => new Vector2(0, 3.6f);
         string seedText = "", notice = "", renderingFailure;
         float noticeTime;
         int roomsCleared, enemiesDefeated;
@@ -63,6 +64,10 @@ namespace Ecos.Haunt
             public float Life, Radius, TrailTimer;
             public Color Color;
             public bool Heavy;
+            public WeaponKind Style;
+            public float Age, Curve, Spin;
+            public int Pierces;
+            public HashSet<Enemy> HitEnemies;
             public int Damage;
             public bool Friendly;
         }
@@ -125,7 +130,7 @@ namespace Ecos.Haunt
             Floor = DungeonFloor.Generate(seed, State.Floor);
             CurrentRoom = Floor.Entrance;
             Playing = true;
-            Paused = InShop = showMap = false;
+            Paused = InShop = showMap = shopMenuOpen = false;
             roomsCleared = enemiesDefeated = 0;
             visited.Clear();
             visited.Add(CurrentRoom.Id);
@@ -146,7 +151,7 @@ namespace Ecos.Haunt
             muzzle = MakeSprite("muzzle", playerPosition, actorsRoot.transform, 31);
             muzzle.enabled = false;
             EnterRoom(CurrentRoom, Vector2.zero);
-            Notify("As portas se fecham durante o combate. Encontre e derrote o guardião.");
+            Notify("ENCONTRE O GUARDIAO");
         }
 
         void StartFromMenu()
@@ -183,6 +188,7 @@ namespace Ecos.Haunt
             }
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
             {
+                if (shopMenuOpen) { CloseMerchant(); return; }
                 Paused = !Paused;
                 showMap = false;
             }
@@ -203,9 +209,9 @@ namespace Ecos.Haunt
             if (keyboard != null)
             {
                 if (keyboard.digit1Key.wasPressedThisFrame) State.Equip(WeaponKind.Pistol);
-                if (keyboard.digit2Key.wasPressedThisFrame) State.Equip(WeaponKind.Scattergun);
-                if (keyboard.digit3Key.wasPressedThisFrame) State.Equip(WeaponKind.Repeater);
-                if (keyboard.digit4Key.wasPressedThisFrame) State.Equip(WeaponKind.SoulCannon);
+                if (keyboard.digit2Key.wasPressedThisFrame) State.Equip(WeaponKind.Stapler);
+                if (keyboard.digit3Key.wasPressedThisFrame) State.Equip(WeaponKind.Banana);
+                if (keyboard.digit4Key.wasPressedThisFrame) State.Equip(WeaponKind.SpinningTop);
                 if (!InShop && keyboard.qKey.wasPressedThisFrame) UsePower();
             }
             UpdatePlayer(keyboard, dt);
@@ -221,13 +227,15 @@ namespace Ecos.Haunt
                 return;
             }
             UpdatePresentation();
+            if (InShop && !shopMenuOpen && Mouse.current != null && Mouse.current.leftButton.wasReleasedThisFrame)
+                TryOpenMerchantAt(view.ScreenToWorldPoint(Mouse.current.position.ReadValue()));
             if (keyboard != null && keyboard.eKey.wasPressedThisFrame) Interact();
             if (!InShop && enemies.Count == 0 && doorGrace <= 0) CheckDoors();
         }
 
         void UpdatePlayer(Keyboard keyboard, float dt)
         {
-            if (InShop) { playerMoving = false; return; }
+            if (shopMenuOpen) { playerMoving = false; return; }
             Vector2 input = Vector2.zero;
             if (keyboard != null)
             {
@@ -260,14 +268,52 @@ namespace Ecos.Haunt
             if (!InShop && !PointerOverInterface() && mouse != null && mouse.leftButton.isPressed && shotCooldown <= 0 && rollRemaining <= 0)
             {
                 Vector2 aim = AimDirection();
-                if (State.Weapon == WeaponKind.Scattergun)
-                    for (int pellet = -2; pellet <= 2; pellet++) Fire(playerPosition + aim * .48f, Rotate(aim, pellet * 9) * 15, true, State.Damage);
-                else Fire(playerPosition + aim * .48f, aim * (State.Weapon == WeaponKind.SoulCannon ? 11 : 17), true,
-                    State.Damage * (State.Weapon == WeaponKind.SoulCannon ? 5 : 1));
+                FireWeapon(aim);
                 weaponKick = 1;
                 Emit("glow", playerPosition + Vector2.up * .35f + aim, Vector2.zero, new Color(.4f, 1, .85f, .3f), .08f, .7f, 0);
                 shotCooldown = State.WeaponInterval;
                 muzzleTime = .045f;
+            }
+        }
+
+        void FireWeapon(Vector2 aim)
+        {
+            if (InShop || shopMenuOpen || Paused || State.IsDead) return;
+            if (State.Weapon == WeaponKind.Stapler)
+            {
+                Vector2 side = new Vector2(-aim.y, aim.x) * .12f;
+                FireSpecial(playerPosition + aim * .5f + side, aim * 19, State.Damage, WeaponKind.Stapler);
+                FireSpecial(playerPosition + aim * .5f - side, aim * 19, State.Damage, WeaponKind.Stapler);
+            }
+            else if (State.Weapon == WeaponKind.Banana)
+                FireSpecial(playerPosition + aim * .5f, aim * 12, State.Damage * 3, WeaponKind.Banana);
+            else if (State.Weapon == WeaponKind.SpinningTop)
+                FireSpecial(playerPosition + aim * .5f, aim * 8, State.Damage * 2, WeaponKind.SpinningTop);
+            else if (State.Weapon == WeaponKind.Scattergun)
+                for (int pellet = -2; pellet <= 2; pellet++) Fire(playerPosition + aim * .48f, Rotate(aim, pellet * 9) * 15, true, State.Damage);
+            else Fire(playerPosition + aim * .48f, aim * (State.Weapon == WeaponKind.SoulCannon ? 11 : 17), true,
+                State.Damage * (State.Weapon == WeaponKind.SoulCannon ? 5 : 1));
+        }
+
+        void FireSpecial(Vector2 position, Vector2 velocity, int damage, WeaponKind style)
+        {
+            int before = shots.Count;
+            Fire(position, velocity, true, damage);
+            if (shots.Count == before) return;
+            var shot = shots[shots.Count - 1];
+            shot.Style = style;
+            shot.Sprite.sprite = art.Get(style == WeaponKind.Stapler ? "staple-shot" : style == WeaponKind.Banana ? "banana-shot" : "top-shot");
+            shot.Sprite.color = Color.white;
+            shot.Color = style == WeaponKind.Stapler ? new Color(.8f, .9f, 1) : style == WeaponKind.Banana ? new Color(1, .85f, .2f) : new Color(.4f, 1, .95f);
+            shot.Glow.color = new Color(shot.Color.r, shot.Color.g, shot.Color.b, .8f);
+            shot.Curve = style == WeaponKind.Banana ? 52 : 0;
+            shot.Spin = style == WeaponKind.Banana ? 540 : style == WeaponKind.SpinningTop ? 960 : 0;
+            shot.Radius = style == WeaponKind.SpinningTop ? .24f : style == WeaponKind.Banana ? .17f : .1f;
+            shot.Life = style == WeaponKind.Stapler ? 4 : 2.8f;
+            if (style == WeaponKind.SpinningTop)
+            {
+                shot.Pierces = 3;
+                shot.HitEnemies = new HashSet<Enemy>();
             }
         }
 
@@ -371,7 +417,7 @@ namespace Ecos.Haunt
                 if (room.Kind == RoomKind.Boss)
                 {
                     SpawnEnemy(4, new Vector2(0, 3.8f));
-                    Notify(BossNames[BossVariant] + " • desvie dos padrões e use as colunas.");
+                    Notify(BossNames[BossVariant]);
                 }
                 else
                 {
@@ -658,6 +704,10 @@ namespace Ecos.Haunt
             for (int i = shots.Count - 1; i >= 0; i--)
             {
                 var shot = shots[i];
+                shot.Age += dt;
+                if (shot.Curve != 0) shot.Velocity = Rotate(shot.Velocity, shot.Curve * dt);
+                if (shot.Spin != 0) shot.Sprite.transform.rotation = Quaternion.Euler(0, 0, shot.Age * shot.Spin);
+                if (shot.Style == WeaponKind.SpinningTop) shot.Sprite.sprite = art.Frame("top-shot", Mathf.FloorToInt(shot.Age * 16));
                 Vector2 old = shot.Position;
                 Vector2 next = old + shot.Velocity * dt;
                 shot.Life -= dt;
@@ -686,11 +736,13 @@ namespace Ecos.Haunt
                         block.xMax + shot.Radius, block.yMax + shot.Radius, out float contact))
                         nearest = Mathf.Min(nearest, contact);
                 int targetIndex = -1;
+                bool piercing = false;
                 if (shot.Friendly)
                 {
                     for (int e = 0; e < enemies.Count; e++)
                     {
                         var enemy = enemies[e];
+                        if (shot.HitEnemies != null && shot.HitEnemies.Contains(enemy)) continue;
                         float radius = (enemy.Kind == 4 ? .85f : .36f) + shot.Radius;
                         if (!CombatGeometry.CircleHitFraction(old.x, old.y, next.x, next.y,
                             enemy.Position.x, enemy.Position.y, radius, out float contact) || contact >= nearest) continue;
@@ -701,6 +753,11 @@ namespace Ecos.Haunt
                     {
                         var enemy = enemies[targetIndex];
                         enemy.Health -= shot.Damage;
+                        if (shot.HitEnemies != null)
+                        {
+                            shot.HitEnemies.Add(enemy);
+                            piercing = --shot.Pierces > 0;
+                        }
                         enemy.HurtFlash = .09f;
                         Impact(enemy.Position + Vector2.up * .38f, -shot.Velocity.normalized, shot.Color, shot.Heavy);
                         if (enemy.Health <= 0)
@@ -723,9 +780,11 @@ namespace Ecos.Haunt
                 if (nearest <= 1)
                 {
                     if (targetIndex < 0) Impact(Vector2.Lerp(old, next, Mathf.Clamp01(nearest)) + Vector2.up * .38f, -shot.Velocity.normalized, shot.Color, shot.Heavy);
-                    RecycleShot(i);
+                    if (!piercing) { RecycleShot(i); continue; }
+                    // Resume from the contact next frame: remaining cover is checked
+                    // before the spinning top can reach another target.
+                    next = Vector2.Lerp(old, next, Mathf.Clamp01(nearest)) + shot.Velocity.normalized * .02f;
                 }
-                else
                 {
                     shot.Position = next;
                     shot.Sprite.transform.position = Snap(next + Vector2.up * .38f);
@@ -769,9 +828,9 @@ namespace Ecos.Haunt
             if (boss)
             {
                 portal = AnimatedProp("portal", new Vector2(0, 1.4f), 450);
-                Notify("Guardião derrotado! Aproxime-se do portal e pressione E para ir ao Mercado das Almas.");
+                Notify("PORTAL ABERTO");
             }
-            else Notify("Sala purificada • moedas recebidas. As portas estão abertas.");
+            else Notify("SALA PURIFICADA");
         }
 
         bool TryNearestExit(out Vector2 destination)
@@ -813,49 +872,77 @@ namespace Ecos.Haunt
 
         void Interact()
         {
-            if (!InShop && State.BossDefeated && CurrentRoom.Kind == RoomKind.Boss && Vector2.Distance(playerPosition, new Vector2(0, 1.4f)) < 1.8f)
+            if (InShop)
             {
-                OpenShop();
+                if (shopMenuOpen) { CloseMerchant(); return; }
+                if (Vector2.Distance(playerPosition, new Vector2(HalfWidth - 2, 0)) < 1.7f) LeaveShop();
+                else OpenMerchant();
                 return;
             }
-            if (InShop && Vector2.Distance(playerPosition, new Vector2(HalfWidth - 2, 0)) < 1.7f) LeaveShop();
+            if (State.BossDefeated && CurrentRoom.Kind == RoomKind.Boss && Vector2.Distance(playerPosition, new Vector2(0, 1.4f)) < 1.8f)
+                OpenShop();
         }
 
         void OpenShop()
         {
             ClearCombat();
             InShop = true;
-            showMap = false;
-            shopWeapons = false;
-            playerPosition = new Vector2(0, -2.7f);
+            showMap = shopMenuOpen = shopWeapons = false;
+            playerPosition = new Vector2(0, -3.5f);
             RollEnd();
             BuildRoom(true);
-            Notify("Escolha uma categoria. Termine suas compras e clique em Descer ao próximo andar.");
+            UpdateCamera(0, true);
+            UpdatePresentation();
+            Notify("");
+        }
+
+        bool TryOpenMerchantAt(Vector2 worldPoint)
+        {
+            if (!InShop || shopMenuOpen || !new Rect(MerchantPosition.x - 1, MerchantPosition.y - .7f, 2, 2.3f).Contains(worldPoint)) return false;
+            OpenMerchant();
+            return shopMenuOpen;
+        }
+
+        void OpenMerchant()
+        {
+            if (!Playing || !InShop || Paused || State.IsDead || Vector2.Distance(playerPosition, MerchantPosition) > 2.8f) return;
+            shopMenuOpen = true;
+            playerMoving = false;
+            RollEnd();
+            noticeTime = 0;
+            Cursor.visible = true;
+        }
+
+        void CloseMerchant()
+        {
+            shopMenuOpen = false;
+            noticeTime = 0;
         }
 
         void LeaveShop()
         {
+            if (!InShop || shopMenuOpen || Paused || State.IsDead) return;
             int previous = State.Floor;
             State.NextFloor();
             if (previous == State.Floor) return;
-            InShop = false;
+            InShop = shopMenuOpen = false;
             Floor = DungeonFloor.Generate(State.Seed, State.Floor);
             visited.Clear();
             CurrentRoom = Floor.Entrance;
             invincible = 1;
             EnterRoom(CurrentRoom, Vector2.zero);
-            Notify("Andar " + State.Floor + " • a noite ficou mais perigosa. As melhorias continuam com você.");
+            Notify("ANDAR " + State.Floor);
         }
 
         void Buy(ShopItem item)
         {
-            if (!InShop || !Playing || Paused || State.IsDead) return;
+            if (!InShop || !shopMenuOpen || !Playing || Paused || State.IsDead) return;
             bool bought = State.TryBuy(item, out string message);
             if (bought) { RingEffect(playerPosition, PlayerAccent, 1.5f); Burst(playerPosition + Vector2.up, new Color(1, .75f, .2f), 10); }
             Notify(message);
         }
 
-        static Vector2 ShopPosition(int index) => new Vector2(-5.4f + index * 3.6f, .5f);
+        static Vector2 ShopPosition(int index) => new Vector2(-6 + index * 6, -.8f);
 
         SpriteRenderer MakeSprite(string id, Vector2 position, Transform parent, int order)
         {
@@ -907,7 +994,7 @@ namespace Ecos.Haunt
         void ReturnToMenu()
         {
             ClearActors();
-            Playing = Paused = InShop = false;
+            Playing = Paused = InShop = shopMenuOpen = false;
             State = null; Floor = null; CurrentRoom = null;
             BuildRoom(true);
         }
@@ -916,6 +1003,7 @@ namespace Ecos.Haunt
         {
             Cursor.visible = true;
             if (glowMaterial) Destroy(glowMaterial);
+            if (pixelText != null) pixelText.Dispose();
             if (art != null) art.Dispose();
             if (panelTexture) Destroy(panelTexture);
         }

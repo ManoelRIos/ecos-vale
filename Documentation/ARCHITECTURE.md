@@ -14,7 +14,7 @@ A única cena é `Assets/_Game/Scenes/Haunt.unity`. Ela contém o componente `Ha
 
 `HauntGame` possui o jogador, inimigos, projéteis, obstáculos, efeitos e estado das salas. O movimento usa passos pequenos e deslizamento por eixos. A esquiva bloqueia dano durante sua duração; o dano recebido também concede uma breve proteção. Projéteis hostis deixam de causar dano quando a sala é purificada.
 
-O fluxo é: menu → entrada → salas de combate → chefe → Mercado das Almas → próximo andar. A loja é uma área separada e segura. Sua interface modal substitui o HUD e organiza o estoque em duas abas; o jogador não se move nem compra com E atrás do painel. O botão Descer avança para o próximo andar. Morrer oferece reinício com a mesma semente ou outra; não há persistência de incursões entre sessões.
+O fluxo é: menu → entrada → salas de combate → chefe → Mercado das Almas → próximo andar. A loja é uma sala segura e explorável. O atendente fica em `MerchantPosition = (0, 3.6)`, atrás de um balcão com colisão; vitrines e prateleiras exibem as três armas. Preços aparecem perto das vitrines. Clicar no atendente ou pressionar E abre o catálogo apenas a até 2,8 unidades. `shopMenuOpen` bloqueia movimento e recebe os cliques do catálogo; `InShop` sozinho não congela o jogador. Esc fecha o catálogo antes de pausar. `Buy` exige o catálogo aberto; avançar exige caminhar até o portal e pressionar E, com a conversa fechada. Morrer oferece reinício com a mesma semente ou outra; não há persistência de incursões entre sessões.
 
 `HauntGame.Visuals.cs` reúne a construção visual das salas, profundidade por posição, sprites animados, marcadores, partículas e luzes de velas/portas. Os atores usam animações em cache; as partículas reutilizam até 320 objetos ativos. O deslocamento visual vertical de atores e projéteis não altera suas coordenadas de colisão.
 
@@ -28,7 +28,7 @@ O fluxo é: menu → entrada → salas de combate → chefe → Mercado das Alma
 
 ## Limites
 
-O protótipo usa quatro armas, quatro personagens com poderes diferentes, sete inimigos e cinco padrões de chefe. Os cinco chefes possuem identidades visuais: a abóbora original, a Viúva, o Bispo, a Matriarca e o Sino. Cada arquétipo de chefe alterna rajadas e, conforme seu padrão, carga ou ataque marcado no chão. Cada tema oferece três arquétipos possíveis em `DungeonFloor.BossCandidatesForTheme`; o sorteio usa um gerador independente da geração do mapa. Tema e guardião são estados separados: a composição de inimigos comuns e a arquitetura seguem `ThemeIndex`, enquanto arte e ataques do chefe seguem `BossArchetype`. O combate, a arte, as animações e o áudio ainda precisam de refinamento. Não há multiplayer, serviços externos ou gravação de incursões. As verificações fora do Editor não certificam a importação, os shaders ou a execução no Unity.
+O fluxo jogável oferece revólver e três armas de loja inusitadas, quatro personagens com poderes diferentes, sete inimigos e cinco padrões de chefe. Os cinco chefes possuem identidades visuais: a abóbora original, a Viúva, o Bispo, a Matriarca e o Sino. Cada arquétipo de chefe alterna rajadas e, conforme seu padrão, carga ou ataque marcado no chão. Cada tema oferece três arquétipos possíveis em `DungeonFloor.BossCandidatesForTheme`; o sorteio usa um gerador independente da geração do mapa. Tema e guardião são estados separados: a composição de inimigos comuns e a arquitetura seguem `ThemeIndex`, enquanto arte e ataques do chefe seguem `BossArchetype`. O combate, a arte, as animações e o áudio ainda precisam de refinamento. Não há multiplayer, serviços externos ou gravação de incursões. As verificações fora do Editor não certificam a importação, os shaders ou a execução no Unity.
 
 ## Evolução para coop
 
@@ -38,7 +38,7 @@ O estado de personagem, arsenal e recarga está no núcleo e pode ser instanciad
 
 Cada tema usa os IDs `floor-themeN-v0..v3`, `wall-themeN`, `wall-reliefN`, `decor-themeN` e `map-themeN`. Um hash da semente da sala e das coordenadas do ladrilho escolhe variante, tom, espelhamento e rotação de 90° dos pisos sem avançar o gerador de inimigos. Relevos com sombras e candelabros suspensos com quatro quadros dão volume às paredes. O atlas desenha corredores e miniaturas, com indicadores de entrada, guardião e sala atual. Efeitos ambientes usam o tempo de simulação e não consomem o gerador aleatório de inimigos.
 
-Projéteis guardam cor, temporizador de rastro e um halo filho com `GlowMaterial`. O halo acompanha o projétil, recebe escala própria e é ocultado/reativado junto com ele pelo pool; novos disparos reaproveitam o mesmo par de objetos. Impactos combinam anel, clarão e estilhaços direcionais; o canhão tem efeito maior. Avisos de chão são uma lista limitada a 16 marcadores, com 1,1 s de preparo, limpeza ao sair da sala e cancelamento ao purificar. A pausa congela esses tempos. Chamas, brilhos e efeitos luminosos usam sprites aditivos; atores e demais efeitos mantêm o material adequado ao seu desenho. Esses brilhos não são luzes físicas dinâmicas e não alteram colisões. `GlowMaterial` pertence à instância de `HauntGame` e é destruído em `OnDestroy`, assim como a biblioteca de arte libera suas texturas e material.
+Projéteis guardam cor, temporizador de rastro e um halo filho com `GlowMaterial`. O halo acompanha o projétil, recebe escala própria e é ocultado/reativado junto com ele pelo pool; novos disparos reaproveitam o mesmo par de objetos. Impactos combinam anel, clarão e estilhaços direcionais. Cada arma inusitada escolhe sprite e comportamento próprios do projétil. Avisos de chão são uma lista limitada a 16 marcadores, com 1,1 s de preparo, limpeza ao sair da sala e cancelamento ao purificar. A pausa congela esses tempos. Chamas, brilhos e efeitos luminosos usam sprites aditivos; atores e demais efeitos mantêm o material adequado ao seu desenho. Esses brilhos não são luzes físicas dinâmicas e não alteram colisões. `GlowMaterial` pertence à instância de `HauntGame` e é destruído em `OnDestroy`, assim como a biblioteca de arte libera suas texturas e material.
 
 O PNG de prévia usa os pixels produzidos pelas rotinas Canvas do próprio código C#, fora do Editor, sem simular material/câmera/URP. Não certifica a aparência no jogo.
 
@@ -50,8 +50,28 @@ O PNG de prévia usa os pixels produzidos pelas rotinas Canvas do próprio códi
 
 Os pools de `DungeonFloor.BossCandidatesForTheme` são: Jardins `[Rei, Viúva, Matriarca]`, Galeria `[Viúva, Bispo, Sino]`, Catedral `[Bispo, Sino, Rei]`, Ninho `[Matriarca, Viúva, Rei]` e Abismo `[Sino, Matriarca, Bispo]`. O método retorna uma cópia para impedir mutação do catálogo compartilhado. O gerador de encontros usa semente e andar com sal próprio; suas chamadas não alteram os mapas determinísticos existentes. Os cinco desenhos de chefes são preservados e podem aparecer em mais de um tema.
 
-## HUD e atlas transparentes
+## HUD, barra de chefe e atlas
 
-O HUD de combate usa texto com uma sombra nos próprios caracteres, sem tarjas, painéis ou barras de fundo. Os corações ficam no canto superior esquerdo; os demais dados são compactos, e os avisos da sala somem após a entrada. `WorldTag`, notificações e legenda de saída também são textos sem caixas. Menus e loja continuam com controles próprios.
+O HUD normal usa corações no canto superior esquerdo e rótulos compactos, sem tarjas de fundo. `WorldTag`, notificações e legenda de saída também usam letras sem caixas. Durante encontros, `DrawBossHealth` posiciona uma barra centralizada na parte inferior: `boss-bar0..4` e `boss-fill0..4` seguem `BossVariant`, com moldura e preenchimento em pixel art para cada guardião. Nome e preenchimento acompanham o chefe vivo; a barra não ocupa o cabeçalho.
 
-O atlas é desenhado antes do HUD, sem painel. Corredores, miniaturas e retratos recebem alfa de 0,16 no mapa pequeno e 0,30 no ampliado; só os marcadores da sala atual recebem mais 0,10. Os textos e o personagem permanecem acima da sobreposição. `PointerOverInterface` bloqueia apenas menu, loja, pausa e morte: HUD e ambas as visões do mapa não capturam cursor, mira ou tiro. A seta de saída continua disponível com o mapa ampliado.
+O atlas é desenhado antes do HUD, sem painel. Corredores, miniaturas e retratos recebem alfa de 0,45 no mapa pequeno e 0,80 no ampliado; os marcadores da sala atual recebem mais 0,10, limitados a 1. As duas visões são passivas: não capturam cursor, mira ou tiro. Menu, catálogo do atendente, pausa e morte continuam capturando a interação. A seta de saída permanece disponível com o mapa ampliado.
+
+## Tipografia em pixel art
+
+`HauntPixelText` desenha glifos originais de 5×7 pixels, ampliados por fatores inteiros com filtro de ponto. Todos os rótulos visíveis da interface, botões, valores e avisos usam esse desenho; a normalização converte acentos, caixa e símbolos para o repertório bitmap. O campo de semente conserva a edição nativa de IMGUI, mas oculta os glifos nativos e sobrepõe as letras bitmap. Ícones, preços e descrições curtas substituem parágrafos no catálogo.
+
+As texturas dos glifos são criadas sob demanda e mantidas em cache por caractere; `Dispose` as libera junto com a instância. A fonte não exige uma instalação de fonte do sistema. Layout e aparência finais ainda dependem de validação no Unity.
+
+## Armas do mercado
+
+O catálogo oferece `ShopItem.Stapler`, `Banana` e `SpinningTop`, mapeados para os respectivos `WeaponKind`. Os IDs de bacamarte, repetidora e canhão permanecem aceitos no núcleo para compatibilidade, mas essas três armas convencionais não estão à venda no fluxo atual. Atalhos 1–4 selecionam revólver, grampeador, banana e pião.
+
+- Grampeador: dois grampos a 19 unidades/s, dano base por grampo, intervalo base ×1,4.
+- Banana: um projétil com dano ×3 e curva de 52°/s, intervalo base ×2,2.
+- Pião do Caos: projétil giratório a 8 unidades/s, dano ×2, duração de 2,8 s e no máximo três inimigos distintos por lançamento. Um mesmo inimigo não recebe dano repetido do mesmo pião. Paredes e cobertura encerram seu trajeto, assim como os demais tiros. Intervalo base ×3,5.
+
+Os preços iniciais 55/65/80 recebem a escala normal do andar. A compra atômica verifica saldo e propriedade antes de cobrar, concede a arma e a equipa. Arsenal e equipamento persistem entre andares; reiniciar apaga as aquisições.
+
+## Direção dos próximos conteúdos
+
+As armas vendidas no Mercado seguem objetos inusitados e divertidos, com silhuetas e disparos próprios, como grampeador, banana e pião. Novas armas da loja devem manter essa direção. Todo novo texto visível deve passar por `HauntPixelText`, incluindo nomes, valores, botões e avisos; preserve mensagens curtas e prefira ícones quando suficientes.

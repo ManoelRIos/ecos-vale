@@ -9,21 +9,23 @@ namespace Ecos.Haunt
         static readonly Color Mint = new Color(.48f, .96f, .77f);
         static readonly Color Orange = new Color(1, .58f, .24f);
         Texture2D panelTexture;
+        HauntPixelText pixelText;
         GUIStyle titleStyle, headingStyle, bodyStyle, smallStyle, hudStyle, buttonStyle, fieldStyle;
         bool stylesReady, shopWeapons;
         static readonly string[] CharacterIcons = { "player", "medium", "reaper", "alchemist" };
         static readonly string[] CharacterNames = { "CAÇADOR DA AURORA", "MÉDIUM DO VÉU", "CEIFADOR ERRANTE", "ALQUIMISTA DE CINZAS" };
         static readonly string[] CharacterPowers = {
-            "Q · Pulso da Aurora\nDissipa balas próximas e concede proteção breve. Recarga: 9s.",
-            "Q · Lamento Espectral\nNove projéteis em leque com dano triplo. Recarga: 7s.",
-            "Q · Colheita Lunar\nDoze tiros ao redor e proteção breve. Recarga: 8s.",
-            "Q · Elixir Vital\nRecupera até 2 pontos de vida. Recarga: 18s."
+            "Q PULSO\nLIMPA BALAS\nPROTECAO\n9 S",
+            "Q LAMENTO\nLEQUE X9\nDANO X3\n7 S",
+            "Q COLHEITA\nRADIAL X12\nPROTECAO\n8 S",
+            "Q ELIXIR\nCURA +2\n18 S"
         };
 
         void EnsureStyles()
         {
             if (stylesReady) return;
             stylesReady = true;
+            pixelText = new HauntPixelText();
             panelTexture = new Texture2D(1, 1) { name = "Haunt UI pixel", filterMode = FilterMode.Point };
             panelTexture.SetPixel(0, 0, Color.white);
             panelTexture.Apply();
@@ -42,6 +44,10 @@ namespace Ecos.Haunt
             buttonStyle.hover.textColor = Ink;
             buttonStyle.active.textColor = Ink;
             fieldStyle = new GUIStyle(GUI.skin.textField) { fontSize = 17, padding = new RectOffset(12, 12, 10, 10) };
+            fieldStyle.normal.textColor = Color.clear;
+            fieldStyle.focused.textColor = Color.clear;
+            fieldStyle.hover.textColor = Color.clear;
+            fieldStyle.active.textColor = Color.clear;
         }
 
         void OnGUI()
@@ -63,7 +69,11 @@ namespace Ecos.Haunt
             else if (!Playing) DrawMenu();
             else
             {
-                if (InShop) DrawShop();
+                if (InShop)
+                {
+                    if (shopMenuOpen) DrawShop();
+                    else DrawHud();
+                }
                 else
                 {
                     // Passive atlas below the text HUD; it never captures input.
@@ -75,11 +85,13 @@ namespace Ecos.Haunt
                 else if (Paused) DrawPause();
                 if (flash > 0) Fill(new Rect(0, 0, 1280, 720), new Color(.8f, .1f, .2f, flash * 1.4f));
             }
-            if (noticeTime > 0 && !Paused && !InShop)
+            if (noticeTime > 0 && !Paused && (!InShop || !shopMenuOpen))
             {
                 Color tint = Mint;
                 tint.a = Mathf.Clamp01(noticeTime / .65f);
-                HudText(new Rect(24, 638, 680, 54), notice, smallStyle, tint);
+                bool bossActive = false;
+                foreach (var enemy in enemies) if (enemy.Kind == 4) { bossActive = true; break; }
+                HudText(bossActive ? new Rect(24, 604, 240, 90) : new Rect(24, 638, 680, 54), notice, smallStyle, tint);
             }
             GUI.matrix = previous;
             GUI.color = color;
@@ -89,15 +101,16 @@ namespace Ecos.Haunt
         {
             Fill(new Rect(0, 0, 1280, 720), new Color(.02f, .012f, .045f, .7f));
             Fill(new Rect(60, 86, 5, 526), Orange);
-            Text(new Rect(86, 82, 480, 25), "PÓLVORA, RELÍQUIAS E ASSOMBRAÇÕES", smallStyle, Orange);
+            Text(new Rect(86, 82, 480, 25), "POLVORA E ASSOMBRACOES", smallStyle, Orange);
             Text(new Rect(82, 129, 500, 72), "ECOS DA", titleStyle, new Color(.95f, .92f, .85f));
             Text(new Rect(82, 187, 500, 80), "MEIA-NOITE", titleStyle, Orange);
-            Text(new Rect(86, 291, 440, 78), "Escolha uma alma. Atravesse os santuários.\nCada guardião deixa a noite mais profunda.", bodyStyle, Muted);
-            Text(new Rect(86, 399, 440, 24), "SEMENTE  /  vazio = aleatória", smallStyle, Muted);
+            Text(new Rect(86, 303, 440, 52), "ESCOLHA SUA ALMA.\nDESCA A CRIPTA.", bodyStyle, Muted);
+            Text(new Rect(86, 399, 440, 24), "SEMENTE / VAZIO = ALEATORIA", smallStyle, Muted);
             seedText = GUI.TextField(new Rect(87, 433, 435, 44), seedText, 11, fieldStyle);
+            Text(new Rect(99, 446, 411, 20), seedText, smallStyle, Color.white);
             if (Button(new Rect(87, 495, 435, 56), "INICIAR INCURSÃO     →", Orange)) StartFromMenu();
             Text(new Rect(87, 571, 440, 32), "ENTER para começar", smallStyle, Muted);
-            Text(new Rect(87, 623, 455, 52), "WASD mover  •  Mouse mirar e atirar\nQ poder  •  1–4 armas  •  Espaço esquivar", smallStyle, Color.white);
+            Text(new Rect(87, 623, 455, 52), "WASD / MOUSE\nQ PODER  1-4 ARMAS  ESPACO ESQUIVA", smallStyle, Color.white);
 
             Panel(new Rect(598, 65, 604, 560), new Color(.35f, .25f, .45f));
             Text(new Rect(624, 88, 550, 36), "ESCOLHA SUA ALMA", headingStyle, Mint);
@@ -113,7 +126,6 @@ namespace Ecos.Haunt
                 if (Button(new Rect(x + 14, y + 176, 248, 29), chosen ? "SELECIONADO" : "SELECIONAR", chosen ? Mint : Muted))
                     selectedCharacter = (CharacterKind)i;
             }
-            Text(new Rect(617, 646, 583, 36), "Quatro caminhos. Um só destino: o fundo da cripta.", smallStyle, Muted);
         }
 
         void DrawHud()
@@ -128,6 +140,25 @@ namespace Ecos.Haunt
             }
             float detailsY = State.MaxHealth > 10 ? 73 : 49;
             HudText(new Rect(24, detailsY, 290, 25), State.Coins + " ALMAS", smallStyle, Orange);
+            if (InShop)
+            {
+                if (!Paused && !State.IsDead && !shopMenuOpen)
+                {
+                    if (Vector2.Distance(playerPosition, MerchantPosition) < 2.8f)
+                        WorldTag(MerchantPosition, "[E] CONVERSAR", Mint, 1.7f, 200);
+                    ShopItem[] displayed = { ShopItem.Stapler, ShopItem.Banana, ShopItem.SpinningTop };
+                    for (int i = 0; i < displayed.Length; i++)
+                    {
+                        Vector2 position = ShopPosition(i);
+                        if (Vector2.Distance(playerPosition, position) < 3.4f)
+                            WorldTag(position, State.Price(displayed[i]) + " ALMAS", Orange, 1.3f, 144);
+                    }
+                    Vector2 exit = new Vector2(HalfWidth - 2, 0);
+                    if (Vector2.Distance(playerPosition, exit) < 3.1f)
+                        WorldTag(exit, "[E] DESCER", Mint, 1.7f, 180);
+                }
+                return;
+            }
             HudText(new Rect(24, detailsY + 27, 330, 25), RunState.WeaponName(State.Weapon), smallStyle, Mint);
             HudText(new Rect(24, detailsY + 54, 330, 43), "Q · " + State.PowerName
                 + (State.PowerCooldown <= 0 ? " · PRONTO" : " · " + Mathf.CeilToInt(State.PowerCooldown) + "s"), smallStyle,
@@ -138,11 +169,7 @@ namespace Ecos.Haunt
 
             Enemy boss = null;
             foreach (var enemy in enemies) if (enemy.Kind == 4) { boss = enemy; break; }
-            if (boss != null)
-            {
-                HudText(new Rect(460, 18, 470, 28), BossNames[BossVariant], hudStyle, Orange);
-                HudText(new Rect(460, 47, 470, 25), boss.Health + " / " + boss.MaxHealth + " VIDA", smallStyle, Muted);
-            }
+            if (boss != null && !Paused && !State.IsDead) DrawBossHealth(boss);
             else if (roomBannerTime > 0 && !Paused && !State.IsDead)
             {
                 Color tint = Color.white;
@@ -155,7 +182,22 @@ namespace Ecos.Haunt
             DrawDoorLabels();
             DrawExitGuide();
             if (CurrentRoom.Kind == RoomKind.Boss && CurrentRoom.Cleared && !Paused && !State.IsDead)
-                WorldTag(new Vector2(0, 1.4f), "[E] MERCADO DAS ALMAS", Mint);
+                WorldTag(new Vector2(0, 1.4f), "[E] MERCADO", Mint);
+        }
+
+        void DrawBossHealth(Enemy boss)
+        {
+            const float scale = 3;
+            Rect frame = new Rect(280, 636, 240 * scale, 24 * scale);
+            Rect inside = new Rect(frame.x + 24 * scale, frame.y + 8 * scale, 192 * scale, 8 * scale);
+            float fraction = Mathf.Clamp01((float)boss.Health / boss.MaxHealth);
+            Fill(inside, Ink);
+            Sprite fill = art.Get("boss-fill" + BossVariant);
+            if (fraction > 0)
+                GUI.DrawTextureWithTexCoords(new Rect(inside.x, inside.y, inside.width * fraction, inside.height),
+                    fill.texture, new Rect(0, 0, fraction, 1), true);
+            DrawIcon(frame, "boss-bar" + BossVariant);
+            Text(new Rect(frame.x, 606, frame.width, 26), BossNames[BossVariant], headingStyle, Color.white, TextAnchor.MiddleCenter);
         }
 
         // Keep navigation on screen when the closer camera cannot show the doors.
@@ -205,72 +247,81 @@ namespace Ecos.Haunt
                 Vector2 direction = new Vector2(next.Position.X - CurrentRoom.Position.X, next.Position.Y - CurrentRoom.Position.Y);
                 bool locked = enemies.Count > 0;
                 string arrow = direction.x > 0 ? "→" : direction.x < 0 ? "←" : direction.y > 0 ? "↑" : "↓";
-                string label = locked ? "×  SELADA" : arrow + (next.Kind == RoomKind.Boss && !next.Cleared ? "  GUARDIÃO" : "  SAÍDA ABERTA");
+                string label = locked ? "×  SELADA" : arrow + (next.Kind == RoomKind.Boss && !next.Cleared ? "  GUARDIÃO" : "  SAIDA");
                 float rise = direction.y > 0 ? -.25f : direction.y < 0 ? 1.7f : 1.45f;
                 WorldTag(position - direction * 1.15f, label, locked ? new Color(1, .48f, .48f) : Mint, rise, 190);
             }
         }
 
         // Only modal screens capture input. HUD labels and both atlas sizes are passive.
-        bool PointerOverInterface() => !Playing || Paused || InShop || State.IsDead;
+        bool PointerOverInterface() => !Playing || Paused || State.IsDead || (InShop && shopMenuOpen);
 
         void DrawShop()
         {
-            // A dedicated screen replaces combat HUD, minimap and world labels.
-            Fill(new Rect(0, 0, 1280, 720), new Color(.025f, .016f, .045f, .86f));
-            Panel(new Rect(66, 54, 1148, 608), new Color(.44f, .36f, .3f));
-            Text(new Rect(96, 76, 730, 42), "MERCADO DAS ALMAS", headingStyle, Orange);
-            Text(new Rect(97, 119, 760, 26), "Um refúgio antes da próxima descida.", smallStyle, Muted);
-            DrawIcon(new Rect(1018, 82, 30, 32), "coin");
-            Text(new Rect(1062, 82, 130, 34), State.Coins.ToString() + " ALMAS", hudStyle, Orange);
-            Text(new Rect(894, 126, 296, 28), "VIDA  " + State.Health + " / " + State.MaxHealth, smallStyle, Mint);
+            Fill(new Rect(0, 0, 1280, 720), new Color(.015f, .01f, .03f, .45f));
+            DrawIcon(new Rect(184, 48, 912, 638), "shop-board");
+            Text(new Rect(232, 104, 590, 28), "MERCADO DAS ALMAS", headingStyle, Orange);
+            DrawIcon(new Rect(848, 99, 28, 28), "coin");
+            Text(new Rect(886, 104, 155, 28), State.Coins.ToString(), headingStyle, Orange, TextAnchor.UpperRight);
+            for (int heart = 0; heart < State.MaxHealth; heart++)
+            {
+                Color previous = GUI.color;
+                GUI.color = heart < State.Health ? Color.white : new Color(.35f, .29f, .38f);
+                DrawIcon(new Rect(650 + (heart % 10) * 15, heart < 10 ? 102 : 119, 12, 13), "heart");
+                GUI.color = previous;
+            }
             bool enabled = GUI.enabled;
             GUI.enabled = !Paused && !State.IsDead;
-            if (Button(new Rect(96, 164, 258, 42), "MELHORIAS", shopWeapons ? Muted : Mint)) shopWeapons = false;
-            if (Button(new Rect(366, 164, 258, 42), "ARMAS", shopWeapons ? Mint : Muted)) shopWeapons = true;
-            Text(new Rect(688, 175, 500, 27), "EM MÃOS: " + RunState.WeaponName(State.Weapon), smallStyle, Muted);
-
-            string[] names = { "TÔNICO ESPECTRAL", "PÓLVORA MALDITA", "GATILHO FANTASMA", "CORAÇÃO DE CERA", "BACAMARTE", "REPETIDORA", "CANHÃO DAS ALMAS" };
-            string[] descriptions = { "Recupera até 3 pontos de vida.", "+1 de dano por projétil.", "Intervalo entre tiros 15% menor.", "+2 de vida máxima e recupera 2.", "Cinco projéteis em leque.\nDisparo pesado. Tecla 2.", "Uma chuva de balas rápidas.\nTecla 3.", "Projétil pesado com dano ×5.\nTecla 4." };
-            string[] icons = { "heart", "weapon", "muzzle", "heart", "scattergun", "repeater", "cannon" };
-            int first = shopWeapons ? 4 : 0;
-            int count = shopWeapons ? 3 : 4;
-            float cardWidth = shopWeapons ? 346 : 258;
-            float stride = cardWidth + 18;
-            float start = 96;
-            for (int column = 0; column < count; column++)
+            if (Button(new Rect(232, 154, 384, 42), "RELIQUIAS", shopWeapons ? Muted : Mint)) shopWeapons = false;
+            if (Button(new Rect(632, 154, 384, 42), "ARMAS", shopWeapons ? Mint : Muted)) shopWeapons = true;
+            ShopItem[] items = shopWeapons
+                ? new[] { ShopItem.Stapler, ShopItem.Banana, ShopItem.SpinningTop }
+                : new[] { ShopItem.Heal, ShopItem.Damage, ShopItem.FireRate, ShopItem.MaxHealth };
+            string[] names = shopWeapons
+                ? new[] { "GRAMPEADOR", "BANANA", "PIAO DO CAOS" }
+                : new[] { "TONICO", "POLVORA", "GATILHO", "CORACAO" };
+            string[] icons = shopWeapons
+                ? new[] { "stapler", "banana-gun", "spinning-top" }
+                : new[] { "heart", "weapon", "muzzle", "heart" };
+            string[] stats = shopWeapons
+                ? new[] { "GRAMPO DUPLO", "TIRO CURVO", "GIRO CONTINUO" }
+                : new[] { "CURA +3", "DANO +1", "RECARGA -15%", "VIDA MAX +2" };
+            float cardWidth = shopWeapons ? 248 : 180;
+            float stride = shopWeapons ? 272 : 196;
+            for (int i = 0; i < items.Length; i++)
             {
-                int i = first + column;
-                float x = start + column * stride;
-                ShopItem item = (ShopItem)i;
-                bool owned = i >= 4 && State.Owns((WeaponKind)(i - 3));
-                bool equipped = owned && State.Weapon == (WeaponKind)(i - 3);
-                bool sold = State.Sold(item) && !owned;
+                float x = 232 + i * stride;
+                ShopItem item = items[i];
+                WeaponKind weapon = shopWeapons ? (WeaponKind)((int)item - 3) : WeaponKind.Pistol;
+                bool owned = shopWeapons && State.Owns(weapon);
+                bool equipped = owned && State.Weapon == weapon;
+                bool sold = !shopWeapons && State.Sold(item);
                 bool affordable = State.Coins >= State.Price(item);
-                Panel(new Rect(x, 228, cardWidth, 294), equipped ? Mint : new Color(.3f, .25f, .33f));
-                DrawIcon(new Rect(x + cardWidth * .5f - 42, 246, 84, 67), icons[i]);
-                Text(new Rect(x + 16, 331, cardWidth - 32, 27), names[i], smallStyle, Orange);
-                Text(new Rect(x + 16, 369, cardWidth - 32, 62), descriptions[i], smallStyle, Color.white);
+                DrawIcon(new Rect(x + 20, 226, cardWidth - 40, 108), icons[i]);
+                Text(new Rect(x + 6, 352, cardWidth - 12, 40), names[i], smallStyle, Orange, TextAnchor.UpperCenter);
+                Text(new Rect(x + 6, 404, cardWidth - 12, 40), stats[i], smallStyle, Muted, TextAnchor.UpperCenter);
+                DrawIcon(new Rect(x + cardWidth * .5f - 39, 448, 24, 26), "coin");
+                Text(new Rect(x + cardWidth * .5f - 7, 454, 72, 22), State.Price(item).ToString(), smallStyle, Orange);
                 bool canBuy = GUI.enabled;
                 GUI.enabled = canBuy && !sold && !equipped && (owned || affordable);
-                string action = equipped ? "EQUIPADA" : owned ? "EQUIPAR" : sold ? "ESGOTADO" : State.Price(item) + " ALMAS · COMPRAR";
-                if (Button(new Rect(x + 16, 466, cardWidth - 32, 38), action, owned ? Mint : affordable ? Orange : Muted))
+                string action = equipped ? "EM MAOS" : owned ? "EQUIPAR" : sold ? "ESGOTADO" : "COMPRAR";
+                if (Button(new Rect(x + 6, 494, cardWidth - 12, 38), action, owned ? Mint : affordable ? Orange : Muted))
                 {
-                    if (owned) State.Equip((WeaponKind)(i - 3));
+                    if (owned) State.Equip(weapon);
                     else Buy(item);
                 }
                 GUI.enabled = canBuy;
             }
-            string status = noticeTime > 0 ? notice : shopWeapons ? "Armas adquiridas acompanham você até o fim da incursão." : "Cada melhoria pode ser comprada uma vez nesta visita.";
-            Text(new Rect(97, 543, 1078, 42), status, smallStyle, Mint);
-            Text(new Rect(97, 609, 660, 31), "Escolha o que levar. A próxima fase espera.", smallStyle, Muted);
-            if (Button(new Rect(818, 597, 367, 43), "DESCER AO PRÓXIMO ANDAR     →", Orange)) LeaveShop();
+            if (noticeTime > 0)
+                Text(new Rect(234, 558, 802, 36), notice, smallStyle, Mint);
+            Text(new Rect(234, 614, 570, 22), "1 REVOLVER  2 GRAMPO  3 BANANA  4 PIAO", smallStyle, Muted);
+            if (Button(new Rect(884, 604, 160, 38), "FECHAR", Mint)) CloseMerchant();
             GUI.enabled = enabled;
         }
 
         void DrawMap(Rect rect, bool expanded)
         {
-            float opacity = expanded ? .30f : .16f;
+            float opacity = expanded ? .80f : .45f;
             Color theme = FloorColors[ThemeVariant];
             int minX = int.MaxValue, minY = int.MaxValue, maxX = int.MinValue, maxY = int.MinValue;
             foreach (var room in Floor.Rooms)
@@ -306,7 +357,7 @@ namespace Ecos.Haunt
                 MapIcon(tile, "map-theme" + ThemeVariant, tint, opacity);
                 if (room == CurrentRoom)
                 {
-                    Color marker = Mint; marker.a = opacity + .10f;
+                    Color marker = Mint; marker.a = Mathf.Min(1, opacity + .10f);
                     float mark = expanded ? 7 : 4;
                     Fill(new Rect(tile.x - 3, tile.y - 3, mark, 2), marker);
                     Fill(new Rect(tile.x - 3, tile.y - 3, 2, mark), marker);
@@ -336,7 +387,7 @@ namespace Ecos.Haunt
             Fill(new Rect(0, 0, 1280, 720), new Color(0, 0, .025f, .78f));
             Panel(new Rect(410, 170, 460, 370), Orange);
             Text(new Rect(445, 197, 390, 45), "A NOITE ESPERA", headingStyle, Orange);
-            Text(new Rect(445, 255, 390, 50), "A incursão está pausada. Sair para o menu encerra esta tentativa.", bodyStyle, Color.white);
+            Text(new Rect(445, 255, 390, 50), "INCURSAO PAUSADA", bodyStyle, Color.white);
             if (Button(new Rect(445, 330, 390, 52), "CONTINUAR", Mint)) Paused = false;
             if (Button(new Rect(445, 401, 390, 48), "ENCERRAR INCURSÃO", new Color(.65f, .58f, .73f))) ReturnToMenu();
             Text(new Rect(445, 484, 390, 28), "ESC para voltar", smallStyle, Muted);
@@ -346,8 +397,8 @@ namespace Ecos.Haunt
         {
             Fill(new Rect(0, 0, 1280, 720), new Color(.035f, .005f, .025f, .88f));
             Panel(new Rect(355, 132, 570, 450), new Color(.7f, .22f, .32f));
-            Text(new Rect(392, 165, 500, 44), "A CRIPTA RECLAMOU SUA ALMA", headingStyle, new Color(1, .4f, .4f));
-            Text(new Rect(392, 232, 490, 80), "Andar alcançado: " + State.Floor + "\nSalas purificadas: " + roomsCleared + "   •   Inimigos vencidos: " + enemiesDefeated + "\nSemente: " + State.Seed, bodyStyle, Color.white);
+            Text(new Rect(392, 165, 500, 44), "A CRIPTA VENCEU", headingStyle, new Color(1, .4f, .4f));
+            Text(new Rect(392, 232, 490, 80), "ANDAR " + State.Floor + "\nSALAS " + roomsCleared + "  INIMIGOS " + enemiesDefeated + "\nSEMENTE " + State.Seed, bodyStyle, Color.white);
             if (Button(new Rect(392, 342, 496, 54), "NOVA INCURSÃO  /  NOVA SEMENTE", Orange)) BeginRun(System.Guid.NewGuid().GetHashCode());
             if (Button(new Rect(392, 415, 496, 44), "REPETIR ESTA SEMENTE", Mint)) BeginRun(State.Seed);
             if (Button(new Rect(392, 479, 496, 44), "VOLTAR AO MENU", new Color(.65f, .58f, .73f))) ReturnToMenu();
@@ -388,28 +439,42 @@ namespace Ecos.Haunt
             Fill(new Rect(rect.x + 2, rect.y + 2, rect.width - 4, rect.height - 4), Ink);
         }
 
-        static void HudText(Rect rect, string text, GUIStyle style, Color color)
+        void HudText(Rect rect, string text, GUIStyle style, Color color)
         {
-            // Glyph shadow provides contrast on bright tiles without a rectangle.
             Text(new Rect(rect.x + 1, rect.y + 1, rect.width, rect.height), text, style, new Color(0, 0, 0, color.a * .9f));
             Text(rect, text, style, color);
         }
 
-        static void Text(Rect rect, string text, GUIStyle style, Color color)
+        void Text(Rect rect, string text, GUIStyle style, Color color, TextAnchor? alignment = null)
         {
-            Color previous = GUI.color;
-            GUI.color = color;
-            GUI.Label(rect, text, style);
-            GUI.color = previous;
+            int pixelSize = Mathf.Clamp(style.fontSize / 7, 1, 6);
+            if (!style.wordWrap)
+            {
+                int longest = 0;
+                foreach (string line in text.Split('\n')) longest = Mathf.Max(longest, line.Length);
+                while (pixelSize > 1 && longest * pixelSize * 6 > rect.width) pixelSize--;
+            }
+            pixelText.Draw(rect, text, pixelSize, color, alignment ?? style.alignment, style.wordWrap);
         }
 
         bool Button(Rect rect, string label, Color background)
         {
-            Color old = GUI.backgroundColor;
-            GUI.backgroundColor = background;
-            bool clicked = GUI.Button(rect, label, buttonStyle);
-            GUI.backgroundColor = old;
+            // Stepped corners and two-pixel highlights share the sprite grid.
+            Color face = GUI.enabled ? background : Color.Lerp(Ink, background, .3f);
+            Color light = Color.Lerp(face, Color.white, .28f);
+            Color shade = Color.Lerp(face, Color.black, .45f);
+            Fill(new Rect(rect.x + 2, rect.y, rect.width - 4, rect.height), face);
+            Fill(new Rect(rect.x, rect.y + 2, rect.width, rect.height - 4), face);
+            Fill(new Rect(rect.x + 2, rect.y, rect.width - 4, 2), light);
+            Fill(new Rect(rect.x, rect.y + 2, 2, rect.height - 4), light);
+            Fill(new Rect(rect.x + 2, rect.yMax - 2, rect.width - 4, 2), shade);
+            Fill(new Rect(rect.xMax - 2, rect.y + 2, 2, rect.height - 4), shade);
+            bool clicked = GUI.Button(rect, "", GUIStyle.none);
+            Text(new Rect(rect.x + 6, rect.y + 3, rect.width - 12, rect.height - 6), label, buttonStyle,
+                GUI.enabled ? Ink : Muted, TextAnchor.MiddleCenter);
             return clicked;
         }
+
+
     }
 }

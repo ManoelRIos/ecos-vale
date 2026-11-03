@@ -23,7 +23,7 @@ namespace Ecos.Haunt
         static readonly Color[] FloorColors = { new Color(.88f, .98f, .84f), new Color(.78f, .9f, 1), new Color(1, .78f, .72f), new Color(.72f, .91f, .55f), new Color(.83f, .65f, .92f) };
         string PlayerArt => State == null || State.Character == CharacterKind.Hunter ? "player" : State.Character == CharacterKind.Medium ? "medium" : State.Character == CharacterKind.Reaper ? "reaper" : "alchemist";
         Color CharacterAccent => State == null || State.Character == CharacterKind.Hunter ? PlayerAccent : State.Character == CharacterKind.Medium ? new Color(.82f, .58f, 1) : State.Character == CharacterKind.Reaper ? new Color(.6f, .8f, 1) : new Color(.65f, 1, .35f);
-        string WeaponArt => State.Weapon == WeaponKind.Scattergun ? "scattergun" : State.Weapon == WeaponKind.Repeater ? "repeater" : State.Weapon == WeaponKind.SoulCannon ? "cannon" : "weapon";
+        string WeaponArt => State.Weapon == WeaponKind.Scattergun ? "scattergun" : State.Weapon == WeaponKind.Repeater ? "repeater" : State.Weapon == WeaponKind.SoulCannon ? "cannon" : State.Weapon == WeaponKind.Stapler ? "stapler" : State.Weapon == WeaponKind.Banana ? "banana-gun" : State.Weapon == WeaponKind.SpinningTop ? "spinning-top" : "weapon";
         string RoomThemeName => InShop || State == null ? "MERCADO DAS ALMAS" : FloorThemes[ThemeVariant];
 
         sealed class RoomAnimation
@@ -81,8 +81,24 @@ namespace Ecos.Haunt
                 var rug = MakeSprite("rug", new Vector2(0, 1), roomRoot.transform, -180);
                 rug.transform.localScale = new Vector3(4.5f, 3.8f, 1);
                 rug.color = new Color(.75f, .6f, .8f);
-                AnimatedProp("merchant", new Vector2(0, 4), Depth(4));
-                // The screen is the shop. World stalls no longer duplicate its seven cards.
+                AnimatedProp("merchant", MerchantPosition + Vector2.up * .4f, Depth(MerchantPosition.y));
+                MakeSprite("shop-counter", new Vector2(0, 2.7f), roomRoot.transform, Depth(2.4f));
+                obstacles.Add(new Rect(-3, 1.95f, 6, 1.15f));
+                obstacles.Add(new Rect(-.5f, MerchantPosition.y - .4f, 1, .8f));
+                for (int i = 0; i < 3; i++)
+                {
+                    Vector2 point = ShopPosition(i);
+                    MakeSprite("shop-case", point, roomRoot.transform, Depth(point.y));
+                    string[] goods = { "stapler", "banana-gun", "spinning-top" };
+                    MakeSprite(goods[i], point + Vector2.up * .65f, roomRoot.transform, Depth(point.y) + 1);
+                    obstacles.Add(new Rect(point.x - 1, point.y - .4f, 2, .75f));
+                    AddGroundGlow(point, new Color(1, .75f, .35f), 2.5f, .25f);
+                }
+                foreach (float x in new[] { -7f, 7f })
+                {
+                    MakeSprite("shop-shelf", new Vector2(x, 5.9f), roomRoot.transform, Depth(5.4f));
+                    obstacles.Add(new Rect(x - 2, 5.2f, 4, 1));
+                }
                 portal = AnimatedProp("portal", new Vector2(HalfWidth - 2, 0), 450);
                 AddGroundGlow(new Vector2(HalfWidth - 2, 0), PlayerAccent, 3, .2f);
             }

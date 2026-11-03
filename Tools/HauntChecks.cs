@@ -294,6 +294,75 @@ static class HauntChecks
         Console.WriteLine("Characters/arsenal: cooldowns, ownership, purchases, persistence and restart checked.");
     }
 
+    static void CuriousShopWeapons()
+    {
+        ShopItem[] items = { ShopItem.Stapler, ShopItem.Banana, ShopItem.SpinningTop };
+        WeaponKind[] weapons = { WeaponKind.Stapler, WeaponKind.Banana, WeaponKind.SpinningTop };
+        string[] names = { "GRAMPEADOR", "BANANA", "PIAO DO CAOS" };
+        int[] basePrices = { 55, 65, 80 };
+        float[] multipliers = { 1.4f, 2.2f, 3.5f };
+        var run = new RunState(71319) { Coins = 1000 };
+        for (int i = 0; i < items.Length; i++)
+        {
+            Check((int)items[i] - 3 == (int)weapons[i], "Shop and weapon identifiers must retain their mapping");
+            Check(RunState.WeaponName(weapons[i]) == names[i], "Curious weapons need their own displayed names");
+            Check(run.Price(items[i]) == basePrices[i], "Curious weapon initial price");
+            Check(!run.Owns(weapons[i]) && !run.Equip(weapons[i]), "Curious weapons must be acquired before equipping");
+            Check(!run.TryBuy(items[i], out _) && run.Coins == 1000 && !run.Sold(items[i]),
+                "Curious weapon purchase must respect the boss gate without mutation");
+        }
+        run.BossDefeated = true;
+        for (int i = 0; i < items.Length; i++)
+        {
+            int before = run.Coins;
+            Check(run.TryBuy(items[i], out _) && run.Coins == before - basePrices[i], "Curious weapon purchase charges the listed price");
+            Check(run.Owns(weapons[i]) && run.Weapon == weapons[i] && run.Sold(items[i]), "Curious weapon purchase grants and equips the matching item");
+            Check(Math.Abs(run.WeaponInterval - run.ShotInterval * multipliers[i]) < .00001f, "Curious weapon cadence uses its own multiplier");
+            before = run.Coins;
+            Check(!run.TryBuy(items[i], out _) && run.Coins == before && run.Weapon == weapons[i],
+                "Duplicate purchase must preserve money and equipment");
+        }
+        run.NextFloor();
+        Check(run.Floor == 2 && run.Weapon == WeaponKind.SpinningTop, "Equipped curious weapon persists into the next floor");
+        run.BossDefeated = true;
+        float previousInterval = 0;
+        for (int i = 0; i < items.Length; i++)
+        {
+            Check(!run.Sold(items[i]) && run.Owns(weapons[i]), "Visit stock resets without deleting owned curious weapons");
+            Check(run.Price(items[i]) == basePrices[i] + 3, "Curious weapons use normal floor price scaling");
+            int before = run.Coins;
+            Check(!run.TryBuy(items[i], out _) && run.Coins == before, "Later visits cannot charge for already owned curious weapons");
+            Check(run.Equip(weapons[i]) && run.Weapon == weapons[i], "Owned curious weapons can be reequipped");
+            Check(run.WeaponInterval > previousInterval, "Curious weapon cadences remain distinct");
+            previousInterval = run.WeaponInterval;
+        }
+        run.Equip(WeaponKind.Stapler);
+        float interval = run.WeaponInterval;
+        Check(run.TryBuy(ShopItem.FireRate, out _) && run.WeaponInterval < interval, "Fire-rate upgrades affect curious weapons");
+        int savedCoins = run.Coins;
+        WeaponKind savedWeapon = run.Weapon;
+        Check(!run.TryBuy((ShopItem)999, out _) && !run.TryBuy((ShopItem)(-1), out _)
+            && run.Coins == savedCoins && run.Weapon == savedWeapon, "Invalid items cannot charge or alter equipment");
+        Check(!run.Equip((WeaponKind)999) && run.Weapon == savedWeapon, "Invalid weapon cannot be equipped");
+        bool rejectedName = false;
+        try { RunState.WeaponName((WeaponKind)999); }
+        catch (ArgumentOutOfRangeException) { rejectedName = true; }
+        Check(rejectedName, "Unknown weapon name must not masquerade as a soul cannon");
+        var fresh = new RunState(run.Seed);
+        foreach (var weapon in weapons) Check(!fresh.Owns(weapon), "Restart removes curious weapon ownership");
+        Check(fresh.Weapon == WeaponKind.Pistol, "Restart returns to the initial weapon");
+        for (int i = 0; i < items.Length; i++)
+        {
+            var poor = new RunState(1) { BossDefeated = true, Coins = basePrices[i] - 1 };
+            Check(!poor.TryBuy(items[i], out _) && poor.Coins == basePrices[i] - 1 && !poor.Owns(weapons[i])
+                && !poor.Sold(items[i]) && poor.Weapon == WeaponKind.Pistol, "Unaffordable curious weapon purchase is atomic");
+        }
+        run.Hurt(100);
+        Check(!run.Equip(WeaponKind.Banana) && !run.TryBuy(ShopItem.Banana, out _) && run.Coins == savedCoins,
+            "Dead runs cannot equip or purchase curious weapons");
+        Console.WriteLine("Curious weapons: prices, atomic purchases, cadence, ownership, transitions and restart checked.");
+    }
+
     public static void Main()
     {
         Maps();
@@ -301,6 +370,7 @@ static class HauntChecks
         Economy();
         Geometry();
         CharactersAndArsenal();
+        CuriousShopWeapons();
         Console.WriteLine($"PASS — {assertions} assertions against production dungeon and run-state code.");
     }
 }

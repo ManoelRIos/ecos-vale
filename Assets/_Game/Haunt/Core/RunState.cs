@@ -3,9 +3,9 @@ using System.Collections.Generic;
 
 namespace Ecos.Haunt
 {
-    public enum ShopItem { Heal, Damage, FireRate, MaxHealth, Scattergun, Repeater, SoulCannon }
+    public enum ShopItem { Heal, Damage, FireRate, MaxHealth, Scattergun, Repeater, SoulCannon, Stapler, Banana, SpinningTop }
     public enum CharacterKind { Hunter, Medium, Reaper, Alchemist }
-    public enum WeaponKind { Pistol, Scattergun, Repeater, SoulCannon }
+    public enum WeaponKind { Pistol, Scattergun, Repeater, SoulCannon, Stapler, Banana, SpinningTop }
 
     /// <summary>Run-only progression: purchases survive floors, never a new run.</summary>
     public sealed class RunState
@@ -29,8 +29,37 @@ namespace Ecos.Haunt
             Weapon = weapon;
             return true;
         }
-        public float WeaponInterval => ShotInterval * (Weapon == WeaponKind.Scattergun ? 2.8f : Weapon == WeaponKind.Repeater ? .55f : Weapon == WeaponKind.SoulCannon ? 3.5f : 1f);
-        public static string WeaponName(WeaponKind weapon) => weapon == WeaponKind.Pistol ? "REVÓLVER" : weapon == WeaponKind.Scattergun ? "BACAMARTE" : weapon == WeaponKind.Repeater ? "REPETIDORA" : "CANHÃO DAS ALMAS";
+        public float WeaponInterval
+        {
+            get
+            {
+                switch (Weapon)
+                {
+                    case WeaponKind.Pistol: return ShotInterval;
+                    case WeaponKind.Scattergun: return ShotInterval * 2.8f;
+                    case WeaponKind.Repeater: return ShotInterval * .55f;
+                    case WeaponKind.SoulCannon: return ShotInterval * 3.5f;
+                    case WeaponKind.Stapler: return ShotInterval * 1.4f;
+                    case WeaponKind.Banana: return ShotInterval * 2.2f;
+                    case WeaponKind.SpinningTop: return ShotInterval * 3.5f;
+                    default: throw new ArgumentOutOfRangeException(nameof(Weapon));
+                }
+            }
+        }
+        public static string WeaponName(WeaponKind weapon)
+        {
+            switch (weapon)
+            {
+                case WeaponKind.Pistol: return "REVOLVER";
+                case WeaponKind.Scattergun: return "BACAMARTE";
+                case WeaponKind.Repeater: return "REPETIDORA";
+                case WeaponKind.SoulCannon: return "CANHAO DAS ALMAS";
+                case WeaponKind.Stapler: return "GRAMPEADOR";
+                case WeaponKind.Banana: return "BANANA";
+                case WeaponKind.SpinningTop: return "PIAO DO CAOS";
+                default: throw new ArgumentOutOfRangeException(nameof(weapon));
+            }
+        }
         public void TickPower(float dt) { if (dt > 0 && !float.IsInfinity(dt)) PowerCooldown = Math.Max(0, PowerCooldown - dt); }
         public bool TryUsePower()
         {
@@ -83,6 +112,9 @@ namespace Ecos.Haunt
                 case ShopItem.Scattergun: return 55 + scaling;
                 case ShopItem.Repeater: return 65 + scaling;
                 case ShopItem.SoulCannon: return 80 + scaling;
+                case ShopItem.Stapler: return 55 + scaling;
+                case ShopItem.Banana: return 65 + scaling;
+                case ShopItem.SpinningTop: return 80 + scaling;
                 default: throw new ArgumentOutOfRangeException(nameof(item));
             }
         }
@@ -91,17 +123,17 @@ namespace Ecos.Haunt
 
         public bool TryBuy(ShopItem item, out string message)
         {
-            if (!Enum.IsDefined(typeof(ShopItem), item)) { message = "Item desconhecido."; return false; }
-            if (IsDead) { message = "A jornada terminou."; return false; }
-            if (!BossDefeated) { message = "Derrote o chefe para abrir o mercado."; return false; }
-            if ((int)item >= (int)ShopItem.Scattergun && Owns((WeaponKind)((int)item - 3))) { message = "Arma já adquirida. Use 1–4 para equipar."; return false; }
-            if (Sold(item)) { message = "Este item já foi comprado nesta visita."; return false; }
-            if (item == ShopItem.Heal && Health >= MaxHealth) { message = "Sua vida já está completa."; return false; }
-            if (item == ShopItem.Damage && Damage >= 10) { message = "Dano máximo atingido."; return false; }
-            if (item == ShopItem.FireRate && ShotInterval <= .0701f) { message = "Cadência máxima atingida."; return false; }
-            if (item == ShopItem.MaxHealth && MaxHealth >= 20) { message = "Vida máxima atingida."; return false; }
+            if (!Enum.IsDefined(typeof(ShopItem), item)) { message = "ITEM DESCONHECIDO."; return false; }
+            if (IsDead) { message = "A JORNADA TERMINOU."; return false; }
+            if (!BossDefeated) { message = "MERCADO FECHADO."; return false; }
+            if ((int)item >= (int)ShopItem.Scattergun && Owns((WeaponKind)((int)item - 3))) { message = "ARMA JA ADQUIRIDA."; return false; }
+            if (Sold(item)) { message = "ESGOTADO NESTA VISITA."; return false; }
+            if (item == ShopItem.Heal && Health >= MaxHealth) { message = "VIDA COMPLETA."; return false; }
+            if (item == ShopItem.Damage && Damage >= 10) { message = "DANO MAXIMO."; return false; }
+            if (item == ShopItem.FireRate && ShotInterval <= .0701f) { message = "CADENCIA MAXIMA."; return false; }
+            if (item == ShopItem.MaxHealth && MaxHealth >= 20) { message = "VIDA MAXIMA."; return false; }
             int price = Price(item);
-            if (Coins < price) { message = "Faltam moedas."; return false; }
+            if (Coins < price) { message = "FALTAM ALMAS."; return false; }
 
             Coins -= price;
             sold.Add(item);
@@ -109,26 +141,26 @@ namespace Ecos.Haunt
             {
                 case ShopItem.Heal:
                     Health = Math.Min(MaxHealth, Health + 3);
-                    message = "Elixir: até 3 pontos de vida recuperados.";
+                    message = "VIDA RECUPERADA.";
                     break;
                 case ShopItem.Damage:
                     Damage++;
-                    message = "Munição maldita: +1 de dano.";
+                    message = "DANO +1.";
                     break;
                 case ShopItem.FireRate:
                     ShotInterval = Math.Max(.07f, ShotInterval * .85f);
-                    message = "Gatilho espectral: tiros 15% mais rápidos.";
+                    message = "DISPARO MAIS RAPIDO.";
                     break;
                 case ShopItem.MaxHealth:
                     int gain = Math.Min(2, 20 - MaxHealth);
                     MaxHealth += gain;
                     Health = Math.Min(MaxHealth, Health + gain);
-                    message = "Coração de abóbora: +2 de vida máxima.";
+                    message = "VIDA MAXIMA +2.";
                     break;
                 default:
                     Weapon = (WeaponKind)((int)item - 3);
                     weapons.Add(Weapon);
-                    message = WeaponName(Weapon) + " adquirido e equipado. Troque com 1–4.";
+                    message = WeaponName(Weapon) + " EQUIPADO.";
                     break;
             }
             return true;
