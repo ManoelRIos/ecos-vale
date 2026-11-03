@@ -55,7 +55,7 @@ No Editor, abra **Ecos → Abrir roguelike**, pressione Play e confira:
 12. Conferir Ceifador (12 tiros radiais/proteção) e Alquimista (cura 2; vida cheia não gasta recarga).
 13. Comprar cada arma, conferir cobrança única, alternar com 1–4, atravessar andares e reiniciar. Conferir leque de cinco tiros, repetidora rápida e dano alto do canhão.
 14. Explorar os cinco temas com sementes diferentes e conferir os três guardiões possíveis de cada tema. Repetir semente e andar para conferir o mesmo guardião. Conferir Matriarca/Sino quando sorteados, seus padrões, as criaturas comuns do tema, o minimapa e as partículas.
-15. Ausência de tiros ao clicar no HUD ou no minimapa, pausa com cursor visível e restauração após reinício.
+15. Mirar e atirar através dos textos do HUD, mapa pequeno e atlas ampliado, sem zonas invisíveis de bloqueio. Conferir bloqueio de tiros em menu, loja, pausa e morte, com cursor visível nesses estados e restauração após reinício.
 
 A compilação completa, o Play Mode, o render e o executável desta limpeza permanecem pendentes até esses checks serem executados no Editor.
 
@@ -72,3 +72,12 @@ A compilação completa, o Play Mode, o render e o executável desta limpeza per
 - Destruir o objeto `HauntGame` ou sair do Play Mode e conferir liberação do material aditivo `Haunt / additive light`, materiais e texturas da biblioteca de arte. Inspecionar o Console para referências destruídas ou halos órfãos; o pool e sua limpeza não são certificados pelo parser C#.
 
 Os testes Unity foram ampliados para geometria, portas/chegadas, câmera, orientação da saída, seleção e identidades dos chefes, alternância de ataques, avisos de chão, poderes novos e reciclagem do halo com o projétil; permanecem não executados. A prévia PNG apenas mostra os pixels do desenho procedural, sem renderização Unity.
+
+## Roteiro: HUD sem tarjas
+
+- Em 1280×720 e 860×500, conferir corações no canto superior esquerdo, textos sem retângulos e legibilidade sobre pisos claros/escuros. Testar vida máxima acima de 10 para conferir a segunda linha de corações.
+- Conferir ausência de fundos em notificações, rótulos das portas, portal e legenda da seta; dados da sala devem desaparecer após o breve aviso de entrada. A seta deve continuar visível ao ampliar o mapa depois de purificar a sala.
+- Conferir mapa sem fundo em 16% e atlas em 30% de opacidade, incluindo corredores, miniaturas e retratos. Deve ser possível mirar e atirar em qualquer ponto das sobreposições.
+- Conferir que loja, menu, pausa e morte continuam com botões funcionais e sem disparos por trás das telas.
+
+Esta revisão de interface recebeu análise de sintaxe e checks estáticos. A aparência em jogo permanece pendente de execução no Editor Unity.

@@ -55,7 +55,8 @@ Os cinco temas são Jardins da Colheita, Galeria dos Véus, Catedral das Cinzas,
 - Um chefe por andar, sorteado pela semente entre três candidatos do tema atual. O catálogo contém Rei das Abóboras, Viúva do Véu, Bispo das Cinzas, Matriarca da Peste e Sino do Abismo. Viúva, Bispo, Matriarca e Sino têm sprites próprios de 56 × 56 pixels, poses de conjuração e dois padrões alternados: a Viúva carrega e lança teias, o Bispo consagra o chão, a Matriarca combina espirais com erupções e o Sino alterna pulsos e faixas. Os ataques de chão são marcados por 1,1 s antes de causar dano; a purificação cancela marcas pendentes. O ciclo de cinco temas se repete, mantendo o aumento de dificuldade. A seleção do chefe usa uma sequência aleatória separada e não altera a disposição das salas.
 - Após vencer o chefe, um portal leva ao Mercado das Almas. A tela da loja substitui o HUD de combate, com abas **Melhorias** e **Armas**, até quatro cartões por vez e botão **Descer ao próximo andar**. Não há compras invisíveis por proximidade nem movimento por trás do painel. Compre até 3 pontos de cura, +1 de dano, intervalo entre tiros 15% menor ou +2 de vida máxima. Cada item pode ser comprado uma vez por visita; uma compra recusada não consome moedas.
 - O próximo andar preserva vida, moedas, armas, personagem e melhorias. Morrer encerra a incursão e permite repetir a semente ou gerar outra.
-- HUD de vida, moedas, andar e chefe; mapa das salas, pausa e reinício.
+- HUD sem tarjas e molduras: corações no canto superior esquerdo, textos compactos de almas, arma e recarga; nome e vida do chefe em texto. As informações da sala aparecem brevemente ao entrar.
+- Mapa temático sem fundo, desenhado atrás do HUD: 16% de opacidade na visão pequena e 30% no atlas ampliado com M. A sobreposição é passiva e permite mirar/atirar através dela. Notificações e rótulos também usam texto sem caixas; menus e loja mantêm seus controles.
 
 | Controle | Ação |
 | --- | --- |

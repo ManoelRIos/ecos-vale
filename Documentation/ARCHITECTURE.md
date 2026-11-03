@@ -49,3 +49,9 @@ O PNG de prévia usa os pixels produzidos pelas rotinas Canvas do próprio códi
 ## Catálogo de guardiões
 
 Os pools de `DungeonFloor.BossCandidatesForTheme` são: Jardins `[Rei, Viúva, Matriarca]`, Galeria `[Viúva, Bispo, Sino]`, Catedral `[Bispo, Sino, Rei]`, Ninho `[Matriarca, Viúva, Rei]` e Abismo `[Sino, Matriarca, Bispo]`. O método retorna uma cópia para impedir mutação do catálogo compartilhado. O gerador de encontros usa semente e andar com sal próprio; suas chamadas não alteram os mapas determinísticos existentes. Os cinco desenhos de chefes são preservados e podem aparecer em mais de um tema.
+
+## HUD e atlas transparentes
+
+O HUD de combate usa texto com uma sombra nos próprios caracteres, sem tarjas, painéis ou barras de fundo. Os corações ficam no canto superior esquerdo; os demais dados são compactos, e os avisos da sala somem após a entrada. `WorldTag`, notificações e legenda de saída também são textos sem caixas. Menus e loja continuam com controles próprios.
+
+O atlas é desenhado antes do HUD, sem painel. Corredores, miniaturas e retratos recebem alfa de 0,16 no mapa pequeno e 0,30 no ampliado; só os marcadores da sala atual recebem mais 0,10. Os textos e o personagem permanecem acima da sobreposição. `PointerOverInterface` bloqueia apenas menu, loja, pausa e morte: HUD e ambas as visões do mapa não capturam cursor, mira ou tiro. A seta de saída continua disponível com o mapa ampliado.
