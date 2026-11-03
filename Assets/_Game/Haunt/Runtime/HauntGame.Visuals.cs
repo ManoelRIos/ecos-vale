@@ -6,7 +6,7 @@ namespace Ecos.Haunt
 {
     public sealed partial class HauntGame
     {
-        static readonly string[] EnemyArt = { "pumpkin", "ghost", "cultist", "bat", "boss" };
+        static readonly string[] EnemyArt = { "pumpkin", "ghost", "cultist", "bat", "boss", "larva", "sentinel", "acolyte" };
         static readonly Color PlayerAccent = new Color(.32f, 1f, .85f);
         static readonly Color HostileAccent = new Color(1f, .31f, .43f);
         readonly List<RoomAnimation> roomAnimations = new List<RoomAnimation>();
@@ -17,9 +17,11 @@ namespace Ecos.Haunt
         float walkDistance, weaponKick, trailTimer, dustTimer, roomBannerTime;
         bool playerMoving;
         int roomTheme;
-        string RoomThemeName => InShop || State == null ? "MERCADO DAS ALMAS" : CurrentRoom.Kind == RoomKind.Boss
-            ? "SANTUÁRIO DO GUARDIÃO" : CurrentRoom.Kind == RoomKind.Entrance ? "LIMIAR DAS LANTERNAS"
-            : roomTheme == 0 ? "CRIPTA DAS RAÍZES" : roomTheme == 1 ? "CAPELA DAS CINZAS" : "OSSUÁRIO LUNAR";
+        static readonly string[] FloorThemes = { "JARDINS DA COLHEITA", "GALERIA DOS VÉUS", "CATEDRAL DAS CINZAS", "NINHO DA PESTE", "ABISMO DOS SINOS" };
+        static readonly Color[] FloorColors = { new Color(.88f, .98f, .84f), new Color(.78f, .9f, 1), new Color(1, .78f, .72f), new Color(.72f, .91f, .55f), new Color(.83f, .65f, .92f) };
+        string PlayerArt => State != null && State.Character == CharacterKind.Medium ? "medium" : "player";
+        string WeaponArt => State.Weapon == WeaponKind.Scattergun ? "scattergun" : State.Weapon == WeaponKind.Repeater ? "repeater" : State.Weapon == WeaponKind.SoulCannon ? "cannon" : "weapon";
+        string RoomThemeName => InShop || State == null ? "MERCADO DAS ALMAS" : FloorThemes[BossVariant];
 
         sealed class RoomAnimation
         {
@@ -41,6 +43,8 @@ namespace Ecos.Haunt
             roomTheme = shop ? 1 : CurrentRoom.Kind == RoomKind.Boss ? 2 : CurrentRoom.Id % 3;
             Color floorTint = shop ? new Color(1, .89f, .76f) : roomTheme == 0 ? new Color(.78f, .91f, .83f)
                 : roomTheme == 1 ? new Color(.94f, .83f, .86f) : new Color(.78f, .84f, 1f);
+            if (!shop) floorTint = Color.Lerp(floorTint, FloorColors[BossVariant], .7f);
+            if (!shop) floorTint *= Mathf.Lerp(1, .83f, Mathf.Clamp01((State.Floor - 1) / 9f));
             Color wallTint = Color.Lerp(floorTint, Color.white, .5f);
             for (int y = -6; y <= 6; y++)
                 for (int x = -11; x <= 11; x++)
@@ -75,7 +79,7 @@ namespace Ecos.Haunt
             if (!shop && CurrentRoom.Kind != RoomKind.Entrance)
             {
                 bool boss = CurrentRoom.Kind == RoomKind.Boss;
-                int layout = roomRandom.Next(3);
+                int layout = (roomRandom.Next(3) + BossVariant) % 3;
                 for (int side = -1; side <= 1; side += 2)
                     for (int row = -1; row <= 1; row += 2)
                     {
@@ -129,6 +133,15 @@ namespace Ecos.Haunt
                 if (CurrentRoom.Kind == RoomKind.Boss && CurrentRoom.Cleared)
                     portal = AnimatedProp("portal", new Vector2(0, 1.4f), 450);
             }
+            if (!shop)
+                for (int i = 0; i < 5 + Mathf.Min(State.Floor, 12); i++)
+                {
+                    // Decorative corruption stays below actors and never obstructs lanes.
+                    Vector2 p = new Vector2((float)roomRandom.NextDouble() * 18 - 9, (float)roomRandom.NextDouble() * 8 - 4);
+                    var stain = MakeSprite(BossVariant >= 3 ? "rune" : "dust", p, roomRoot.transform, -190);
+                    stain.color = new Color(FloorColors[BossVariant].r, FloorColors[BossVariant].g, FloorColors[BossVariant].b, .16f);
+                    stain.transform.localScale = Vector3.one * (BossVariant >= 3 ? .6f : 1.5f);
+                }
             UpdateRoomAmbience(0);
         }
 
@@ -162,6 +175,14 @@ namespace Ecos.Haunt
 
         void UpdateRoomAmbience(float dt)
         {
+            if (Playing && !InShop && dt > 0 && Mathf.FloorToInt(simulationTime * 12) != Mathf.FloorToInt((simulationTime - dt) * 12))
+            {
+                // Time-derived positions keep visual ambience out of the seeded spawn RNG.
+                float t = simulationTime;
+                Vector2 p = new Vector2(Mathf.Sin(t * 5.13f) * 9, Mathf.Cos(t * 3.71f) * 4);
+                Color c = FloorColors[BossVariant]; c.a = .32f;
+                Emit("spark", p, Vector2.up * .25f, c, 1.3f, .16f, 0);
+            }
             foreach (var prop in roomAnimations)
                 if (prop.Sprite) prop.Sprite.sprite = art.Frame(prop.Id, Mathf.FloorToInt(simulationTime * 6 + prop.Offset));
             for (int i = 0; i < roomGlows.Count; i++)
@@ -189,7 +210,8 @@ namespace Ecos.Haunt
             Vector2 aim = AimDirection();
             bool rolling = rollRemaining > 0;
             int frame = playerMoving ? Mathf.FloorToInt(walkDistance * 4.5f) : Mathf.FloorToInt(simulationTime * 2) % 2 * 2;
-            player.sprite = art.Frame("player", frame);
+            player.sprite = art.Frame(PlayerArt, frame);
+            gun.sprite = art.Get(WeaponArt);
             float bob = rolling ? 0 : playerMoving ? Mathf.Sin(walkDistance * 14) * .045f : Mathf.Sin(simulationTime * 2) * .02f;
             player.transform.position = Snap(playerPosition + Vector2.up * (.38f + bob));
             player.sortingOrder = Depth(playerPosition.y);
@@ -228,12 +250,12 @@ namespace Ecos.Haunt
         void PresentEnemy(Enemy enemy, Vector2 direction)
         {
             int frame = Mathf.FloorToInt(enemy.Phase * (enemy.Kind == 3 ? 10 : 6));
-            enemy.Sprite.sprite = art.Frame(EnemyArt[enemy.Kind], frame);
+            enemy.Sprite.sprite = art.Frame(EnemySprite(enemy.Kind), frame);
             float floatHeight = enemy.Kind == 1 || enemy.Kind == 3 ? Mathf.Sin(enemy.Phase * 4) * .12f : Mathf.Sin(enemy.Phase * 5) * .025f;
             enemy.Sprite.transform.position = Snap(enemy.Position + Vector2.up * (.38f + floatHeight));
             enemy.Sprite.flipX = direction.x < 0;
-            Color normal = enemy.Kind == 4 && State.Floor % 3 == 2 ? new Color(.72f, 1, .97f)
-                : enemy.Kind == 4 && State.Floor % 3 == 0 ? new Color(1, .74f, .91f) : Color.white;
+            Color normal = enemy.Kind == 4 && BossVariant == 1 ? new Color(.72f, 1, .97f)
+                : enemy.Kind == 4 && BossVariant == 2 ? new Color(1, .74f, .91f) : Color.white;
             enemy.Sprite.color = enemy.HurtFlash > 0 ? new Color(1, .75f, .7f)
                 : enemy.Tell > 0 ? Color.Lerp(normal, new Color(1, .65f, .65f), .45f + .2f * Mathf.Sin(simulationTime * 25)) : normal;
             enemy.Sprite.sortingOrder = Depth(enemy.Position.y);
@@ -274,10 +296,10 @@ namespace Ecos.Haunt
 
         void Emit(string id, Vector2 position, Vector2 velocity, Color color, float duration, float scale, float gravity, float spin = 0)
         {
-            if (sparks.Count >= 160 || !actorsRoot) return;
+            if (sparks.Count >= 240 || !actorsRoot) return;
             var sprite = effectPool.Count > 0 ? effectPool.Pop() : MakeSprite(id, position, actorsRoot.transform, 1300);
             sprite.gameObject.SetActive(true);
-            sprite.sprite = id == "player" && player ? player.sprite : art.Get(id);
+            sprite.sprite = id == "player" && player ? player.sprite : art.Get(id == "player" ? PlayerArt : id);
             sprite.flipX = id == "player" && player && player.flipX;
             sprite.flipY = false;
             sprite.transform.position = Snap(position);
@@ -332,7 +354,7 @@ namespace Ecos.Haunt
         {
             Burst(enemy.Position + Vector2.up * .4f, enemy.Kind == 1 ? new Color(.85f, .95f, 1) : HostileAccent, enemy.Kind == 4 ? 22 : 10);
             RingEffect(enemy.Position, enemy.Kind == 4 ? new Color(1, .65f, .24f) : HostileAccent, enemy.Kind == 4 ? 2.2f : .6f);
-            Emit(EnemyArt[enemy.Kind], enemy.Position + Vector2.up * .4f, Vector2.up * 1.2f, new Color(.7f, .5f, .7f, .45f), .35f, .75f, 6, 90);
+            Emit(EnemySprite(enemy.Kind), enemy.Position + Vector2.up * .4f, Vector2.up * 1.2f, new Color(.7f, .5f, .7f, .45f), .35f, .75f, 6, 90);
             Destroy(enemy.Sprite.gameObject); Destroy(enemy.Shadow.gameObject); Destroy(enemy.Ring.gameObject); Destroy(enemy.Telegraph.gameObject);
         }
     }

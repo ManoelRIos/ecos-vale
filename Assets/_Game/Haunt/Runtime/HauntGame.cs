@@ -22,7 +22,7 @@ namespace Ecos.Haunt
         const float HalfWidth = 10.5f, HalfHeight = 5.5f, PlayerRadius = .27f;
         const int MaxShots = 420;
         const float RollTime = .24f, RollCooldown = .85f;
-        static readonly string[] BossNames = { "O REI DAS ABÓBORAS", "A VIÚVA DO VÉU", "O BISPO DAS CINZAS" };
+        static readonly string[] BossNames = { "O REI DAS ABÓBORAS", "A VIÚVA DO VÉU", "O BISPO DAS CINZAS", "A MATRIARCA DA PESTE", "O SINO DO ABISMO" };
         readonly List<Enemy> enemies = new List<Enemy>();
         readonly List<Shot> shots = new List<Shot>();
         readonly List<Rect> obstacles = new List<Rect>();
@@ -41,6 +41,9 @@ namespace Ecos.Haunt
         string seedText = "", notice = "", renderingFailure;
         float noticeTime;
         int roomsCleared, enemiesDefeated;
+        CharacterKind selectedCharacter;
+        int BossVariant => (State.Floor - 1) % BossNames.Length;
+        string EnemySprite(int kind) => kind == 4 ? (BossVariant == 3 ? "matriarch" : BossVariant == 4 ? "bell" : "boss") : EnemyArt[kind];
         System.Random roomRandom;
 
         sealed class Enemy
@@ -106,7 +109,7 @@ namespace Ecos.Haunt
         {
             if (!string.IsNullOrEmpty(renderingFailure)) return;
             ClearActors();
-            State = new RunState(seed);
+            State = new RunState(seed, selectedCharacter);
             Floor = DungeonFloor.Generate(seed, State.Floor);
             CurrentRoom = Floor.Entrance;
             Playing = true;
@@ -184,6 +187,15 @@ namespace Ecos.Haunt
             rollReady = Mathf.Max(0, rollReady - dt);
             shotCooldown -= dt;
             muzzleTime -= dt;
+            State.TickPower(dt);
+            if (keyboard != null)
+            {
+                if (keyboard.digit1Key.wasPressedThisFrame) State.Equip(WeaponKind.Pistol);
+                if (keyboard.digit2Key.wasPressedThisFrame) State.Equip(WeaponKind.Scattergun);
+                if (keyboard.digit3Key.wasPressedThisFrame) State.Equip(WeaponKind.Repeater);
+                if (keyboard.digit4Key.wasPressedThisFrame) State.Equip(WeaponKind.SoulCannon);
+                if (!InShop && keyboard.qKey.wasPressedThisFrame) UsePower();
+            }
             UpdatePlayer(keyboard, dt);
             if (!InShop) UpdateEnemies(dt);
             UpdateShots(dt);
@@ -234,12 +246,40 @@ namespace Ecos.Haunt
             if (!InShop && !PointerOverInterface() && mouse != null && mouse.leftButton.isPressed && shotCooldown <= 0 && rollRemaining <= 0)
             {
                 Vector2 aim = AimDirection();
-                Fire(playerPosition + aim * .48f, aim * 17f, true, State.Damage);
+                if (State.Weapon == WeaponKind.Scattergun)
+                    for (int pellet = -2; pellet <= 2; pellet++) Fire(playerPosition + aim * .48f, Rotate(aim, pellet * 9) * 15, true, State.Damage);
+                else Fire(playerPosition + aim * .48f, aim * (State.Weapon == WeaponKind.SoulCannon ? 11 : 17), true,
+                    State.Damage * (State.Weapon == WeaponKind.SoulCannon ? 5 : 1));
                 weaponKick = 1;
                 Emit("glow", playerPosition + Vector2.up * .35f + aim, Vector2.zero, new Color(.4f, 1, .85f, .3f), .08f, .7f, 0);
-                shotCooldown = State.ShotInterval;
+                shotCooldown = State.WeaponInterval;
                 muzzleTime = .045f;
             }
+        }
+
+        void UsePower()
+        {
+            if (State.Character == CharacterKind.Medium && shots.Count > MaxShots - 9)
+            {
+                Notify("Aguarde espaço para a rajada espectral.");
+                return;
+            }
+            if (!State.TryUsePower()) return;
+            bool hunter = State.Character == CharacterKind.Hunter;
+            // Invalidate shots without modifying collections during their update.
+            if (hunter)
+            {
+                foreach (var shot in shots)
+                    if (!shot.Friendly && Vector2.Distance(shot.Position, playerPosition) <= 5) shot.Life = 0;
+                invincible = Mathf.Max(invincible, .65f);
+            }
+            else
+                for (int i = -4; i <= 4; i++)
+                    Fire(playerPosition + AimDirection() * .48f, Rotate(AimDirection(), i * 9) * 13, true, State.Damage * 3);
+            Color color = hunter ? PlayerAccent : new Color(.8f, .5f, 1);
+            RingEffect(playerPosition, color, hunter ? 5 : 2);
+            Burst(playerPosition + Vector2.up * .4f, color, 28);
+            Notify(State.PowerName);
         }
 
         Vector2 AimDirection()
@@ -309,21 +349,23 @@ namespace Ecos.Haunt
                 if (room.Kind == RoomKind.Boss)
                 {
                     SpawnEnemy(4, new Vector2(0, 2.4f));
-                    Notify(BossNames[(State.Floor - 1) % 3] + " • desvie dos padrões e use as colunas.");
+                    Notify(BossNames[BossVariant] + " • desvie dos padrões e use as colunas.");
                 }
                 else
                 {
                     // Spawn away from every doorway and from the arrival point.
                     var points = new List<Vector2> { new Vector2(-6, 2.7f), new Vector2(6, 2.7f),
-                        new Vector2(-6, -2.7f), new Vector2(6, -2.7f), new Vector2(0, 3.5f), new Vector2(0, -3.5f) };
-                    int count = Mathf.Min(6, 3 + State.Floor / 2 + room.Id % 2);
+                        new Vector2(-6, -2.7f), new Vector2(6, -2.7f), new Vector2(0, 3.5f), new Vector2(0, -3.5f), new Vector2(-7, 0), new Vector2(7, 0) };
+                    int count = Mathf.Min(8, 3 + State.Floor / 2 + room.Id % 2);
                     while (points.Count > 0 && enemies.Count < count)
                     {
                         int index = roomRandom.Next(points.Count);
                         Vector2 point = points[index];
                         points.RemoveAt(index);
                         if (Vector2.Distance(point, arrival) < 3) continue;
-                        SpawnEnemy(roomRandom.Next(4), point);
+                        int roll = roomRandom.Next(6);
+                        int themed = BossVariant == 0 ? 0 : BossVariant == 1 ? 1 : BossVariant == 2 ? 2 : BossVariant == 3 ? 5 : 7;
+                        SpawnEnemy(enemies.Count == 0 || roll < 3 ? themed : roll == 3 ? 3 : roll == 4 && State.Floor >= 2 ? 6 : roomRandom.Next(4), point);
                     }
                 }
             }
@@ -336,7 +378,7 @@ namespace Ecos.Haunt
             int health = kind == 4 ? 65 + State.Floor * 18 : (kind == 0 ? 5 : kind == 3 ? 2 : 4) + State.Floor;
             var enemy = new Enemy { Kind = kind, Position = position, Health = health, MaxHealth = health,
                 Cooldown = 1.2f + (float)roomRandom.NextDouble(), Phase = (float)roomRandom.NextDouble() * 6 };
-            enemy.Sprite = MakeSprite(EnemyArt[kind], position, actorsRoot.transform, Depth(position.y));
+            enemy.Sprite = MakeSprite(EnemySprite(kind), position, actorsRoot.transform, Depth(position.y));
             enemy.Shadow = MakeSprite("shadow", position, actorsRoot.transform, 0);
             enemy.Shadow.transform.localScale = new Vector3(kind == 4 ? 3 : 1.5f, kind == 4 ? 1.4f : .7f, 1);
             enemy.Ring = MakeSprite("enemy-ring", position, actorsRoot.transform, 15);
@@ -347,8 +389,8 @@ namespace Ecos.Haunt
             if (kind == 4)
             {
                 enemy.Sprite.transform.localScale = Vector3.one * 1.15f;
-                if (State.Floor % 3 == 2) enemy.Sprite.color = new Color(.65f, 1, .9f);
-                if (State.Floor % 3 == 0) enemy.Sprite.color = new Color(1, .6f, .9f);
+                if (BossVariant == 1) enemy.Sprite.color = new Color(.65f, 1, .9f);
+                if (BossVariant == 2) enemy.Sprite.color = new Color(1, .6f, .9f);
             }
             enemies.Add(enemy);
         }
@@ -405,6 +447,33 @@ namespace Ecos.Haunt
                     }
                     else enemy.Position = Move(enemy.Position, direction * (1.2f * dt), .25f);
                 }
+                else if (enemy.Kind == 5) // Plague larva: zigzag pursuit, short venom spread.
+                {
+                    enemy.Position = Move(enemy.Position, (direction + new Vector2(-direction.y, direction.x) * Mathf.Sin(enemy.Phase * 5) * .6f) * (2.2f * dt), .3f);
+                    if (enemy.Cooldown <= 0 && distance < 5)
+                    {
+                        for (int i = -1; i <= 1; i++) Fire(enemy.Position, Rotate(direction, i * 28) * 3.5f, false, 1);
+                        enemy.Cooldown = 3;
+                    }
+                }
+                else if (enemy.Kind == 6) // Bone sentinel: stationary rotating volleys.
+                {
+                    if (enemy.Cooldown <= 0)
+                    {
+                        for (int i = 0; i < 4; i++) Fire(enemy.Position, Rotate(direction, i * 90) * 4, false, 1);
+                        enemy.Cooldown = 2.7f;
+                    }
+                }
+                else if (enemy.Kind == 7) // Bell acolyte: advances between paired volleys.
+                {
+                    if (distance > 3) enemy.Position = Move(enemy.Position, direction * (1.4f * dt), .35f);
+                    if (enemy.Cooldown <= 0)
+                    {
+                        Fire(enemy.Position, Rotate(direction, -8) * 5.5f, false, 1);
+                        Fire(enemy.Position, Rotate(direction, 8) * 5.5f, false, 1);
+                        enemy.Cooldown = 1.8f;
+                    }
+                }
                 else UpdateBoss(enemy, direction, dt);
                 if (enemy.Kind != 3 || enemy.Cooldown > .5f) enemy.Tell = enemy.Cooldown < .45f ? .45f - enemy.Cooldown : 0;
                 if (distance < (enemy.Kind == 4 ? .95f : .6f)) HurtPlayer();
@@ -414,7 +483,7 @@ namespace Ecos.Haunt
 
         void UpdateBoss(Enemy boss, Vector2 direction, float dt)
         {
-            int variant = (State.Floor - 1) % 3;
+            int variant = BossVariant;
             bool enraged = boss.Health <= boss.MaxHealth / 2;
             boss.Position = Move(boss.Position, new Vector2(Mathf.Sin(boss.Phase * .7f), Mathf.Cos(boss.Phase)) * (dt * .7f), .8f);
             if (boss.Cooldown > 0) return;
@@ -433,14 +502,30 @@ namespace Ecos.Haunt
                     if (enraged) Fire(boss.Position, Rotate(-direction, i * 15) * 3.3f, false, 1);
                 }
             }
-            else // Bishop: rotating cross and aimed burst.
+            else if (variant == 2) // Bishop: rotating cross and aimed burst.
             {
                 for (int i = 0; i < 4; i++)
                     for (int j = -1; j <= 1; j++)
                         Fire(boss.Position, Rotate(Vector2.right, offset + i * 90 + j * 9) * (enraged ? 4.5f : 3.5f), false, 1);
                 Fire(boss.Position, direction * 6, false, 1);
             }
-            Burst(boss.Position, new Color(1, .35f, .2f), 5);
+            else if (variant == 3) // Matriarch: two interleaved spirals and a venom fan.
+            {
+                for (int i = 0; i < 10; i++)
+                    Fire(boss.Position, Rotate(Vector2.right, i * 36 + offset) * (i % 2 == 0 ? 3 : 5), false, 1);
+                for (int i = -2; i <= 2; i++) Fire(boss.Position, Rotate(direction, i * 20) * 4.5f, false, 1);
+            }
+            else // Abyssal bell: concentric pulses with a rotating escape sector.
+            {
+                for (int i = 0; i < 18; i++)
+                {
+                    if (i % 6 == Mathf.FloorToInt(boss.Phase) % 6) continue;
+                    Vector2 ray = Rotate(Vector2.right, i * 20 + offset);
+                    Fire(boss.Position, ray * 3, false, 1);
+                    if (enraged) Fire(boss.Position, ray * 4.6f, false, 1);
+                }
+            }
+            Burst(boss.Position, new Color(1, .35f, .2f), 12);
             boss.Cooldown = enraged ? 1.1f : 1.65f;
         }
 
@@ -457,8 +542,9 @@ namespace Ecos.Haunt
             SpriteRenderer sprite = shotPool.Count > 0 ? shotPool.Pop() : MakeSprite("bullet-player", origin, actorsRoot.transform, 1250);
             sprite.gameObject.SetActive(true);
             sprite.sprite = art.Get(friendly ? "bullet-player" : "bullet-enemy");
-            sprite.color = Color.white;
-            sprite.transform.localScale = Vector3.one;
+            sprite.color = friendly ? (State.Character == CharacterKind.Medium ? new Color(.85f, .6f, 1) : Color.white) : Color.white;
+            if (friendly && State.Weapon == WeaponKind.SoulCannon) sprite.color = new Color(.6f, 1, .85f);
+            sprite.transform.localScale = Vector3.one * (friendly && State.Weapon == WeaponKind.SoulCannon ? 1.7f : 1);
             sprite.transform.position = Snap(origin + Vector2.up * .38f);
             sprite.transform.rotation = Quaternion.Euler(0, 0, Mathf.Atan2(velocity.y, velocity.x) * Mathf.Rad2Deg);
             shots.Add(new Shot { Sprite = sprite, Position = origin, Velocity = velocity,
@@ -611,7 +697,7 @@ namespace Ecos.Haunt
             playerPosition = new Vector2(0, -2.7f);
             RollEnd();
             BuildRoom(true);
-            Notify("Mercado das Almas • aproxime-se de uma banca e compre com E ou pelo botão. Depois siga ao portal à direita.");
+            Notify("Mercado das Almas • compre melhorias e armas pelos botões. Troque armas com 1–4. Portal à direita: E.");
         }
 
         void LeaveShop()

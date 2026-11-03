@@ -4,6 +4,8 @@ Roguelike 2D em pixel art para **Unity 6.0 LTS 6000.0.85f1**. Explore uma cripta
 
 O projeto contém somente este jogo: cena `Haunt.unity`, combate, geração de salas, loja, interface e ferramentas de desenvolvimento. Os sprites são originais, gerados por código e exibidos com filtro de ponto.
 
+[**Projeto no GitHub**](https://github.com/ManoelRIos/ecos-vale/tree/codex/ecos-do-vale-vertical-slice)
+
 [**Baixar o projeto em ZIP**](https://github.com/ManoelRIos/ecos-vale/raw/refs/heads/codex/ecos-do-vale-vertical-slice/Distribution/EcosDaMeiaNoite.zip)
 
 ## Abrir e jogar
@@ -29,14 +31,25 @@ O shader segue o contrato de cor e espelhamento do SpriteRenderer do URP 17/Unit
 
 ![Prévia dos sprites e poses, sem renderização do Unity](Documentation/PIXEL_ART.png)
 
+## Personagens e arsenal
+
+Escolha uma das duas almas no menu antes de iniciar:
+
+- **Caçador da Aurora**: `Q` dissipa projéteis hostis num raio de 5 unidades e concede 0,65 s de proteção. Recarga: 9 s.
+- **Médium do Véu**: `Q` dispara nove projéteis em leque com três vezes o dano base. Recarga: 7 s.
+
+O mercado vende **bacamarte** (55 almas + escala do andar, cinco projéteis, intervalo ×2,8), **repetidora** (65 + escala, intervalo ×0,55) e **canhão das almas** (80 + escala, dano ×5 e intervalo ×3,5). As armas são permanentes durante a incursão, equipadas na compra e selecionadas por `1–4` ou pelo botão de uma arma já adquirida. Uma nova incursão começa apenas com o revólver.
+
+Os cinco temas são Jardins da Colheita, Galeria dos Véus, Catedral das Cinzas, Ninho da Peste e Abismo dos Sinos. Paleta, decoração, disposição de cobertura e criaturas variam; a corrupção visual aumenta com a profundidade sem apagar os projéteis. O minimapa maior destaca a posição atual; o atlas mostra símbolos para entrada, chefe e salas purificadas. Há partículas ambientes e até 240 efeitos reutilizáveis; os brilhos são sprites, não luzes dinâmicas URP.
+
 ## Combate e progressão
 
 - Andares com 7–11 salas conectadas por portas, determinadas pela semente. A entrada é segura; as saídas de uma sala de combate ficam seladas até todos os inimigos morrerem.
 - Movimento em oito direções, mira pelo mouse, disparos e esquiva com invulnerabilidade temporária.
-- Quatro criaturas: abóbora perseguidora, fantasma atirador, cultista com rajadas e morcego que prepara um bote.
-- Um chefe por andar. Três variações de ataques alternam com a progressão; dificuldade e recompensas aumentam.
+- Sete criaturas: abóbora perseguidora, fantasma atirador, cultista com rajadas, morcego de bote, larva da peste em zigue-zague, sentinela óssea com disparos em cruz e acólito do sino com tiros duplos. A composição favorece criaturas ligadas ao guardião do andar.
+- Um chefe por andar: Rei das Abóboras, Viúva do Véu, Bispo das Cinzas, Matriarca da Peste e Sino do Abismo. A Matriarca alterna velocidades numa espiral com leque; o Sino emite pulsos com rotas de fuga. O ciclo de cinco temas se repete, mantendo o aumento de dificuldade.
 - Após vencer o chefe, um portal leva ao Mercado das Almas. Compre até 3 pontos de cura, +1 de dano, intervalo entre tiros 15% menor ou +2 de vida máxima. Cada item pode ser comprado uma vez por visita; uma compra recusada não consome moedas.
-- O próximo andar preserva vida, moedas e melhorias. Morrer encerra a incursão e permite repetir a semente ou gerar outra.
+- O próximo andar preserva vida, moedas, armas, personagem e melhorias. Morrer encerra a incursão e permite repetir a semente ou gerar outra.
 - HUD de vida, moedas, andar e chefe; mapa das salas, pausa e reinício.
 
 | Controle | Ação |
@@ -48,6 +61,8 @@ O shader segue o contrato de cor e espelhamento do SpriteRenderer do URP 17/Unit
 | Caminhar até uma saída aberta | Trocar de sala |
 | E | Usar portal / sair da loja |
 | Botões da loja | Comprar de qualquer ponto do mercado |
+| Q | Usar poder do personagem |
+| 1 / 2 / 3 / 4 | Revólver / bacamarte / repetidora / canhão, quando adquiridos |
 | M | Alternar mapa |
 | Esc | Pausar / retomar |
 
@@ -78,7 +93,7 @@ O build Windows usa `Builds/Windows/EcosDaMeiaNoite.exe`. Para empacotar as font
 
 **Estado da verificação:** o Editor Unity não está instalado neste ambiente. A importação desta versão, a compilação completa Unity, o Play Mode, os shaders e o build ainda precisam ser executados no Editor. Os testes Unity verificam objetos e estado, sem certificar a aparência renderizada. Consulte [VALIDATION.md](Documentation/VALIDATION.md) para o roteiro de verificação e [UNITY_TROUBLESHOOTING.md](Documentation/UNITY_TROUBLESHOOTING.md) se a abertura falhar.
 
-Esta é uma base de combate e progressão. Armas, áudio, animação, arte e balanceamento ainda precisam de refinamento. As incursões não têm persistência entre sessões nem multiplayer.
+Esta é uma base de combate e progressão. Áudio, animação, arte e balanceamento ainda precisam de refinamento. Esta expansão possui validação do núcleo e de sintaxe; a nova aparência e os testes de integração aguardam execução no Editor. As incursões não têm persistência entre sessões nem multiplayer.
 
 ## Organização
 

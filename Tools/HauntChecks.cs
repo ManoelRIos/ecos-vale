@@ -173,11 +173,56 @@ static class HauntChecks
         Console.WriteLine("Geometry: swept projectiles checked against circles and boxes.");
     }
 
+    static void CharactersAndArsenal()
+    {
+        foreach (CharacterKind character in Enum.GetValues<CharacterKind>())
+        {
+            var run = new RunState(42, character);
+            Check(run.Character == character && run.TryUsePower(), "Selected character has ready power");
+            Check(!run.TryUsePower(), "Power cannot be spammed");
+            run.TickPower(run.PowerDuration - .25f);
+            Check(!run.TryUsePower(), "Power must wait for full cooldown");
+            run.TickPower(-10);
+            Check(run.PowerCooldown <= .251f, "Negative elapsed time ignored");
+            run.TickPower(.3f);
+            Check(run.TryUsePower(), "Power becomes available again");
+            Check(!run.Equip(WeaponKind.SoulCannon), "Cannot equip unowned weapon");
+            run.Coins = 1000;
+            Check(!run.TryBuy(ShopItem.Scattergun, out _) && run.Coins == 1000, "Weapon shop boss gate");
+            run.BossDefeated = true;
+            foreach (var item in new[] { ShopItem.Scattergun, ShopItem.Repeater, ShopItem.SoulCannon })
+            {
+                int before = run.Coins;
+                int price = run.Price(item);
+                Check(run.TryBuy(item, out _) && run.Coins == before - price, "Weapon purchase charges once");
+                Check(run.Owns(run.Weapon) && run.Weapon != WeaponKind.Pistol, "Purchase equips owned weapon");
+                Check(!run.TryBuy(item, out _), "Duplicate weapon purchase rejected");
+            }
+            run.NextFloor();
+            Check(run.Character == character && run.Owns(WeaponKind.SoulCannon), "Character and arsenal persist across floors");
+            run.BossDefeated = true;
+            int saved = run.Coins;
+            Check(!run.TryBuy(ShopItem.Scattergun, out _) && run.Coins == saved, "Owned weapons not charged on later visits");
+            run.Equip(WeaponKind.Repeater); float fast = run.WeaponInterval;
+            run.Equip(WeaponKind.Scattergun); float spread = run.WeaponInterval;
+            run.Equip(WeaponKind.SoulCannon);
+            Check(fast < spread && spread < run.WeaponInterval, "Weapon fire rates differ");
+            run.TickPower(100); run.Hurt(100);
+            Check(!run.TryUsePower() && !run.Equip(WeaponKind.Pistol), "Dead character cannot use power or equip");
+            var fresh = new RunState(42, character);
+            Check(!fresh.Owns(WeaponKind.SoulCannon) && fresh.PowerCooldown == 0, "Restart clears arsenal and cooldown");
+        }
+        var poor = new RunState(1) { BossDefeated = true, Coins = 1 };
+        Check(!poor.TryBuy(ShopItem.SoulCannon, out _) && poor.Coins == 1 && !poor.Owns(WeaponKind.SoulCannon), "Unaffordable weapon purchase is atomic");
+        Console.WriteLine("Characters/arsenal: cooldowns, ownership, purchases, persistence and restart checked.");
+    }
+
     public static void Main()
     {
         Maps();
         Economy();
         Geometry();
+        CharactersAndArsenal();
         Console.WriteLine($"PASS — {assertions} assertions against production dungeon and run-state code.");
     }
 }

@@ -57,15 +57,15 @@ namespace Ecos.Haunt
             {
                 DrawHud();
                 if (InShop && !Paused && !State.IsDead) DrawShop();
-                if (showMap && !InShop && !Paused && !State.IsDead) DrawMap(new Rect(425, 145, 430, 430), true);
+                if (showMap && !InShop && !Paused && !State.IsDead) DrawMap(new Rect(355, 130, 570, 470), true);
                 if (State.IsDead) DrawDeath();
                 else if (Paused) DrawPause();
                 if (flash > 0) Fill(new Rect(0, 0, 1280, 720), new Color(.8f, .1f, .2f, flash * 1.4f));
             }
             if (noticeTime > 0 && !Paused)
             {
-                Panel(new Rect(22, 616, 472, 66), new Color(.18f, .4f, .35f));
-                Text(new Rect(36, 624, 444, 54), notice, smallStyle, Mint);
+                Panel(new Rect(22, InShop ? 260 : 616, 472, 66), new Color(.18f, .4f, .35f));
+                Text(new Rect(36, InShop ? 268 : 624, 444, 54), notice, smallStyle, Mint);
             }
             GUI.matrix = previous;
             GUI.color = color;
@@ -84,23 +84,23 @@ namespace Ecos.Haunt
             if (Button(new Rect(92, 480, 435, 56), "INICIAR INCURSÃO     →", Orange)) StartFromMenu();
             Text(new Rect(92, 552, 460, 32), "ENTER para começar  •  PC / teclado e mouse", smallStyle, Muted);
             Text(new Rect(92, 592, 470, 48), "SALAS PROCEDURAIS  •  COMBATE  •  MERCADO", smallStyle, Mint);
-            DrawIcon(new Rect(570, 398, 110, 138), "player");
-            Text(new Rect(557, 550, 145, 40), "VOCÊ\nCAÇADOR", smallStyle, Mint);
+            DrawIcon(new Rect(570, 398, 110, 138), selectedCharacter == CharacterKind.Hunter ? "player" : "medium");
+            Text(new Rect(557, 550, 145, 40), selectedCharacter == CharacterKind.Hunter ? "CAÇADOR" : "MÉDIUM", smallStyle, Mint);
 
-            Panel(new Rect(740, 100, 446, 504), new Color(.25f, .22f, .35f));
-            Text(new Rect(770, 126, 380, 40), "O QUE HABITA A CRIPTA", headingStyle, Mint);
-            string[] ids = { "pumpkin", "ghost", "cultist", "bat" };
-            string[] names = { "ABÓBORA VORAZ", "ALMA ERRANTE", "CULTISTA DAS CINZAS", "MORCEGO FUNESTO" };
-            string[] details = { "Persegue até encurralar.", "Flutua e dispara à distância.", "Lança um leque de maldições.", "Prepara o bote. Depois avança." };
-            for (int i = 0; i < 4; i++)
+            Panel(new Rect(740, 100, 446, 504), new Color(.35f, .25f, .45f));
+            Text(new Rect(767, 122, 395, 35), "ESCOLHA SUA ALMA", headingStyle, Mint);
+            for (int i = 0; i < 2; i++)
             {
-                float y = 186 + i * 77;
-                DrawIcon(new Rect(773, y, 48, 56), ids[i]);
-                Text(new Rect(840, y + 3, 310, 24), names[i], smallStyle, Orange);
-                Text(new Rect(840, y + 28, 310, 38), details[i], smallStyle, new Color(.8f, .78f, .85f));
+                bool chosen = (int)selectedCharacter == i;
+                float y = 176 + i * 177;
+                Panel(new Rect(760, y, 406, 164), chosen ? Mint : new Color(.3f, .25f, .4f));
+                DrawIcon(new Rect(774, y + 18, 65, 88), i == 0 ? "player" : "medium");
+                Text(new Rect(853, y + 12, 294, 28), i == 0 ? "CAÇADOR DA AURORA" : "MÉDIUM DO VÉU", smallStyle, Orange);
+                Text(new Rect(853, y + 43, 294, 75), i == 0 ? "Q · Pulso da Aurora\nDissipa balas próximas e protege por um instante. Recarga: 9s." : "Q · Lamento Espectral\nNove projéteis em leque com dano triplo. Recarga: 7s.", smallStyle, Color.white);
+                if (Button(new Rect(774, y + 121, 374, 30), chosen ? "SELECIONADO" : "SELECIONAR", chosen ? Mint : Muted)) selectedCharacter = (CharacterKind)i;
             }
-            Text(new Rect(773, 525, 370, 52), "Cada guardião vencido abre um mercado seguro. Suas melhorias duram até a morte.", smallStyle, Muted);
-            Text(new Rect(740, 623, 460, 40), "WASD mover  •  mouse mirar  •  clique atirar\nEspaço / clique direito esquivar  •  E interagir", smallStyle, Color.white);
+            Text(new Rect(767, 548, 390, 48), "Novos guardiões, armas e criaturas nas profundezas. Cada andar corrompe a cripta.", smallStyle, Muted);
+            Text(new Rect(740, 623, 460, 54), "WASD mover  •  mouse mirar / atirar\nQ poder  •  1–4 armas  •  Espaço esquivar", smallStyle, Color.white);
         }
 
         void DrawHud()
@@ -125,19 +125,21 @@ namespace Ecos.Haunt
             foreach (var enemy in enemies) if (enemy.Kind == 4) { boss = enemy; break; }
             if (boss != null)
             {
-                Text(new Rect(748, 8, 305, 27), BossNames[(State.Floor - 1) % 3], smallStyle, Orange);
+                Text(new Rect(748, 8, 305, 27), BossNames[BossVariant], smallStyle, Orange);
                 Fill(new Rect(750, 40, 294, 8), new Color(.23f, .1f, .18f));
                 Fill(new Rect(750, 40, 294f * boss.Health / boss.MaxHealth, 8), new Color(.96f, .26f, .38f));
             }
             else
             {
-                Text(new Rect(748, 8, 304, 25), "DANO " + State.Damage + "   /   " + (1f / State.ShotInterval).ToString("0.0") + " TIROS/S", smallStyle, Mint);
+                Text(new Rect(748, 8, 304, 25), RunState.WeaponName(State.Weapon) + " / DANO " + State.Damage, smallStyle, Mint);
                 Text(new Rect(748, 35, 304, 25), State.Health + " / " + State.MaxHealth + " VIDA  •  M PARA MAPA", smallStyle, Muted);
             }
             Text(new Rect(1080, 8, 190, 25), rollReady <= 0 ? "ESQUIVA PRONTA" : "RECARREGANDO", smallStyle, rollReady <= 0 ? Mint : Muted);
             Fill(new Rect(1082, 38, 168, 7), new Color(.16f, .13f, .22f));
             Fill(new Rect(1082, 38, 168 * (1 - Mathf.Clamp01(rollReady / RollCooldown)), 7), Mint);
 
+            Panel(new Rect(22, 184, 320, 54), Mint);
+            Text(new Rect(34, 191, 296, 43), "Q · " + State.PowerName + (State.PowerCooldown <= 0 ? " · PRONTO" : " · " + Mathf.CeilToInt(State.PowerCooldown) + "s"), smallStyle, State.PowerCooldown <= 0 ? Mint : Muted);
             if (!InShop)
             {
                 string roomTitle = CurrentRoom.Kind == RoomKind.Boss ? "CÂMARA DO GUARDIÃO"
@@ -148,7 +150,7 @@ namespace Ecos.Haunt
                 Text(new Rect(36, 89, 296, 24), roomTitle, hudStyle, accent);
                 Text(new Rect(36, 115, 296, 23), RoomThemeName, smallStyle, Color.white);
                 Text(new Rect(36, 142, 296, 22), enemies.Count > 0 ? enemies.Count + " AMEAÇAS  /  PORTAS SELADAS" : "PURIFICADA  /  SAÍDAS ABERTAS", smallStyle, accent);
-                DrawMap(new Rect(1110, 538, 146, 140), false);
+                DrawMap(new Rect(1040, 478, 216, 200), false);
                 DrawDoorLabels();
                 if (roomBannerTime > 0 && !Paused && !State.IsDead)
                     WorldTag(playerPosition, "VOCÊ", Mint, 2.05f, 92);
@@ -163,7 +165,7 @@ namespace Ecos.Haunt
                 WorldTag(new Vector2(8.4f, .1f), "[E] PRÓXIMO ANDAR", Mint, 1.6f, 216);
             }
             Fill(new Rect(0, 692, 1280, 28), Ink);
-            Text(new Rect(22, 695, 1018, 25), "WASD mover  •  Mouse mirar / atirar  •  Espaço esquivar  •  E interagir  •  M mapa  •  Esc pausa", smallStyle, Muted);
+            Text(new Rect(22, 695, 1018, 25), "WASD mover • Mouse atirar • Espaço esquiva • E interagir • M mapa • Esc pausa • 1–4 armas", smallStyle, Muted);
             Text(new Rect(1056, 695, 220, 25), "SEED " + State.Seed, smallStyle, Muted);
         }
 
@@ -195,25 +197,30 @@ namespace Ecos.Haunt
             p.x = (p.x - (Screen.width - 1280 * scale) * .5f) / scale;
             p.y = (Screen.height - p.y - (Screen.height - 720 * scale) * .5f) / scale;
             return new Rect(0, 0, 1280, 64).Contains(p) || new Rect(0, 692, 1280, 28).Contains(p)
-                || new Rect(22, 82, 320, 89).Contains(p) || new Rect(1110, 538, 146, 140).Contains(p);
+                || new Rect(22, 184, 320, 54).Contains(p) || new Rect(22, 82, 320, 89).Contains(p) || new Rect(1040, 478, 216, 200).Contains(p);
         }
 
         void DrawShop()
         {
-            string[] names = { "TÔNICO ESPECTRAL", "PÓLVORA MALDITA", "GATILHO FANTASMA", "CORAÇÃO DE CERA" };
-            string[] descriptions = { "Recupera até 3 pontos de vida.", "+1 de dano por projétil.", "Intervalo entre tiros 15% menor.", "+2 de vida máxima e recupera 2." };
-            for (int i = 0; i < 4; i++)
+            string[] names = { "TÔNICO ESPECTRAL", "PÓLVORA MALDITA", "GATILHO FANTASMA", "CORAÇÃO DE CERA", "BACAMARTE", "REPETIDORA", "CANHÃO DAS ALMAS" };
+            string[] descriptions = { "Recupera até 3 de vida.", "+1 de dano por projétil.", "Intervalo dos tiros -15%.", "+2 de vida máxima e cura 2.", "5 balas em leque. Tecla 2.", "Tiros rápidos. Tecla 3.", "Tiro lento, dano x5. Tecla 4." };
+            for (int i = 0; i < 7; i++)
             {
                 ShopItem item = (ShopItem)i;
-                float x = 55 + i * 296;
-                bool sold = State.Sold(item);
-                bool affordable = State.Coins >= State.Price(item);
-                Panel(new Rect(x, 492, 282, 135), sold ? new Color(.2f, .2f, .25f) : new Color(.32f, .25f, .37f));
-                Text(new Rect(x + 13, 502, 260, 22), names[i], smallStyle, sold ? Muted : Orange);
-                Text(new Rect(x + 13, 530, 256, 36), descriptions[i], smallStyle, Color.white);
+                float x = 55 + (i % 4) * 296;
+                float y = i < 4 ? 382 : 528;
+                bool owned = i >= 4 && State.Owns((WeaponKind)(i - 3));
+                bool sold = State.Sold(item) || owned;
+                Panel(new Rect(x, y, 282, 135), sold ? Muted * .4f : new Color(.42f, .3f, .48f));
+                Text(new Rect(x + 13, y + 10, 260, 22), names[i], smallStyle, Orange);
+                Text(new Rect(x + 13, y + 38, 256, 36), descriptions[i], smallStyle, Color.white);
                 bool previous = GUI.enabled;
-                GUI.enabled = !sold && affordable;
-                if (Button(new Rect(x + 13, 578, 256, 34), sold ? "ESGOTADO" : "COMPRAR  /  " + State.Price(item) + " MOEDAS", Mint)) Buy(item);
+                GUI.enabled = owned || (!sold && State.Coins >= State.Price(item));
+                if (Button(new Rect(x + 13, y + 86, 256, 34), owned ? "EQUIPAR" : sold ? "ESGOTADO" : "COMPRAR / " + State.Price(item) + " ALMAS", Mint))
+                {
+                    if (owned) State.Equip((WeaponKind)(i - 3));
+                    else Buy(item);
+                }
                 GUI.enabled = previous;
             }
         }
@@ -249,8 +256,14 @@ namespace Ecos.Haunt
                 Vector2 p = center + new Vector2(room.Position.X, -room.Position.Y) * spacing;
                 Color c = room == CurrentRoom ? Color.white : room.Kind == RoomKind.Boss ? new Color(.9f, .28f, .38f)
                     : room.Cleared ? Mint : visited.Contains(room.Id) ? Orange : new Color(.35f, .3f, .43f);
-                float size = expanded ? 20 : 9;
+                float size = expanded ? 26 : 12;
+                if (room == CurrentRoom)
+                {
+                    Fill(new Rect(p.x - size * .5f - 4, p.y - size * .5f - 4, size + 8, size + 8), Orange);
+                }
                 Fill(new Rect(p.x - size * .5f, p.y - size * .5f, size, size), c);
+                if (expanded)
+                    Text(new Rect(p.x - 9, p.y - 12, 24, 26), room == CurrentRoom ? "@" : room.Kind == RoomKind.Boss ? "!" : room.Kind == RoomKind.Entrance ? "E" : room.Cleared ? "+" : "", smallStyle, Ink);
             }
             if (expanded)
             {

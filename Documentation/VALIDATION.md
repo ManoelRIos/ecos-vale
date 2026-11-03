@@ -4,7 +4,7 @@ O Editor Unity não está disponível neste ambiente. A limpeza do projeto deve 
 
 ## Checks sem Unity
 
-Nesta revisão passaram 24 testes Python, a análise de sintaxe de 12 arquivos C# e 99.935 asserções do núcleo C#, incluindo 1.624 andares gerados. A compilação Unity e os testes do Editor permanecem pendentes.
+Nesta revisão passaram 24 testes Python, a análise de sintaxe de 12 arquivos C# e 99.978 asserções do núcleo C#, incluindo 1.624 andares gerados. A compilação Unity e os testes do Editor permanecem pendentes.
 
 Execute na raiz do projeto:
 
@@ -31,7 +31,7 @@ bash Tools/unity-check.sh tests
 bash Tools/unity-check.sh build
 ```
 
-A importação prepara os recursos URP. O smoke verifica bootstrap, recursos e plano inicial. Os testes do Editor verificam configuração gráfica, cena/build, sprites, estado da incursão, combate/recompensa, revisita, esquiva, reinício e abertura segura. Eles não certificam a aparência renderizada.
+A importação prepara os recursos URP. O smoke verifica bootstrap, recursos e plano inicial. Os testes do Editor verificam configuração gráfica, cena/build, sprites, estado da incursão, combate/recompensa, revisita, esquiva, reinício e abertura segura. A expansão acrescenta cobertura para poderes, cinco encontros de chefe e os novos sprites/criaturas; esses testes Unity foram escritos, mas não executados aqui. Eles não certificam a aparência renderizada.
 
 Os testes de runtime isolam uma cena vazia e restauram a configuração anterior. Se houver edição de cena não salva, esse grupo pode ser pulado para preservar o trabalho; registre esse resultado como pulado, sem tratá-lo como aprovado. Confira os logs e o XML da execução atual em `/tmp`.
 
@@ -51,6 +51,9 @@ No Editor, abra **Ecos → Abrir roguelike**, pressione Play e confira:
 8. Legibilidade e mira em janelas de tamanhos diferentes, incluindo 860 × 500.
 9. Sprite do jogador e de cada inimigo visíveis nas duas direções; cores preservadas após dano e esquiva.
 10. Ciclos de quatro quadros de movimento, asas e velas; portas aberta/selada/guardião; rastro, recuo e partículas.
-11. Ausência de tiros ao clicar no HUD ou no minimapa, pausa com cursor visível e restauração após reinício.
+11. Selecionar as duas almas, conferir sprite e usar Q: pulso remove balas próximas e bloqueia dano brevemente; lamento produz nove tiros. Repetir Q durante recarga não dispara novamente; pausa congela recarga.
+12. Comprar cada arma, conferir cobrança única, alternar com 1–4, atravessar andares e reiniciar. Conferir leque de cinco tiros, repetidora rápida e dano alto do canhão.
+13. Chegar aos andares 4 e 5, conferir Matriarca/Sino, seus padrões e novas criaturas. Conferir minimapa e partículas em cada tema.
+14. Ausência de tiros ao clicar no HUD ou no minimapa, pausa com cursor visível e restauração após reinício.
 
 A compilação completa, o Play Mode, o render e o executável desta limpeza permanecem pendentes até esses checks serem executados no Editor.

@@ -31,7 +31,7 @@ namespace Ecos.Haunt
         public Sprite Frame(string id, int frame)
         {
             if (disposed) throw new ObjectDisposedException(nameof(HauntPixelArt));
-            bool animated = id == "player" || id == "pumpkin" || id == "ghost" || id == "cultist"
+            bool animated = id == "medium" || id == "larva" || id == "sentinel" || id == "acolyte" || id == "matriarch" || id == "bell" || id == "player" || id == "pumpkin" || id == "ghost" || id == "cultist"
                 || id == "bat" || id == "boss" || id == "merchant" || id == "candle" || id == "portal";
             frame = animated ? ((frame % 4) + 4) % 4 : 0;
             string key = id + "/" + frame;
@@ -40,6 +40,15 @@ namespace Ecos.Haunt
             switch (id)
             {
                 case "player": pixels = Player(frame); break;
+                case "medium": pixels = Medium(frame); break;
+                case "larva": pixels = NewCreature(0, frame); break;
+                case "sentinel": pixels = NewCreature(1, frame); break;
+                case "acolyte": pixels = NewCreature(2, frame); break;
+                case "matriarch": pixels = NewGuardian(false, frame); break;
+                case "bell": pixels = NewGuardian(true, frame); break;
+                case "scattergun": pixels = NewWeapon(0); break;
+                case "repeater": pixels = NewWeapon(1); break;
+                case "cannon": pixels = NewWeapon(2); break;
                 case "pumpkin": pixels = Pumpkin(frame); break;
                 case "ghost": pixels = Ghost(frame); break;
                 case "cultist": pixels = Cultist(frame); break;
@@ -98,6 +107,86 @@ namespace Ecos.Haunt
             Bone = Hex(0xeadbc3), Violet = Hex(0xb36bcc), Pink = Hex(0xff76ad);
         static Color32 Hex(uint rgb) => new Color32((byte)(rgb >> 16), (byte)(rgb >> 8), (byte)rgb, 255);
         static Color32 Alpha(Color32 color, byte alpha) => new Color32(color.r, color.g, color.b, alpha);
+
+        static Canvas Medium(int frame)
+        {
+            var c = new Canvas(24, 28);
+            int sway = frame == 1 ? 1 : frame == 3 ? -1 : 0;
+            c.Polygon(new[] { 5,25, 7,12, 4,9, 12,1, 20,9, 17,13, 20+sway,25, 12,23 }, Violet);
+            c.Polygon(new[] { 9,12, 15,12, 18+sway,24, 12,22, 8,24 }, Shade);
+            c.Ellipse(8,7,9,8, Ink); c.Rect(9,10,2,2,Mint); c.Rect(14,10,2,2,Mint);
+            c.Rect(11,16,3,5,Gold); c.Rect(6,17,3,4,Bone); c.Rect(17,17,3,4,Bone);
+            c.Ellipse(3,13+sway,3,3,Mint); c.Ellipse(19,4-sway,3,3,Pink);
+            c.Outline(Ink); return c;
+        }
+
+        static Canvas NewCreature(int kind, int frame)
+        {
+            var c = new Canvas(28, 28);
+            int step = frame % 2;
+            if (kind == 0)
+            {
+                for (int i = 0; i < 5; i++) c.Ellipse(3+i*4,13+(i+frame)%2,8,9, i%2==0 ? Teal : Mint);
+                c.Ellipse(16,9,10,10,Teal); c.Rect(18,11,2,2,Gold); c.Rect(23,11,2,2,Gold);
+                for (int i=0;i<5;i++) c.Line(5+i*4,21,3+i*4,24-step, Bone);
+            }
+            else if (kind == 1)
+            {
+                c.Rect(8,20,4,6-step,Bone); c.Rect(17,20,4,6+step,Bone);
+                c.Rect(8,11,13,11,Stone); c.Rect(12,11,5,12,Bone);
+                c.Ellipse(7,2,15,13,Bone); c.Rect(9,6,4,4,Ink); c.Rect(17,6,3,4,Ink);
+                c.Set(10,7,Orange); c.Set(18,7,Orange); c.Rect(12,12,6,2,Ink);
+                c.Line(4,14,4,25,Gold); c.Rect(2,12,5,3,LightStone);
+            }
+            else
+            {
+                c.Polygon(new[] { 5,25, 8,11, 14,3, 20,11, 24,25 }, Rust);
+                c.Polygon(new[] { 10,10, 14,6, 18,10, 17,15, 11,15 }, Ink);
+                c.Rect(11,11,6,2,Pink); c.Rect(13,17,3,7,Gold);
+                c.Line(4,10,4,24,Bone); c.Ellipse(1,6+step,7,6,Gold);
+            }
+            c.Outline(Ink); return c;
+        }
+
+        static Canvas NewGuardian(bool bell, int frame)
+        {
+            var c = new Canvas(48, 48);
+            int pulse = frame % 2;
+            if (bell)
+            {
+                c.Rect(21,3,6,5,Gold);
+                c.Polygon(new[] { 6,37, 12,29, 13,13, 21,7, 28,7, 36,13, 37,29, 43,37 }, Rust);
+                c.Polygon(new[] { 12,33, 17,28, 18,15, 24,11, 30,16, 32,30, 37,33 }, Gold);
+                c.Rect(8,35,33,5,Bone); c.Ellipse(20,38,8,6+pulse,Gold);
+                c.Rect(18,20,5,4,Ink); c.Rect(27,20,5,4,Ink); c.Rect(22,28,6,4,Ink);
+                c.Line(6,12,3,30,Violet); c.Line(42,12,45,30,Violet);
+            }
+            else
+            {
+                for (int i=0;i<4;i++)
+                {
+                    int y=14+i*6;
+                    c.Line(16,y,3,y-7+pulse,Mint); c.Line(3,y-7+pulse,1,y+4,Teal);
+                    c.Line(32,y,44,y-7-pulse,Mint); c.Line(44,y-7-pulse,46,y+4,Teal);
+                }
+                c.Ellipse(11,15,27,29,Teal); c.Ellipse(16,18,18,20,Violet);
+                c.Ellipse(13,5,23,18,Teal);
+                for(int i=0;i<3;i++) { c.Ellipse(16+i*6,10,4,4,Gold); c.Rect(17+i*6,11,2,2,Ink); }
+                c.Polygon(new[] { 16,19, 20,26, 23,19, 28,26, 32,19 },Bone);
+            }
+            c.Outline(Ink); return c;
+        }
+
+        static Canvas NewWeapon(int kind)
+        {
+            var c = new Canvas(28, 14);
+            c.Rect(2,5,20,5,kind == 2 ? Teal : Stone);
+            c.Rect(5,8,5,5,Rust); c.Rect(10,4,7,5,Gold);
+            if(kind == 0) { c.Rect(15,3,12,3,Bone); c.Rect(15,8,12,3,LightStone); }
+            else if(kind == 1) { c.Rect(13,9,4,4,Gold); c.Rect(19,5,8,3,Bone); }
+            else { c.Ellipse(14,2,12,10,Mint); c.Ellipse(19,4,7,6,Ink); }
+            c.Outline(Ink); return c;
+        }
 
         static Canvas Player(int frame)
         {

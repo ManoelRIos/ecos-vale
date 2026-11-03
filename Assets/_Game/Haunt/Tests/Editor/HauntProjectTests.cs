@@ -49,7 +49,7 @@ namespace Ecos.Haunt.Tests
         {
             using (var art = new HauntPixelArt())
             {
-                foreach (string id in new[] { "player", "pumpkin", "ghost", "cultist", "bat", "boss", "merchant", "candle", "portal" })
+                foreach (string id in new[] { "player", "medium", "larva", "sentinel", "acolyte", "matriarch", "bell", "pumpkin", "ghost", "cultist", "bat", "boss", "merchant", "candle", "portal" })
                 {
                     var frames = new Sprite[4];
                     for (int i = 0; i < 4; i++)
@@ -64,7 +64,7 @@ namespace Ecos.Haunt.Tests
                     for (int i = 0; i < 240; i++)
                         Assert.AreSame(frames[i % 4], art.Frame(id, i), "Repeated animation must not allocate more textures: " + id);
                 }
-                foreach (string id in new[] { "floor3", "floor4", "floor5", "door-open", "door-locked", "door-boss", "shadow", "player-ring", "enemy-ring", "glow", "rune", "rug", "weapon", "slash", "dust", "spark", "effect-ring" })
+                foreach (string id in new[] { "floor3", "floor4", "floor5", "door-open", "door-locked", "door-boss", "shadow", "player-ring", "enemy-ring", "glow", "rune", "rug", "weapon", "scattergun", "repeater", "cannon", "slash", "dust", "spark", "effect-ring" })
                     Assert.IsNotNull(art.Get(id), id);
             }
         }
@@ -260,6 +260,48 @@ namespace Ecos.Haunt.Tests
                 Assert.AreEqual(health - 1, game.State.Health);
                 Invoke(game, "HurtPlayer");
                 Assert.AreEqual(health - 1, game.State.Health, "Post-hit grace should block repeated immediate contact.");
+                yield return null;
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally { UnityEngine.Object.Destroy(root); }
+        }
+
+        [UnityTest]
+        public IEnumerator ExpansionBuildsAllFloorThemesAndDistinctPowers()
+        {
+            var root = new GameObject("Haunt expansion test");
+            try
+            {
+                var game = root.AddComponent<HauntGame>();
+                for (int floor = 1; floor <= 5; floor++)
+                {
+                    game.BeginRun(42);
+                    game.State.Floor = floor;
+                    Invoke(game, "EnterRoom", game.Floor.Boss, Vector2.zero);
+                    Assert.AreEqual(1, game.LivingEnemies);
+                    Invoke(game, "UpdateEnemies", 3f);
+                    Assert.Greater(game.ActiveProjectiles, 0, "Every boss must attack on floor " + floor);
+                }
+                game.BeginRun(42);
+                var combat = game.Floor.Rooms.First(r => r.Kind == RoomKind.Combat);
+                Invoke(game, "EnterRoom", combat, Vector2.zero);
+                Invoke(game, "ClearCombat");
+                Invoke(game, "Fire", Vector2.right, Vector2.left, false, 1);
+                Invoke(game, "UsePower");
+                Invoke(game, "UpdateShots", .01f);
+                Assert.AreEqual(0, game.ActiveProjectiles, "Hunter dispels nearby hostile projectiles");
+                Invoke(game, "HurtPlayer");
+                Assert.AreEqual(game.State.MaxHealth, game.State.Health, "Hunter grants temporary protection");
+                Set(game, "selectedCharacter", CharacterKind.Medium);
+                game.BeginRun(42);
+                Invoke(game, "UsePower");
+                Assert.AreEqual(9, game.ActiveProjectiles, "Medium fires nine spectral shots");
+                Invoke(game, "UsePower");
+                Assert.AreEqual(9, game.ActiveProjectiles, "Power cooldown blocks duplicate burst");
+                Invoke(game, "ClearCombat");
+                for (int kind = 5; kind <= 7; kind++) Invoke(game, "SpawnEnemy", kind, new Vector2(kind - 6, 2));
+                Invoke(game, "UpdateEnemies", .01f);
+                Assert.AreEqual(3, game.LivingEnemies, "All new creatures instantiate and simulate");
                 yield return null;
                 LogAssert.NoUnexpectedReceived();
             }

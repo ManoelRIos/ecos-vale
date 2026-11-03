@@ -3,7 +3,9 @@ using System.Collections.Generic;
 
 namespace Ecos.Haunt
 {
-    public enum ShopItem { Heal, Damage, FireRate, MaxHealth }
+    public enum ShopItem { Heal, Damage, FireRate, MaxHealth, Scattergun, Repeater, SoulCannon }
+    public enum CharacterKind { Hunter, Medium }
+    public enum WeaponKind { Pistol, Scattergun, Repeater, SoulCannon }
 
     /// <summary>Run-only progression: purchases survive floors, never a new run.</summary>
     public sealed class RunState
@@ -11,10 +13,36 @@ namespace Ecos.Haunt
         public int Seed, Floor = 1, Health = 6, MaxHealth = 6, Coins, Damage = 1;
         public float ShotInterval = .22f;
         public bool BossDefeated;
+        public CharacterKind Character { get; }
+        public WeaponKind Weapon { get; private set; }
+        public float PowerCooldown { get; private set; }
+        public float PowerDuration => Character == CharacterKind.Hunter ? 9f : 7f;
+        public string PowerName => Character == CharacterKind.Hunter ? "PULSO DA AURORA" : "LAMENTO ESPECTRAL";
+        readonly HashSet<WeaponKind> weapons = new HashSet<WeaponKind> { WeaponKind.Pistol };
+        public bool Owns(WeaponKind weapon) => weapons.Contains(weapon);
+        public bool Equip(WeaponKind weapon)
+        {
+            if (IsDead || !Owns(weapon)) return false;
+            Weapon = weapon;
+            return true;
+        }
+        public float WeaponInterval => ShotInterval * (Weapon == WeaponKind.Scattergun ? 2.8f : Weapon == WeaponKind.Repeater ? .55f : Weapon == WeaponKind.SoulCannon ? 3.5f : 1f);
+        public static string WeaponName(WeaponKind weapon) => weapon == WeaponKind.Pistol ? "REVÓLVER" : weapon == WeaponKind.Scattergun ? "BACAMARTE" : weapon == WeaponKind.Repeater ? "REPETIDORA" : "CANHÃO DAS ALMAS";
+        public void TickPower(float dt) { if (dt > 0 && !float.IsInfinity(dt)) PowerCooldown = Math.Max(0, PowerCooldown - dt); }
+        public bool TryUsePower()
+        {
+            if (IsDead || PowerCooldown > 0) return false;
+            PowerCooldown = PowerDuration;
+            return true;
+        }
         public bool IsDead => Health <= 0;
         readonly HashSet<ShopItem> sold = new HashSet<ShopItem>();
 
-        public RunState(int seed) { Seed = seed; }
+        public RunState(int seed, CharacterKind character = CharacterKind.Hunter)
+        {
+            if (!Enum.IsDefined(typeof(CharacterKind), character)) throw new ArgumentOutOfRangeException(nameof(character));
+            Seed = seed; Character = character;
+        }
 
         public bool Hurt(int amount)
         {
@@ -42,6 +70,9 @@ namespace Ecos.Haunt
                 case ShopItem.Damage: return 45 + scaling;
                 case ShopItem.FireRate: return 35 + scaling;
                 case ShopItem.MaxHealth: return 40 + scaling;
+                case ShopItem.Scattergun: return 55 + scaling;
+                case ShopItem.Repeater: return 65 + scaling;
+                case ShopItem.SoulCannon: return 80 + scaling;
                 default: throw new ArgumentOutOfRangeException(nameof(item));
             }
         }
@@ -53,6 +84,7 @@ namespace Ecos.Haunt
             if (!Enum.IsDefined(typeof(ShopItem), item)) { message = "Item desconhecido."; return false; }
             if (IsDead) { message = "A jornada terminou."; return false; }
             if (!BossDefeated) { message = "Derrote o chefe para abrir o mercado."; return false; }
+            if ((int)item >= (int)ShopItem.Scattergun && Owns((WeaponKind)((int)item - 3))) { message = "Arma já adquirida. Use 1–4 para equipar."; return false; }
             if (Sold(item)) { message = "Este item já foi comprado nesta visita."; return false; }
             if (item == ShopItem.Heal && Health >= MaxHealth) { message = "Sua vida já está completa."; return false; }
             if (item == ShopItem.Damage && Damage >= 10) { message = "Dano máximo atingido."; return false; }
@@ -77,11 +109,16 @@ namespace Ecos.Haunt
                     ShotInterval = Math.Max(.07f, ShotInterval * .85f);
                     message = "Gatilho espectral: tiros 15% mais rápidos.";
                     break;
-                default:
+                case ShopItem.MaxHealth:
                     int gain = Math.Min(2, 20 - MaxHealth);
                     MaxHealth += gain;
                     Health = Math.Min(MaxHealth, Health + gain);
                     message = "Coração de abóbora: +2 de vida máxima.";
+                    break;
+                default:
+                    Weapon = (WeaponKind)((int)item - 3);
+                    weapons.Add(Weapon);
+                    message = WeaponName(Weapon) + " adquirido e equipado. Troque com 1–4.";
                     break;
             }
             return true;
