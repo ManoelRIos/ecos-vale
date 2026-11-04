@@ -14,6 +14,10 @@ Salas comuns exigem três ondas (`WavesCleared`, `TotalWaves`); entrada e chefe 
 
 `CombatGeometry` calcula a primeira fração de contato de segmentos com círculos e caixas. Esses mesmos arquivos são compilados por `Tools/HauntChecks.csproj`, sem simulação de tipos Unity.
 
+`WeaponAmmo.Stats` centraliza os valores de carregador, reserva e tempo das 17 armas. `RunState` mantém um registro por arma e o relógio da recarga: consumo só é aceito se vivo, carregado e sem recarga; a transferência da reserva ocorre ao concluir, sem descartar cartuchos em cancelamentos. Arma inicial e revólver têm reserva -1 (infinita), mas carregadores finitos. Trocar arma cancela a recarga; trocar de andar preserva munição; uma nova incursão cria outros registros.
+
+`HauntGame.Ammunition.cs` conecta R/Triângulo, sons, drops de 12% por morte e coleta. O hash usa semente, andar, sala e total de mortes sem consumir o RNG de encontros. Registros persistem por sala no andar; reconstruir limpa apenas visuais e restaura caixas não coletadas. Reserva cheia não consome pickup. `FireWeapon` verifica espaço para a salva completa antes de debitar uma carga; `UpdateBeam` debita apenas nos pulsos de dano, inclusive o último. `Fire`/`FireSpecial` são emissores sem cobrança para preservar poderes e padrões hostis. Veja [MUNICAO_E_TERROR.md](MUNICAO_E_TERROR.md).
+
 ## Game feel e padrões
 
 `BulletPatternGenerator` contém a matemática pura de Fan, Ring, GapRing, Spiral e CrossFormation, além de mira por interceptação, desaceleração e giro limitado. `HauntGame.Patterns.cs` transforma essas geometrias em ataques anunciados e sequências com cancelamento por geração do combate. `HauntGame.Weapons.cs` aplica movimento e primeira colisão aos tiros, ricochetes, divisão por distância e efeitos ao terminar. A morte de um alvo pode iniciar uma rajada; concluir a onda cancela os filhos pendentes para preservar a limpeza do combate.
@@ -42,9 +46,9 @@ A loja é uma sala explorável. Balcão e prateleiras têm colisão; as uma ou d
 
 ## Entrada e áudio
 
-`HauntGame.Input.cs` unifica teclado, mouse e Gamepad do Input System. Dispositivos DualShock reconhecidos usam o mesmo contrato: analógicos para movimento/mira, R2 tiro, L2/Círculo esquiva, Quadrado poder, X interação, L1/R1 armas, Options pausa e Share/touchpad mapa. Tab e roda também percorrem todo o inventário. `PollControlInput` navega menus e mantém a direção da mira após soltar o analógico. O contexto modal, consumo por frame e liberação do X impedem abrir catálogo e comprar com a mesma pressão. Não há plugin nativo ou mouse virtual.
+`HauntGame.Input.cs` unifica teclado, mouse e Gamepad do Input System. Dispositivos DualShock reconhecidos usam o mesmo contrato: analógicos para movimento/mira, R2 tiro, L2/Círculo esquiva, Quadrado poder, X interação, L1/R1 armas, Triângulo recarga fora do catálogo, Options pausa e Share/touchpad mapa. Tab e roda também percorrem todo o inventário. `PollControlInput` navega menus e mantém a direção da mira após soltar o analógico. O contexto modal, consumo por frame e liberação do X impedem abrir catálogo e comprar com a mesma pressão. Não há plugin nativo ou mouse virtual.
 
-`HauntGame.Audio.cs` sintetiza 14 efeitos PCM mono em 22.050 Hz, com oito vozes limitadas, intervalo mínimo por efeito e um loop de raio. Cinco temas musicais usam cama harmônica/melódica e camada rítmica, em loops de 16 tempos a 112 BPM. Os clipes são cacheados; duas duplas de fontes fazem a transição de 1,2 s entre temas. A intensidade depende de menu, loja, combate e chefe. `UpdateMusic` roda mesmo antes dos retornos por menu/pausa; áudio respeita mute, pausa, foco e suspensão do app. `DisposeAudio` libera fontes e clipes.
+`HauntGame.Audio.cs` sintetiza 19 efeitos PCM mono em 22.050 Hz, com oito vozes limitadas, intervalo mínimo por efeito e um loop de raio. Cinco temas musicais usam cama harmônica/melódica e camada rítmica, em loops de 16 tempos a 112 BPM. Os clipes são cacheados; duas duplas de fontes fazem a transição de 1,2 s entre temas. A intensidade depende de menu, loja, combate e chefe. `UpdateMusic` roda mesmo antes dos retornos por menu/pausa; áudio respeita mute, pausa, foco e suspensão do app. `DisposeAudio` libera fontes e clipes.
 
 ## Validação e empacotamento
 

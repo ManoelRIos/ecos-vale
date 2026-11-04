@@ -75,6 +75,7 @@ namespace Ecos.Haunt
                 case "water-urn": pixels = WaterUrn(); break;
                 case "shattered-prop": pixels = ShatteredProp(); break;
                 case "wet-puddle": pixels = WetPuddle(); break;
+                case "ammo-cache": pixels = RitualAmmoCache(); break;
                 case "giant-rounds": pixels = Relic(0); break;
                 case "character-relic": pixels = Relic(1); break;
                 case "quick-boots": pixels = Relic(2); break;
@@ -233,6 +234,8 @@ namespace Ecos.Haunt
                 case "spark": pixels = Spark(); break;
                 default: throw new ArgumentException("Sprite desconhecido: " + id, nameof(id));
             }
+            pixels = NightmareCreature(id, pixels, frame);
+            pixels = IsGuardian(id) ? NightmareGuardian(id, pixels, frame) : VolumeProp(id, pixels);
             return CacheSprite(key, pixels);
         }
 
@@ -399,83 +402,343 @@ namespace Ecos.Haunt
 
         static Canvas EnhancedHero(int kind, int frame)
         {
-            var c=new Canvas(32,36); int sway=frame==1?2:frame==3?-2:0;
-            Canvas body=kind==0?LegacyPlayer(frame):kind==1?LegacyMedium(frame):kind==2?LegacyReaper(frame):LegacyAlchemist(frame);
+            // Compact silhouettes and a few broad ivory/black clusters, rather
+            // than surface noise, keep the macabre equipment readable in play.
+            var c=new Canvas(32,36); int stride=frame==1?1:frame==3?-1:0, wind=stride*2;
+            Color32 mourning=Hex(0x272739), edge=Hex(0x645774), blood=Hex(0x963a4e), ivory=Hex(0xe5dcc7);
+            c.Ellipse(5,30,23,4,Alpha(Ink,80));
+            c.Polygon(new[]{9,16,23,16,28+wind,30,23,28,22,33,17,30,13,34,10,29,3+wind,32,7,23},mourning);
+            c.Polygon(new[]{9,18,14,18,11,28,7+wind,29},edge); c.Line(23,21,26+wind,28,Hex(0x40394f));
+            c.Rect(10,27+stride,4,6,Hex(0x444353)); c.Rect(19,27-stride,4,6,Hex(0x343342));
+            c.Rect(9,32+stride,6,2,Hex(0x737080)); c.Rect(18,32-stride,6,2,Hex(0x696476));
+            c.Polygon(new[]{10,17,22,17,24,28,17,30,9,27},kind==3?Hex(0x3e514b):kind==1?Hex(0x554067):kind==2?Hex(0x5e344a):Hex(0x3c4755));
+            c.Rect(10,26,13,3,Hex(0x211f30)); c.Rect(15,26,4,4,Hex(0x8d7a65)); c.Rect(16,27,2,2,Ink);
+            c.Line(9,19,6,26+stride,edge); c.Line(23,19,27,25-stride,Hex(0x413846));
+            c.Rect(4,25+stride,4,3,ivory); c.Rect(25,24-stride,4,3,ivory);
             if(kind==0)
             {
-                c.Polygon(new[]{9,17,20,17,27+sway,31,20,29,16,33,12,29,3+sway,31,7,22},Hex(0x16394f));
-                c.Polygon(new[]{8,18,15,19,11,29,5+sway,30},Teal);
-                c.Line(6+sway,27,4+sway,30,Mint); c.Line(23+sway,28,25+sway,30,Hex(0x5489a3));
-                c.Line(10,19,8+sway,26,Hex(0x318b92));
+                // The hunter's face is an antlerless bone mask under a mourning hat.
+                c.Polygon(new[]{7,13,9,5,15,2,22,6,25,14,22,19,10,19},mourning);
+                c.Polygon(new[]{11,8,21,8,23,14,20,20,13,20,10,15},ivory);
+                c.Polygon(new[]{11,11,16,12,14,15,11,15},Ink); c.Polygon(new[]{22,11,17,12,19,15,22,15},Ink);
+                c.Set(12,12,Hex(0x9ed8c9)); c.Set(20,12,Hex(0x9ed8c9));
+                c.Polygon(new[]{16,14,18,14,19,17,15,17},Ink); c.Line(13,18,20,18,Hex(0x7e6a68));
+                c.Rect(15,18,1,2,Ink); c.Rect(18,18,1,2,Ink);
+                c.Polygon(new[]{7,9,10,2,20,3,24,10},Hex(0x38384e)); c.Rect(9,8,15,3,Hex(0x754455));
+                c.Polygon(new[]{3,11,9,9,25,10,29,13,23,14,5,13},Hex(0x272c40)); c.Line(5,11,24,11,Hex(0x82939c));
+                c.Line(23,8,28,3,Hex(0xb2c3be)); c.Set(29,2,ivory); c.Set(26,6,Hex(0x78b4af));
+                c.Rect(10,21,3,4,ivory); c.Line(11,22,12,24,Ink); c.Rect(21,23,4,6,Hex(0x67434c));
+                c.Line(7+wind,28,4+wind,31,Hex(0x718d91));
             }
             else if(kind==1)
             {
-                c.Polygon(new[]{9,17,22,17,28+sway,31,23,29,18,33,11,30,5+sway,32},Hex(0x3c2857));
-                c.Line(6+sway,27,10,21,Violet); c.Line(23,20,27+sway,29,Hex(0x76549d));
-                c.Rect(3,9,2,24,Hex(0x76608c)); c.Line(3,10,3,30,Gold);
-                c.Polygon(new[]{1,8,2,3,5,1,8,4,7,8,5,10},Hex(0x4f3a70));
-                c.Ellipse(2,3,5,6,Mint); c.Rect(3,3,2,2,Pale); c.Rect(2,10,5,2,Gold);
+                // A face-sized void, an organic staff and orbiting lidless eyes.
+                c.Polygon(new[]{8,16,9,7,16,1,24,7,25,17,21,21,11,20},Hex(0x6c567f));
+                c.Polygon(new[]{11,15,12,8,16,5,21,9,23,16,19,19,13,18},Hex(0x0d1121));
+                c.Rect(13,11,2,1,Hex(0xc1b0e0)); c.Rect(20,12,2,1,Hex(0xc1b0e0));
+                c.Line(14,20,16,25,ivory); c.Line(20,20,18,25,ivory); c.Rect(15,24,4,4,Hex(0x9e739a));
+                c.Line(2,31,4,8,Hex(0x715164)); c.Line(3,30,5,9,Hex(0xb5a0a3));
+                c.Polygon(new[]{3,10,0,7,2,2,6,1,9,5,7,10},Hex(0x46374f));
+                c.Ellipse(2,3,5,5,ivory); c.Rect(4,4,1,3,Ink); c.Set(4,4,Mint);
+                c.Line(4,14,1,17,blood); c.Line(3,22,6,19,blood); c.Rect(2,24,4,2,ivory);
+                int[][] orbit={new[]{28,10,8,9},new[]{27,7,9,11},new[]{25,6,8,15},new[]{28,13,6,12}};
+                int[] q=orbit[frame]; c.Ellipse(q[0]-2,q[1]-2,5,4,ivory); c.Set(q[0],q[1]-1,Ink); c.Set(q[0],q[1],Mint);
+                c.Ellipse(q[2]-1,q[3]-1,3,3,ivory); c.Set(q[2],q[3],Violet);
             }
             else if(kind==2)
             {
-                c.Polygon(new[]{10,16,22,16,27+sway,31,20,29,16,34,10,30,4+sway,32},Hex(0x311f3d));
-                c.Line(6+sway,28,11,20,Hex(0x9a4d66)); c.Line(22,21,26+sway,29,Rust);
-                c.Rect(2,8,2,25,Hex(0x665a72)); c.Line(3,9,3,31,LightStone);
-                c.Polygon(new[]{1,8,5,3,13,1,22,3,25,8,19,5,12,5,6,8,4,13},Hex(0x8b95a6));
-                c.Polygon(new[]{2,7,6,3,14,2,21,4,15,3,8,5,4,9},Pale);
-                c.Line(5,7,13,4,Mint); c.Rect(2,20,3,3,Gold);
+                // Exposed ribs and a long, fractured lower jaw beneath the hood.
+                c.Polygon(new[]{7,16,9,6,15,2,23,5,26,16,22,21,11,20},mourning);
+                c.Polygon(new[]{12,7,21,6,24,12,21,17,12,17,10,12},ivory);
+                c.Polygon(new[]{12,10,16,11,14,14,11,14},Ink); c.Polygon(new[]{22,10,18,11,19,14,23,13},Ink);
+                c.Set(13,11,Hex(0xffa27c)); c.Set(21,11,Hex(0xffa27c)); c.Rect(16,13,2,3,Ink);
+                c.Polygon(new[]{12,16,15,18,21,16,22,20,19,23,14,22,11,19},Hex(0xa3958e));
+                c.Rect(13,17,8,3,Ink); for(int x=13;x<21;x+=3)c.Rect(x,17,1,2,ivory); c.Line(14,21,19,22,ivory);
+                c.Rect(14,23,7,6,Hex(0x171d2a)); c.Line(17,22,17,29,ivory);
+                for(int y=23;y<29;y+=2){c.Line(12,y,15,y+1,ivory); c.Line(19,y+1,22,y,ivory);}
+                c.Line(3,32,5,7,Hex(0x9b8b92)); c.Line(4,30,6,8,Hex(0x544656));
+                c.Polygon(new[]{3,8,7,2,17,1,25,4,28,10,22,6,17,5,12,6,10,9,7,8,5,13},Hex(0x9ba6af));
+                c.Polygon(new[]{4,7,8,3,17,2,23,4,17,3,10,5,7,9},ivory); c.Line(8,6,13,4,Hex(0x608b91));
+                c.Rect(3,24,4,2,ivory); c.Set(23,28,blood);
             }
             else
             {
-                c.Polygon(new[]{6,14,11,12,24,14,27,28,22,31,7,29},Hex(0x354f4b));
-                c.Rect(4,13,5,16,Hex(0x5b493f)); c.Rect(5,14,3,12,Teal); c.Rect(5,14,2,8,Mint);
-                c.Line(4,27,9,29,Gold); c.Rect(24,14,3,14,Hex(0x827252));
-                c.Rect(25,16,2,7,Gold); c.Set(25,16,Pale);
+                // A plague beak replaces the human face; glass reservoirs show veins.
+                c.Polygon(new[]{8,16,9,7,15,3,23,6,25,16,21,20,11,20},Hex(0x2c3a3e));
+                c.Polygon(new[]{10,9,21,8,25,13,21,15,16,15,13,13},ivory);
+                c.Polygon(new[]{20,12,28,16,23,19,17,16},Hex(0xb6b4a2)); c.Line(21,14,26,16,Hex(0x777b78));
+                c.Ellipse(10,8,7,7,Hex(0x7e7a60)); c.Ellipse(11,9,5,5,Ink); c.Set(13,11,Hex(0x95df71)); c.Set(12,10,ivory);
+                c.Rect(7,7,16,2,Hex(0x5c6256)); c.Polygon(new[]{9,7,11,2,19,2,23,7},Hex(0x3a4544)); c.Line(11,3,18,3,Hex(0x929b85));
+                c.Rect(4,15,5,15,Hex(0x52615b)); c.Rect(5,16,3,11,Hex(0x86b977)); c.Line(6,17,5,22,Hex(0xd5e7af));
+                c.Line(5,22,7,25,Hex(0x336644)); c.Rect(24,17,4,12,Hex(0x566c64)); c.Rect(25,18,2,8,Hex(0xa3cf68));
+                for(int i=0;i<3;i++){int x=11+i*4;c.Rect(x,28,3,5,Hex(0x768a81));c.Rect(x+1,27,1,2,ivory);c.Rect(x+1,30,1,2,i==1?Hex(0xd590b1):Mint);}
+                c.Line(13,20,17,24,Hex(0x6b945a)); c.Line(17,24,22,21,Hex(0x6b945a)); c.Rect(26,24,4,4,ivory);
             }
-            Stamp(c,body,4,4);
-            if(kind==0)
-            {
-                c.Rect(11,23,11,2,Hex(0x5a4352)); c.Rect(15,23,3,3,Gold); c.Set(16,24,Pale);
-                c.Rect(21,21,3,7,Hex(0x714e52)); c.Line(21,22,23,22,Bone);
-                c.Line(22,9,26,4+sway,Gold); c.Line(24,7,28,5+sway,Pale); c.Set(29,4+sway,Mint);
-            }
-            else if(kind==1)
-            {
-                c.Line(11,22,13,26,Gold); c.Line(13,26,17,28,Gold); c.Rect(15,25,3,4,Mint); c.Set(15,25,Pale);
-                c.Rect(3,22,3,2,Bone); c.Set(10,28,Pale); c.Set(23,28,Violet);
-            }
-            else if(kind==2)
-            {
-                c.Rect(10,24,12,2,Hex(0x7d5167)); c.Rect(15,23,4,4,Gold); c.Rect(16,24,2,2,Ink);
-                c.Rect(2,22,4,2,Bone); c.Line(23,29,25+sway,31,Hex(0xa85b71));
-                c.Set(13,17,Pale); c.Set(19,17,Pale);
-            }
-            else
-            {
-                for(int i=0;i<3;i++)
-                {
-                    int x=10+i*5; c.Rect(x,25,3,5,Hex(0x51616a)); c.Rect(x+1,24,1,2,Gold);
-                    c.Rect(x+1,27,1,2,i==1?Violet:Mint); c.Set(x,26,Pale);
-                }
-                c.Rect(25,23,4,6,Teal); c.Rect(26,22,2,2,Gold); c.Set(26,24,Mint);
-            }
+            if(frame==2) { c.Rect(4,22,4,3,ivory); c.Rect(25,21,4,3,ivory); }
             c.Outline(Ink);
-            if(kind==1)
+            if(kind==3)for(int i=0;i<3;i++){int x=4+(frame+i*2)%5,y=11-i*3-frame%2;c.Ellipse(x,y,4-i,3,Alpha(Hex(0x9db986),(byte)(125-i*25)));}
+            return c;
+        }
+
+        static readonly Color32 GraveIvory=Hex(0xdcd7c7), GraveShade=Hex(0x8d8291), BloodRed=Hex(0x9b3a51), DeepWound=Hex(0x462438);
+
+        static bool IsGuardian(string id) => id=="boss"||id=="widow"||id=="bishop"||id=="matriarch"||id=="bell"||id=="iron-executioner"||id=="bog-oracle";
+
+        static void NightmareMaw(Canvas c,int x,int y,int width,int height,int frame,bool vertical=false)
+        {
+            height += frame==2?1:0;
+            c.Polygon(new[]{x,y+2,x+width/3,y,x+width-2,y+1,x+width,y+height/2,x+width-2,y+height,x+2,y+height-1},DeepWound);
+            c.Polygon(new[]{x+1,y+2,x+width/3,y+1,x+width-2,y+2,x+width-1,y+height/2,x+width-3,y+height-1,x+2,y+height-2},Ink);
+            int count=Math.Max(2,width/4);
+            for(int i=0;i<count;i++)
             {
-                int[][] orb={new[]{27,13,8,9},new[]{28,11,8,11},new[]{26,9,6,14},new[]{25,12,7,10}};
-                int[] p=orb[frame]; c.Ellipse(p[0]-2,p[1]-2,5,5,Alpha(Violet,175));
-                c.Ellipse(p[0]-1,p[1]-1,3,3,Mint); c.Set(p[0],p[1]-1,Pale); c.Set(p[2],p[3],Pale);
+                int px=x+2+i*(width-4)/count, length=2+(i+frame)%2;
+                c.Polygon(new[]{px,y+1,px+2,y+1,px+1,y+length+1},GraveIvory);
+                c.Polygon(new[]{px+1,y+height-2,px+3,y+height-2,px+2,y+height-4-(i+frame)%2},GraveIvory);
             }
-            if(kind==3)
+            if(vertical)c.Line(x+width/2,y+height/2,x+width/2+1,y+height-3,BloodRed);
+            else c.Line(x+3,y+height-2,x+width-4,y+height-2,BloodRed);
+        }
+
+        static void HollowEyes(Canvas c,int x,int y,int gap,Color32 glow)
+        {
+            c.Polygon(new[]{x-1,y-1,x+4,y,x+3,y+3,x,y+3},GraveIvory);
+            c.Polygon(new[]{x+gap-1,y,x+gap+4,y-1,x+gap+4,y+3,x+gap,y+3},GraveIvory);
+            c.Line(x,y+1,x+3,y+1,Ink); c.Line(x+gap,y+1,x+gap+3,y+1,Ink);
+            c.Set(x+1,y+1,glow); c.Set(x+gap+2,y+1,glow);
+        }
+
+        static void ExposedRibs(Canvas c,int x,int y,int width,int rows)
+        {
+            c.Rect(x,y,width,rows*3,DeepWound); c.Line(x+width/2,y,x+width/2,y+rows*3-1,GraveIvory);
+            for(int i=0;i<rows;i++){int py=y+i*3;c.Line(x,py,x+width/2-2,py+1,GraveIvory);c.Line(x+width/2+2,py+1,x+width-1,py,GraveIvory);}
+        }
+
+        static Canvas NightmareCreature(string id,Canvas c,int frame)
+        {
+            int twitch=frame==1?1:frame==3?-1:0;
+            switch(id)
             {
-                for(int i=0;i<3;i++)
-                {
-                    int x=4+(frame+i*2)%5,y=10-i*3-frame%2;
-                    c.Ellipse(x,y,5-i,4-i,Alpha(i==0?Mint:Hex(0x9bb7ac),(byte)(145-i*30)));
-                    c.Set(x+1,y,Alpha(Pale,130));
-                }
+                case "pumpkin":
+                    c.Line(9,5,8,10,DeepWound);c.Line(8,10,11,13,DeepWound);
+                    c.Polygon(new[]{7,8,10,10,8,12,5,11},Ink);c.Polygon(new[]{15,10,18,8,20,11,16,12},Ink);
+                    c.Set(7,10,Gold);c.Set(17,10,Gold);NightmareMaw(c,7,13,12,8,frame,true);
+                    c.Line(3,16,1,19+twitch,GraveIvory);c.Line(20,15,23,19-twitch,GraveIvory);break;
+                case "ghost":
+                    c.Polygon(new[]{8,6,17,6,19,13,16,21,10,21,6,13},Hex(0xcbc5d0));
+                    c.Polygon(new[]{9,8,12,9,11,12,8,12},Ink);c.Polygon(new[]{15,9,18,8,18,12,15,12},Ink);
+                    c.Set(9,10,Hex(0xe389a8));c.Set(16,10,Hex(0xe389a8));NightmareMaw(c,10,12,7,11+twitch,frame,true);
+                    c.Line(4,16,1,23+twitch,GraveIvory);c.Line(19,16,22,23-twitch,GraveIvory);
+                    c.Rect(7,23,2,3,Ink);c.Rect(15,24,2,3,Ink);break;
+                case "cultist":
+                    c.Polygon(new[]{8,9,17,9,18,15,13,18,7,15},GraveIvory);
+                    c.Line(8,11,11,12,Ink);c.Line(14,12,17,11,Ink);c.Set(10,12,Hex(0xd86b8e));c.Set(15,12,Hex(0xd86b8e));
+                    NightmareMaw(c,10,13,6,6,frame,true);c.Line(12,3,13,7,GraveIvory);
+                    c.Line(4,19,1,25+twitch,GraveIvory);c.Line(20,18,23,25-twitch,GraveIvory);c.Rect(7,24,3,3,Ink);break;
+                case "bat":
+                    c.Rect(11,8,7,5,Hex(0x572b44));HollowEyes(c,11,8,4,Hex(0xf8ab89));NightmareMaw(c,11,12,7,6,frame);
+                    c.Line(5,9,7,13,GraveIvory);c.Line(22,9,20,13,GraveIvory);c.Polygon(new[]{3,8,6,11,3,12},Ink);break;
+                case "larva":
+                    for(int i=0;i<4;i++){int x=3+i*5;c.Line(x,14,x+1,19,Hex(0xc2b9a0));c.Line(x,14,x-2,10-twitch,GraveIvory);}
+                    c.Ellipse(17,8,10,12,Hex(0x8a9c7b));NightmareMaw(c,19,10,7,11,frame,true);
+                    c.Set(18,9,Hex(0xe991a2));c.Set(25,8,Hex(0xe991a2));break;
+                case "sentinel":
+                    c.Polygon(new[]{8,3,14,1,22,4,21,12,16,17,10,14},GraveIvory);
+                    HollowEyes(c,9,5,8,Hex(0xffac85));NightmareMaw(c,11,10,9,7,frame);
+                    ExposedRibs(c,10,17,10,2);c.Line(9,13,5,9-twitch,GraveIvory);c.Line(20,13,24,9+twitch,GraveIvory);break;
+                case "acolyte":
+                    c.Polygon(new[]{11,10,17,9,19,13,16,19,11,17},GraveIvory);c.Rect(12,11,5,3,Ink);c.Set(14,12,Hex(0xf19b9c));
+                    NightmareMaw(c,12,14,6,7,frame,true);c.Line(9,20,7,26,GraveIvory);c.Line(20,20,22,26,GraveIvory);
+                    c.Line(1,8,6,11,DeepWound);c.Set(2+frame%2,9,GraveIvory);break;
+                case "skeleton":
+                    c.Polygon(new[]{8,3,14,1,20,4,19,11,13,15,8,11},GraveIvory);HollowEyes(c,9,5,7,Hex(0xff9b9b));
+                    NightmareMaw(c,10,10,11,8+twitch,frame,true);c.Line(11,4,14,6,Hex(0x666079));
+                    ExposedRibs(c,9,17,12,2);c.Line(8,15,4,11+twitch,GraveIvory);c.Line(20,15,23,12-twitch,GraveIvory);break;
+                case "slime":
+                    c.Polygon(new[]{4,10,8,7,12,9,17,4,24,11,25,17,20,20,8,20,2,17},Hex(0x788275));
+                    c.Ellipse(4,8,10,8,GraveIvory);c.Rect(6,10,3,3,Ink);c.Line(16,8,21,10,DeepWound);
+                    NightmareMaw(c,8,10+twitch,16,11,frame);c.Line(3,15,5,18,BloodRed);c.Line(24,15,22,20,BloodRed);break;
+                case "spider":
+                    c.Polygon(new[]{11,2,19,1,24,7,20,13,12,13,8,7},GraveIvory);
+                    c.Rect(12,5,3,4,Ink);c.Rect(18,4,4,4,Ink);c.Set(13,6,Hex(0xe7799d));c.Set(20,5,Hex(0xe7799d));
+                    NightmareMaw(c,11,13,12,9,frame);c.Line(10,17,6,23-twitch,GraveIvory);c.Line(22,17,26,23+twitch,GraveIvory);break;
+                case "lantern-wisp":
+                    c.Rect(9,10,14,12,Hex(0x6a453d));c.Polygon(new[]{11,11,20,11,21,16,19,21,13,21,10,16},GraveIvory);
+                    c.Rect(12,13,3,3,Ink);c.Rect(18,13,3,3,Ink);c.Set(13,14,Orange);c.Set(19,14,Orange);
+                    NightmareMaw(c,13,17,7,6,frame,true);c.Line(9,24,8,30+twitch,GraveIvory);c.Line(21,24,23,30-twitch,GraveIvory);
+                    c.Line(6,7,3,4,GraveIvory);c.Line(24,7,27,4,GraveIvory);break;
+                case "mushroom-brute":
+                    c.Polygon(new[]{5,12,10,5,16,2,25,4,32,12,27,16,10,16},Hex(0x80506d));
+                    c.Line(12,5,13,11,GraveIvory);c.Line(22,5,24,12,GraveIvory);c.Ellipse(18,4,5,4,DeepWound);
+                    c.Polygon(new[]{11,17,26,17,27,23,22,30,14,29,10,23},GraveIvory);HollowEyes(c,12,19,10,Hex(0xa1df86));
+                    NightmareMaw(c,14,23,12,9,frame,true);c.Line(3,26,1,31-twitch,GraveIvory);c.Line(32,25,35,30+twitch,GraveIvory);break;
+                case "clockwork-imp":
+                    c.Polygon(new[]{10,7,18,5,25,8,24,15,19,20,11,16},Hex(0x98938e));HollowEyes(c,11,9,9,Hex(0xff9d92));
+                    NightmareMaw(c,13,13,11,8,frame);c.Line(17,15,18,22,DeepWound);
+                    c.Polygon(new[]{10,7,8,1,13,6},GraveIvory);c.Polygon(new[]{23,7,27,0,26,9},GraveIvory);
+                    c.Line(4,23,1,27+twitch,GraveIvory);c.Line(29,23,32,27-twitch,GraveIvory);break;
+                case "scarecrow":
+                    c.Line(12,12,10,17,DeepWound);c.Line(10,17,13,20,DeepWound);
+                    c.Polygon(new[]{11,12,16,14,12,17},Ink);c.Polygon(new[]{24,12,19,14,23,17},Ink);c.Set(12,14,Gold);c.Set(22,14,Gold);
+                    NightmareMaw(c,13,17,11,9,frame,true);c.Line(12,25,9,34,GraveIvory);c.Line(23,25,26,34,GraveIvory);
+                    c.Line(2,28,0,23+twitch,GraveIvory);c.Line(32,27,35,22-twitch,GraveIvory);c.Rect(16,29,4,6,DeepWound);break;
+                case "gargoyle":
+                    c.Polygon(new[]{14,11,19,8,27,11,28,19,21,25,15,21},Hex(0x9a9fa0));HollowEyes(c,15,12,9,Hex(0xb4dfbf));
+                    NightmareMaw(c,17,18,11,10,frame);c.Line(13,10,11,2,GraveIvory);c.Line(28,10,31,1,GraveIvory);
+                    ExposedRibs(c,15,25,13,2);c.Line(7,12,10,17,GraveIvory);c.Line(35,12,32,17,GraveIvory);break;
+                case "stalker-shadow":
+                    c.Polygon(new[]{10,9,15,5,23,8,24,17,20,24,13,22,9,16},Hex(0x0b0f1f));
+                    c.Line(11,10,14,11,GraveIvory);c.Line(19,11,23,9,GraveIvory);c.Set(12,11,Mint);c.Set(21,10,Mint);
+                    NightmareMaw(c,13,14,9,13,frame,true);c.Line(7,23,2,31+twitch,GraveIvory);c.Line(25,22,30,30-twitch,GraveIvory);
+                    c.Line(10,28,8,35,Hex(0xb497c4));c.Line(22,28,25,35,Hex(0xb497c4));break;
+                case "fire-bat":
+                    c.Polygon(new[]{14,11,18,8,24,11,25,19,21,25,15,22},Hex(0xbdb0a0));HollowEyes(c,15,13,6,Gold);
+                    NightmareMaw(c,16,17,9,9,frame,true);c.Line(7,11,12,16,GraveIvory);c.Line(30,11,25,16,GraveIvory);
+                    c.Polygon(new[]{5,12,8,15,5,17},Ink);c.Polygon(new[]{32,12,29,15,32,17},Ink);break;
+                case "miniboss":
+                    c.Polygon(new[]{16,10,24,6,34,12,33,23,26,30,18,25},GraveIvory);HollowEyes(c,18,14,10,Hex(0xb1e0cf));
+                    NightmareMaw(c,20,20,13,12,frame,true);ExposedRibs(c,17,31,17,3);
+                    c.Polygon(new[]{11,26,8,17,16,24},GraveIvory);c.Polygon(new[]{37,25,41,15,40,29},GraveIvory);break;
+                default:return c;
+            }
+            // One moving tear/bone fragment per pose makes old two-pose creatures
+            // expressive as well, without adding decorative texture noise.
+            int markX=Math.Max(1,c.Width/2+twitch),markY=c.Height-3-frame;
+            c.Set(markX,markY,GraveIvory);c.Outline(Ink);return c;
+        }
+
+        static Canvas NightmareGuardian(string id,Canvas c,int frame)
+        {
+            int motion=frame==1?1:frame==3?-1:0;
+            switch(id)
+            {
+                case "boss":
+                    c.Polygon(new[]{10,15,15,10,21,11,18,22,13,23},Hex(0xae4c2e));c.Line(12,12,11,21,DeepWound);
+                    c.Polygon(new[]{12,16,21,18,18,22,12,21},Ink);c.Polygon(new[]{35,16,26,18,29,22,35,21},Ink);
+                    c.Line(14,19,18,19,Gold);c.Line(29,19,33,19,Gold);NightmareMaw(c,17,22,15,14,frame,true);
+                    c.Line(12,31,7,39+motion,GraveIvory);c.Line(35,31,42,39-motion,GraveIvory);
+                    c.Polygon(new[]{7,41,10,33,12,38},GraveIvory);c.Polygon(new[]{39,40,36,33,43,37},GraveIvory);break;
+                case "widow":
+                    c.Polygon(new[]{22,12,29,10,35,16,35,28,29,34,22,27},GraveIvory);
+                    c.Rect(23,16,11,6,Ink);c.Set(24,17,Hex(0xe4adc5));c.Set(28,19,Hex(0xe4adc5));c.Set(32,16,Hex(0xe4adc5));
+                    NightmareMaw(c,25,21,10,17,frame,true);c.Line(20,14,17,27,DeepWound);c.Line(36,18,40,30,DeepWound);
+                    c.Polygon(new[]{19,35,22,41,19,48},Ink);c.Polygon(new[]{37,34,35,43,39,47},Ink);
+                    c.Line(12,32,8,26+motion,GraveIvory);c.Line(44,32,48,26-motion,GraveIvory);break;
+                case "bishop":
+                    c.Polygon(new[]{21,15,29,14,35,19,34,28,28,35,21,28},GraveIvory);HollowEyes(c,22,19,8,Hex(0xffac8b));
+                    NightmareMaw(c,25,24,9,12,frame,true);c.Line(24,17,29,21,DeepWound);
+                    ExposedRibs(c,23,36,13,3);c.Line(21,10,20,4,GraveIvory);c.Line(34,10,35,3,GraveIvory);
+                    c.Ellipse(44,6-motion,9,9,GraveIvory);c.Rect(46,8-motion,2,3,Ink);c.Rect(50,8-motion,2,3,Ink);c.Rect(48,11-motion,2,3,DeepWound);break;
+                case "matriarch":
+                    c.Polygon(new[]{15,15,22,11,28,13,36,10,42,17,39,28,32,33,21,30},Hex(0xa9b4a0));
+                    c.Rect(18,16,6,5,Ink);c.Rect(28,15,4,4,Ink);c.Rect(35,15,6,6,Ink);
+                    c.Set(21,18,Gold);c.Set(29,16,Gold);c.Set(38,17,Gold);NightmareMaw(c,20,23,20,13,frame,true);
+                    c.Ellipse(20,35,18,15,DeepWound);ExposedRibs(c,21,36,16,3);c.Ellipse(25,42+motion,6,7,Hex(0xa3bf89));
+                    c.Line(12,28,6,20,GraveIvory);c.Line(44,28,50,19,GraveIvory);break;
+                case "bell":
+                    c.Polygon(new[]{20,21,28,18,37,22,38,34,31,41,21,36},Hex(0x807278));
+                    c.Polygon(new[]{21,24,27,26,24,30,20,28},Ink);c.Polygon(new[]{36,24,30,26,33,30,38,28},Ink);
+                    c.Set(23,27,Hex(0xe7bad7));c.Set(34,27,Hex(0xe7bad7));NightmareMaw(c,25,29,10,14,frame,true);
+                    c.Line(14,20,16,29,Hex(0x5b3e52));c.Line(16,29,13,36,Hex(0x5b3e52));
+                    c.Rect(25+motion,46,6,6,GraveIvory);c.Rect(27+motion,48,2,3,DeepWound);break;
+                case "iron-executioner":
+                    c.Polygon(new[]{20,13,29,10,39,14,40,25,33,33,23,28},Hex(0xa3a4a6));
+                    c.Polygon(new[]{23,18,36,16,35,21,24,23},Ink);c.Line(26,20,34,18,Hex(0xffb38a));
+                    c.Rect(28,23,6,8,DeepWound);for(int x=28;x<35;x+=3)c.Rect(x,24,1,5,GraveIvory);
+                    c.Line(19,15,17,7,GraveIvory);c.Line(41,17,44,8,GraveIvory);
+                    c.Polygon(new[]{21,36,39,36,42,54,36,50,32,57,27,52,20,55},Hex(0x633443));
+                    c.Line(27,39,28,49,BloodRed);c.Line(34,39,36,50,BloodRed);c.Polygon(new[]{56,14,60,16,56,20},Ink);break;
+                case "bog-oracle":
+                    c.Polygon(new[]{13,15,22,11,29,16,38,11,49,16,46,29,37,34,23,32,15,25},Hex(0x9caa8e));
+                    c.Polygon(new[]{15,16,24,16,22,23,15,22},Ink);c.Polygon(new[]{38,16,47,15,47,22,39,23},Ink);
+                    c.Line(17,19,21,19,Hex(0xc5e2a0));c.Line(40,18,44,18,Hex(0xc5e2a0));
+                    NightmareMaw(c,24,24,18,20,frame,true);c.Line(15,26,18,32,DeepWound);c.Line(46,24,45,32,DeepWound);
+                    c.Line(17,13,10,6,GraveIvory);c.Line(10,6,9,1,GraveIvory);c.Line(45,13,54,6,GraveIvory);c.Line(54,6,57,1,GraveIvory);
+                    c.Ellipse(10,34+motion,7,7,Hex(0x838e75));c.Set(12,35+motion,GraveIvory);break;
+                default:return c;
+            }
+            c.Outline(Ink);return c;
+        }
+
+        static void NightmareAttackFace(string id,Canvas c,int frame)
+        {
+            int cx=c.Width/2,cy=c.Height/2;
+            if(id=="boss")NightmareMaw(c,cx-8,cy+1,16,11,frame,true);
+            else if(id=="widow")NightmareMaw(c,cx-4,cy-5,9,14,frame,true);
+            else if(id=="bog-oracle")NightmareMaw(c,cx-7,cy-6,17,17,frame,true);
+        }
+
+        static Canvas VolumeProp(string id,Canvas source)
+        {
+            bool themed=id!=null&&id.StartsWith("decor-theme",StringComparison.Ordinal);
+            if(!themed&&id!="barrel-explosive"&&id!="barrel-acid"&&id!="water-urn"&&id!="destructible-pillar"&&id!="gravestone"&&id!="grave"&&id!="fence")return source;
+            var c=new Canvas(source.Width,source.Height);
+            c.Ellipse(2,source.Height-6,source.Width-4,5,Alpha(Ink,105));
+            // One stable directional key light and a separate right-hand plane.
+            for(int y=0;y<source.Height;y++)for(int x=0;x<source.Width;x++)
+            {
+                Color32 p=source.Pixels[(source.Height-1-y)*source.Width+x];if(p.a==0)continue;
+                float plane=x>source.Width*.67f?.70f:x<source.Width*.38f?1.07f:.94f;
+                if(p.r+p.g+p.b<115||p.a<200)plane=1;
+                c.Set(x,y,new Color32((byte)Math.Min(255,p.r*plane),(byte)Math.Min(255,p.g*plane),(byte)Math.Min(255,p.b*plane),p.a));
+            }
+            if(id=="barrel-explosive")
+            {
+                c.Ellipse(6,4,20,8,Hex(0x3a2c31));c.Ellipse(7,4,18,6,Hex(0xa47d55));c.Ellipse(9,5,14,4,Hex(0x5c4037));
+                c.Line(10,6,22,6,Hex(0x886047));c.Line(7,5,16,4,GraveIvory);c.Line(5,16,5,27,Hex(0xb18b61));
+                c.Ellipse(4,30,24,5,Hex(0x33303e));c.Line(6,30,24,30,Hex(0x8d9199));c.Line(7,32,21,33,Hex(0x565766));
+            }
+            else if(id=="barrel-acid")
+            {
+                c.Ellipse(4,4,24,9,Hex(0x34464c));c.Ellipse(5,4,21,7,Hex(0xaab6ac));c.Ellipse(7,5,17,5,Hex(0x93db72));
+                c.Line(8,5,19,5,Hex(0xd9f3bb));c.Line(6,15,6,26,Hex(0xb2bfb7));c.Polygon(new[]{23,17,27,19,25,26,22,23},Hex(0x354750));
+                c.Ellipse(4,30,24,5,Hex(0x37444c));c.Line(6,30,23,30,Hex(0x9daaa7));
+            }
+            else if(id=="water-urn")
+            {
+                c.Ellipse(8,3,14,7,Hex(0x3e5d73));c.Ellipse(9,3,12,5,Hex(0xb0c6c5));c.Ellipse(11,4,8,3,Hex(0x25465f));
+                c.Polygon(new[]{19,12,23,15,23,27,19,30,20,21},Hex(0x2e5772));c.Line(9,13,8,21,Hex(0xc3dddd));
+                c.Ellipse(9,28,12,4,Hex(0x2f4b60));c.Line(10,28,19,28,Hex(0x81a9b3));
+            }
+            else if(id=="destructible-pillar")
+            {
+                c.Polygon(new[]{4,5,9,1,25,1,29,5,24,8,7,8},Hex(0x8f96a0));c.Line(9,1,24,1,GraveIvory);
+                c.Polygon(new[]{24,8,28,5,28,11,25,12,25,37,22,37,22,11},Hex(0x41485c));
+                c.Polygon(new[]{2,40,7,36,25,36,30,40,26,43,4,43},Hex(0x656e80));c.Line(7,36,24,36,Hex(0xb0b4b9));c.Line(4,40,26,40,Hex(0x858d9d));
+                c.Line(9,12,9,33,Hex(0xc0c3c2));
+            }
+            else if(id=="gravestone"||id=="grave")
+            {
+                int w=c.Width,h=c.Height;c.Polygon(new[]{w-9,4,w-4,8,w-4,h-7,w-8,h-5,w-8,9},Hex(0x414b61));
+                c.Line(7,7,6,h-9,Hex(0xc0c4c5));c.Polygon(new[]{2,h-6,6,h-9,w-5,h-9,w-1,h-6,w-4,h-3,3,h-3},Hex(0x626e80));c.Line(6,h-9,w-6,h-9,Hex(0xadb5ba));
+            }
+            else if(id=="fence")
+            {
+                for(int x=5;x<46;x+=9){c.Polygon(new[]{x-1,10,x+1,3,x+1,10},GraveIvory);c.Rect(x+2,11,1,20,Hex(0x323849));c.Line(x,11,x,29,Hex(0xa3a7ae));}
+                c.Line(3,17,44,17,Hex(0x6d7182));
+            }
+            else if(themed)
+            {
+                int theme=id[id.Length-1]-'0';
+                if(theme==0){c.Ellipse(17,36,17,7,Hex(0x352c33));c.Ellipse(18,36,14,4,Hex(0x8d7054));c.Line(21,37,29,37,Hex(0xc0a07a));c.Line(20,20,19,31,Hex(0xaf8b69));}
+                else if(theme==1){c.Polygon(new[]{7,8,14,2,34,2,41,8,34,11,13,11},Hex(0x9fa9bd));c.Line(14,2,33,2,GraveIvory);c.Polygon(new[]{36,11,41,8,43,43,38,44},Hex(0x404b65));c.Line(10,19,10,38,GraveIvory);}
+                else if(theme==2){c.Polygon(new[]{6,27,11,23,37,23,42,27,37,31,10,31},Hex(0xac8271));c.Line(12,24,35,24,GraveIvory);c.Polygon(new[]{37,31,42,27,42,41,37,44},Hex(0x3d2c40));c.Line(11,32,11,40,Hex(0xb38b79));}
+                else if(theme==3){c.Ellipse(4,38,40,7,Hex(0x253c35));for(int i=0;i<4;i++){int x=7+i*8,y=16+i%2*8;c.Line(x+3,y+3,x+2,y+12,Hex(0xc1c79c));c.Line(x+11,y+5,x+12,y+15,Hex(0x334b3f));}c.Line(6,40,32,42,Hex(0x718a64));}
+                else{c.Polygon(new[]{6,42,11,38,38,38,43,42,38,46,9,46},Hex(0x746277));c.Line(12,39,36,39,GraveIvory);c.Polygon(new[]{38,9,42,7,42,41,38,43},Hex(0x33283f));c.Line(8,11,8,37,Hex(0xb59aa9));}
             }
             return c;
+        }
+
+        static Canvas RitualAmmoCache()
+        {
+            var c=new Canvas(28,26);
+            c.Ellipse(2,20,24,5,Alpha(Ink,105));c.Polygon(new[]{3,8,9,3,24,3,26,8,26,21,20,24,3,21},Hex(0x343647));
+            c.Polygon(new[]{3,8,9,3,24,3,19,8},Hex(0x818277));c.Line(9,3,23,3,GraveIvory);
+            c.Rect(4,9,15,12,Hex(0x60685f));c.Polygon(new[]{20,8,25,4,25,21,20,24},Hex(0x292e40));
+            c.Rect(5,11,13,2,Hex(0xa1977b));c.Rect(5,19,13,2,Hex(0x8e8976));c.Rect(10,10,3,13,BloodRed);
+            c.Ellipse(8,12,8,7,GraveIvory);c.Rect(9,14,2,2,Ink);c.Rect(13,14,2,2,Ink);c.Rect(11,17,2,2,Ink);
+            c.Rect(8,4,3,4,Gold);c.Set(9,4,GraveIvory);c.Rect(14,3,3,4,Hex(0xb7b6a3));c.Set(15,3,Pale);
+            c.Outline(Ink);return c;
         }
 
         static Canvas Scarecrow(int frame)
@@ -543,7 +806,7 @@ namespace Ecos.Haunt
             c.Line(14,17,18,17,Hex(0x83669d)); c.Set(16,19,Violet);
             c.Line(10,7,15,3,Hex(0xb292ce)); c.Line(8,24,7+sway,31,Hex(0xb292ce));
             if(frame==2) { c.Rect(11,10,5,4,Pale); c.Rect(19,10,5,4,Pale); c.Line(5,25,1,21,Mint); c.Line(27,24,31,20,Mint); }
-            c.Outline(Alpha(Hex(0x201d32),220)); return c;
+            c.Outline(Ink); return c;
         }
 
         static Canvas FireBat(int frame)
@@ -661,13 +924,13 @@ namespace Ecos.Haunt
         {
             switch(id)
             {
-                case "boss": return Boss(frame);
-                case "widow": return Widow(frame);
-                case "bishop": return Bishop(frame);
-                case "matriarch": return NewGuardian(false,frame);
-                case "bell": return NewGuardian(true,frame);
-                case "iron-executioner": return IronExecutioner(frame);
-                case "bog-oracle": return BogOracle(frame);
+                case "boss": return NightmareGuardian(id,Boss(frame),frame);
+                case "widow": return NightmareGuardian(id,Widow(frame),frame);
+                case "bishop": return NightmareGuardian(id,Bishop(frame),frame);
+                case "matriarch": return NightmareGuardian(id,NewGuardian(false,frame),frame);
+                case "bell": return NightmareGuardian(id,NewGuardian(true,frame),frame);
+                case "iron-executioner": return NightmareGuardian(id,IronExecutioner(frame),frame);
+                case "bog-oracle": return NightmareGuardian(id,BogOracle(frame),frame);
                 default: throw new ArgumentException("Guardiao desconhecido: " + id,nameof(id));
             }
         }
@@ -808,6 +1071,7 @@ namespace Ecos.Haunt
                 charged.Line(4+frame,cy+7,2,cy+13,energy); charged.Line(w-5-frame,cy+6,w-2,cy+12,energy);
                 Stamp(charged,c); c=charged;
             }
+            if(state==BossAnimationState.Attack) NightmareAttackFace(id,c,frame);
             c.Outline(Ink); return c;
         }
 
@@ -2492,7 +2756,12 @@ namespace Ecos.Haunt
                     for(int oy=-1;oy<=1;oy++) for(int ox=-1;ox<=1;ox++)
                     {
                         int nx=x+ox,ny=y+oy;
-                        if(nx>=0&&nx<Width&&ny>=0&&ny<Height && original[(Height-1-ny)*Width+nx].a>0) Set(x,y,color);
+                        if(nx<0||nx>=Width||ny<0||ny>=Height) continue;
+                        Color32 neighbor=original[(Height-1-ny)*Width+nx];
+                        // Existing outline pixels never become dilation seeds.
+                        // Layered poses can request a contour without growing it.
+                        bool alreadyOutline=neighbor.r==color.r&&neighbor.g==color.g&&neighbor.b==color.b&&neighbor.a==color.a;
+                        if(neighbor.a>0&&!alreadyOutline) Set(x,y,color);
                     }
                 }
             }

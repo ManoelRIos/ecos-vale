@@ -183,10 +183,10 @@ namespace Ecos.Haunt
 
         // Index zero represents the current character's starting weapon. The
         // remainder is shared and never allocated during input polling.
-        static readonly WeaponKind[] WeaponCycle = { WeaponKind.Pistol, WeaponKind.Stapler, WeaponKind.Banana,
+        static readonly WeaponKind[] WeaponCycle = { WeaponKind.HunterCarbine, WeaponKind.Stapler, WeaponKind.Banana,
             WeaponKind.SpinningTop, WeaponKind.MirrorDisc, WeaponKind.RayLantern, WeaponKind.BoneFlute,
             WeaponKind.Umbrella, WeaponKind.HiveLauncher, WeaponKind.BoxingGlove,
-            WeaponKind.Scattergun, WeaponKind.Repeater, WeaponKind.SoulCannon };
+            WeaponKind.Scattergun, WeaponKind.Repeater, WeaponKind.SoulCannon, WeaponKind.Pistol };
 
         static int WeaponDigit(Keyboard keyboard)
         {

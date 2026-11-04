@@ -726,6 +726,168 @@ static class HauntChecks
         Console.WriteLine($"Room layouts: {layouts} seeded arenas, five shapes, four connected approaches, body clearance, merged walls, safe pits and BFS steering checked.");
     }
 
+    static void AmmunitionAndReloading()
+    {
+        int[] magazineSizes = { 8, 5, 24, 3, 10, 6, 4, 12, 6, 6, 30, 8, 40, 6, 5, 9, 4 };
+        Check(Enum.GetValues<WeaponKind>().Length == magazineSizes.Length, "Every current weapon needs explicit ammunition settings");
+        foreach (WeaponKind weapon in Enum.GetValues<WeaponKind>())
+        {
+            WeaponAmmoStats stats = WeaponAmmo.Stats(weapon);
+            Check(stats.MagazineSize == magazineSizes[(int)weapon], "Weapon magazine capacity matches its firing role");
+            Check(stats.ReloadDuration >= .8f && stats.ReloadDuration <= 1.8f,
+                "Reload duration is a short finite manual interruption");
+            Check(stats.ReserveCapacity >= stats.MagazineSize * 3 && stats.ReserveCapacity <= stats.MagazineSize * 5
+                && stats.InitialReserve >= stats.MagazineSize * 3 && stats.InitialReserve <= stats.ReserveCapacity
+                && stats.AmmoPickupAmount > 0 && stats.AmmoPickupAmount <= stats.ReserveCapacity,
+                "Reserve capacity, starting ammunition and pickups have bounded useful values");
+        }
+        bool unknownRejected = false;
+        try { WeaponAmmo.Stats((WeaponKind)999); }
+        catch (ArgumentOutOfRangeException) { unknownRejected = true; }
+        Check(unknownRejected, "An unknown weapon cannot silently use another weapon's magazine");
+
+        foreach (CharacterKind character in Enum.GetValues<CharacterKind>())
+        {
+            var run = new RunState(42, character);
+            WeaponKind starter = run.StartingWeapon;
+            WeaponAmmoStats stats = WeaponAmmo.Stats(starter);
+            Check(run.Magazine == stats.MagazineSize && run.ReserveAmmo == -1 && !run.IsReloading
+                && run.ReloadRemaining == 0 && run.ReloadProgress == 0, "A hero begins with a full finite magazine and infinite reserve");
+            Check(!run.TryReload(), "A full magazine cannot begin a reload");
+            for (int i = 0; i < stats.MagazineSize; i++)
+                Check(run.TryConsumeShot() && run.Magazine == stats.MagazineSize - i - 1, "One trigger or beam pulse consumes one magazine unit");
+            Check(!run.TryConsumeShot() && run.Magazine == 0 && run.ReserveAmmo == -1,
+                "Infinite reserve never permits firing an empty magazine");
+            run.TickReload(100);
+            Check(run.Magazine == 0 && !run.IsReloading, "An empty starter never automatically reloads");
+            Check(run.TryReload() && run.IsReloading && run.Magazine == 0 && run.ReserveAmmo == -1,
+                "The player can manually reload an empty infinite-reserve weapon");
+            float remaining = run.ReloadRemaining;
+            foreach (float invalid in new[] { -1f, 0, float.NaN, float.PositiveInfinity, float.NegativeInfinity }) run.TickReload(invalid);
+            Check(run.ReloadRemaining == remaining && run.ReloadProgress == 0, "Invalid elapsed time cannot advance a reload");
+            Check(!run.TryReload() && run.ReloadRemaining == remaining && !run.TryConsumeShot(),
+                "Repeated reload input does not restart progress and firing is blocked during the reload");
+            run.TickReload(stats.ReloadDuration * .5f);
+            Check(run.IsReloading && Math.Abs(run.ReloadProgress - .5f) < .0001f && run.Magazine == 0,
+                "Reload progress advances while magazine transfer remains pending");
+            remaining = run.ReloadRemaining;
+            Check(run.Equip(starter) && run.IsReloading && run.ReloadRemaining == remaining,
+                "Selecting the equipped weapon cannot cancel a manual reload");
+            Check(!run.Equip((WeaponKind)999) && run.ReloadRemaining == remaining,
+                "A rejected weapon switch cannot cancel a reload");
+            run.TickReload(run.ReloadRemaining);
+            Check(!run.IsReloading && run.Magazine == stats.MagazineSize && run.ReserveAmmo == -1
+                && run.ReloadRemaining == 0 && run.ReloadProgress == 0, "Finishing a reload fills the starter and returns the UI to idle");
+            Check(run.TryConsumeShot() && run.TryReload(), "A partly used magazine supports a tactical reload");
+            run.TickReload(.1f);
+            Check(run.Equip(WeaponKind.Pistol) && !run.IsReloading && run.Magazine == WeaponAmmo.Stats(WeaponKind.Pistol).MagazineSize
+                && run.ReserveAmmo == -1, "Switching weapons cancels reload and the revolver retains its own full magazine");
+            Check(run.TryConsumeShot() && run.TryConsumeShot(), "The revolver has its own magazine consumption");
+            run.TickReload(100);
+            Check(run.Equip(starter) && run.Magazine == stats.MagazineSize - 1 && run.ReserveAmmo == -1,
+                "A canceled reload neither restores the old magazine nor spends reserve");
+            Check(run.TryConsumeShot() && run.TryReload(), "The starter can reload again after being reequipped");
+            run.TickReload(.1f);
+            int magazine = run.Magazine;
+            remaining = run.ReloadRemaining;
+            run.BossDefeated = true; run.NextFloor();
+            Check(run.Magazine == magazine && run.ReserveAmmo == -1 && run.IsReloading && run.ReloadRemaining == remaining,
+                "A floor transition preserves both ammunition and the active reload until the caller chooses to cancel it");
+            run.CancelReload();
+            Check(!run.IsReloading && run.Magazine == magazine, "Explicit cancellation preserves loaded rounds");
+            if (character == CharacterKind.Alchemist) run.Hurt(1);
+            Check(run.TryUsePower() && run.Magazine == magazine && run.ReserveAmmo == -1,
+                "A character power does not charge the weapon magazine or reserve");
+            Check(!run.AddAmmo(starter, 100) && !run.AddAmmo(WeaponKind.Pistol, 100),
+                "A pickup cannot be consumed by weapons with infinite reserve");
+            var fresh = new RunState(42, character);
+            Check(fresh.Magazine == stats.MagazineSize && fresh.ReserveAmmo == -1 && !fresh.IsReloading,
+                "A new run restores the hero magazine without sharing the previous run's ammunition");
+            fresh.Equip(WeaponKind.Pistol);
+            Check(fresh.Magazine == WeaponAmmo.Stats(WeaponKind.Pistol).MagazineSize, "A new run also restores its separate revolver magazine");
+        }
+
+        foreach (ShopItem item in Enum.GetValues<ShopItem>().Where(item => RunState.TryWeaponForItem(item, out _)))
+        {
+            var run = Offering(item);
+            Check(run.TryBuy(item, out _), "Ammo checks acquire each weapon through an offered shop item");
+            WeaponKind weapon = run.Weapon;
+            WeaponAmmoStats stats = WeaponAmmo.Stats(weapon);
+            Check(run.Magazine == stats.MagazineSize && run.ReserveAmmo == stats.InitialReserve,
+                "A purchased weapon arrives loaded with its own finite reserve");
+            int coins = run.Coins;
+            Check(run.TryConsumeShot() && run.TryConsumeShot() && run.TryReload(), "Shop weapons can begin a partial manual reload");
+            run.TickReload(stats.ReloadDuration * .5f);
+            int magazine = run.Magazine, reserve = run.ReserveAmmo;
+            float remaining = run.ReloadRemaining;
+            Check(magazine == stats.MagazineSize - 2 && reserve == stats.InitialReserve,
+                "Reload does not debit reserve or add rounds before completion");
+            ShopItem absent = Enum.GetValues<ShopItem>().First(candidate => RunState.TryWeaponForItem(candidate, out WeaponKind other)
+                && !run.IsOffered(candidate) && !run.Owns(other));
+            Check(!run.TryBuy(absent, out _) && run.Coins == coins && run.Magazine == magazine
+                && run.ReserveAmmo == reserve && run.ReloadRemaining == remaining,
+                "A rejected weapon purchase cannot spend ammunition or interrupt reload");
+            Check(run.Equip(WeaponKind.Pistol) && !run.IsReloading, "A real weapon switch cancels shop-weapon reload");
+            run.TickReload(100);
+            Check(run.Equip(weapon) && run.Magazine == magazine && run.ReserveAmmo == reserve,
+                "Canceled reload transfer never occurs in the background on an unequipped weapon");
+            Check(run.TryReload(), "A canceled reload can be restarted manually");
+            run.TickReload(float.MaxValue);
+            Check(run.Magazine == stats.MagazineSize && run.ReserveAmmo == reserve - 2 && !run.IsReloading,
+                "Completion transfers only the missing rounds, once, even for a huge valid time step");
+            int preservedMagazine = run.Magazine, preservedReserve = run.ReserveAmmo;
+            run.BossDefeated = true; run.NextFloor();
+            Check(run.Magazine == preservedMagazine && run.ReserveAmmo == preservedReserve && run.Coins == coins,
+                "Purchased ammunition survives floor progression without refilling or charging currency");
+            Check(!run.AddAmmo((WeaponKind)999, 1) && !run.AddAmmo((WeaponKind)(-1), 1)
+                && !run.AddAmmo(weapon, 0) && !run.AddAmmo(weapon, -1), "Invalid ammunition grants are rejected atomically");
+            WeaponKind unowned = Enum.GetValues<WeaponKind>().First(candidate => !run.Owns(candidate));
+            Check(!run.AddAmmo(unowned, stats.AmmoPickupAmount), "A pickup cannot create or refill an unowned weapon");
+            Check(run.Equip(WeaponKind.Pistol) && run.AddAmmo(weapon, int.MaxValue), "Reserve pickups can refill a separately owned unequipped weapon");
+            Check(run.Equip(weapon) && run.Magazine == preservedMagazine && run.ReserveAmmo == stats.ReserveCapacity,
+                "Large pickup amounts clamp to reserve capacity without changing the loaded magazine");
+            Check(!run.AddAmmo(weapon, 1) && run.ReserveAmmo == stats.ReserveCapacity,
+                "A full reserve rejects a pickup instead of consuming it");
+
+            var empty = Offering(item);
+            Check(empty.TryBuy(item, out _), "Each finite reserve has an independent depletion fixture");
+            int fired = 0;
+            do
+            {
+                while (empty.TryConsumeShot()) fired++;
+                if (!empty.TryReload()) break;
+                empty.TickReload(stats.ReloadDuration);
+            } while (true);
+            Check(fired == stats.MagazineSize + stats.InitialReserve && empty.Magazine == 0 && empty.ReserveAmmo == 0,
+                "Shots and completed reloads conserve the full finite ammunition supply");
+            Check(!empty.TryConsumeShot() && !empty.TryReload(), "An empty reserve cannot initiate an empty reload");
+            empty.TickReload(100);
+            Check(empty.Magazine == 0 && empty.ReserveAmmo == 0, "Elapsed time alone cannot create ammunition");
+            Check(empty.AddAmmo(weapon, 1) && empty.Magazine == 0 && empty.ReserveAmmo == 1 && empty.TryReload(),
+                "A one-round pickup refills reserve and still requires manual reload");
+            empty.TickReload(stats.ReloadDuration);
+            Check(empty.Magazine == 1 && empty.ReserveAmmo == 0 && empty.TryConsumeShot() && empty.Magazine == 0,
+                "An underfilled reserve transfers exactly its remaining round");
+            Check(empty.AddAmmo(weapon, 1) && empty.TryReload() && empty.AddAmmo(weapon, 2),
+                "A valid pickup may add reserve while a reload is pending");
+            empty.TickReload(stats.ReloadDuration);
+            Check(empty.Magazine == 3 && empty.ReserveAmmo == 0,
+                "A reload commits against the current reserve and never loses ammunition collected during it");
+            var fresh = new RunState(empty.Seed);
+            Check(!fresh.Owns(weapon) && !fresh.AddAmmo(weapon, 100), "A fresh run cannot retain purchased weapons or their reserve");
+        }
+        var dead = new RunState(42);
+        Check(dead.TryConsumeShot() && dead.TryReload(), "Death fixture starts with a real active reload");
+        dead.TickReload(.1f);
+        int beforeDeath = dead.Magazine;
+        dead.Hurt(100);
+        dead.TickReload(100);
+        Check(dead.IsDead && !dead.IsReloading && dead.ReloadRemaining == 0 && dead.ReloadProgress == 0
+            && dead.Magazine == beforeDeath && !dead.TryReload() && !dead.TryConsumeShot()
+            && !dead.AddAmmo(dead.Weapon, 100), "Death cancels reload without completing a transfer or allowing later ammo actions");
+        Console.WriteLine("Ammunition: all 17 weapon magazines, independent reserves, manual atomic reloads, cancellation, pickups, finite depletion, infinite starters, transitions and reset checked.");
+    }
+
     public static void Main()
     {
         Maps();
@@ -737,6 +899,7 @@ static class HauntChecks
         ShopStockAndRelics();
         BulletPatternsAndDodge();
         RoomLayouts();
+        AmmunitionAndReloading();
         Console.WriteLine($"PASS — {assertions} assertions against production dungeon and run-state code.");
     }
 }

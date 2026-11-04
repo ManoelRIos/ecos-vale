@@ -35,11 +35,75 @@ namespace Ecos.Haunt
             : Character == CharacterKind.Medium ? "LAMENTO ESPECTRAL"
             : Character == CharacterKind.Reaper ? "COLHEITA LUNAR" : "ELIXIR VITAL";
         readonly HashSet<WeaponKind> weapons = new HashSet<WeaponKind> { WeaponKind.Pistol };
+        sealed class AmmoState { public int Magazine, Reserve; }
+        readonly Dictionary<WeaponKind, AmmoState> ammunition = new Dictionary<WeaponKind, AmmoState>();
+        WeaponKind reloadingWeapon;
+        float reloadRemaining, reloadDuration;
+        public bool IsReloading => !IsDead && reloadRemaining > 0;
+        public float ReloadRemaining => IsReloading ? reloadRemaining : 0;
+        public float ReloadProgress => IsReloading ? Math.Max(0, Math.Min(1, 1 - reloadRemaining / reloadDuration)) : 0;
+        public int Magazine => ammunition[Weapon].Magazine;
+        // -1 means infinite reserve, never an automatically refilled magazine.
+        public int ReserveAmmo => ammunition[Weapon].Reserve;
         public bool Owns(WeaponKind weapon) => weapons.Contains(weapon);
         public bool Equip(WeaponKind weapon)
         {
             if (IsDead || !Owns(weapon)) return false;
+            if (weapon != Weapon) CancelReload();
             Weapon = weapon;
+            return true;
+        }
+
+        void LoadNewWeapon(WeaponKind weapon)
+        {
+            WeaponAmmoStats stats = WeaponAmmo.Stats(weapon);
+            ammunition.Add(weapon, new AmmoState { Magazine = stats.MagazineSize,
+                Reserve = weapon == WeaponKind.Pistol || weapon == StartingWeapon ? -1 : stats.InitialReserve });
+        }
+
+        public bool TryConsumeShot()
+        {
+            if (IsDead) { CancelReload(); return false; }
+            if (IsReloading || Magazine <= 0) return false;
+            ammunition[Weapon].Magazine--;
+            return true;
+        }
+
+        public bool TryReload()
+        {
+            if (IsDead) { CancelReload(); return false; }
+            if (IsReloading) return false;
+            WeaponAmmoStats stats = WeaponAmmo.Stats(Weapon);
+            if (Magazine >= stats.MagazineSize || ReserveAmmo == 0) return false;
+            reloadingWeapon = Weapon;
+            reloadRemaining = reloadDuration = stats.ReloadDuration;
+            return true;
+        }
+
+        public void TickReload(float dt)
+        {
+            if (IsDead) { CancelReload(); return; }
+            if (!IsReloading || !(dt > 0) || float.IsInfinity(dt)) return;
+            reloadRemaining = Math.Max(0, reloadRemaining - dt);
+            if (reloadRemaining > 0) return;
+            AmmoState ammo = ammunition[reloadingWeapon];
+            int missing = WeaponAmmo.Stats(reloadingWeapon).MagazineSize - ammo.Magazine;
+            int loaded = ammo.Reserve < 0 ? missing : Math.Min(missing, ammo.Reserve);
+            ammo.Magazine += loaded;
+            if (ammo.Reserve >= 0) ammo.Reserve -= loaded;
+            CancelReload();
+        }
+
+        public void CancelReload() { reloadRemaining = reloadDuration = 0; }
+
+        public bool AddAmmo(WeaponKind weapon, int amount)
+        {
+            if (IsDead || amount <= 0 || !Owns(weapon)) return false;
+            AmmoState ammo = ammunition[weapon];
+            if (ammo.Reserve < 0) return false;
+            int free = WeaponAmmo.Stats(weapon).ReserveCapacity - ammo.Reserve;
+            if (free <= 0) return false;
+            ammo.Reserve += Math.Min(amount, free);
             return true;
         }
         public float WeaponInterval
@@ -196,12 +260,15 @@ namespace Ecos.Haunt
             Seed = seed; Character = character;
             Weapon = StartingWeapon;
             weapons.Add(Weapon);
+            LoadNewWeapon(WeaponKind.Pistol);
+            LoadNewWeapon(Weapon);
         }
 
         public bool Hurt(int amount)
         {
             if (IsDead || amount <= 0) return false;
             Health = Math.Max(0, Health - amount);
+            if (IsDead) CancelReload();
             return true;
         }
 
@@ -299,8 +366,9 @@ namespace Ecos.Haunt
                     message = "PASSOS MAIS RAPIDOS.";
                     break;
                 default:
-                    Weapon = purchasedWeapon;
-                    weapons.Add(Weapon);
+                    weapons.Add(purchasedWeapon);
+                    LoadNewWeapon(purchasedWeapon);
+                    Equip(purchasedWeapon);
                     message = WeaponName(Weapon) + " EQUIPADO.";
                     break;
             }

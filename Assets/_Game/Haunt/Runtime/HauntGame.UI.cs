@@ -171,7 +171,11 @@ namespace Ecos.Haunt
                 return;
             }
             HudText(new Rect(24, detailsY + 27, 330, 25), RunState.WeaponName(State.Weapon), smallStyle, Mint);
-            HudText(new Rect(24, detailsY + 54, 330, 43), (controllerActive ? "QUADRADO · " : "Q · ") + State.PowerName
+            string ammo = State.IsReloading ? "RECARGA " + State.ReloadRemaining.ToString("0.0") + " S"
+                : State.Magazine == 0 ? (State.ReserveAmmo == 0 ? "SEM MUNICAO / TROQUE ARMA" : (UsingController ? "TRIANGULO" : "R") + " RECARREGAR")
+                : State.Magazine + "/" + WeaponAmmo.Stats(State.Weapon).MagazineSize + "  RES " + (State.ReserveAmmo < 0 ? "INF" : State.ReserveAmmo.ToString());
+            HudText(new Rect(24, detailsY + 54, 330, 25), ammo, smallStyle, State.Magazine == 0 ? Orange : Muted);
+            HudText(new Rect(24, detailsY + 81, 330, 43), (controllerActive ? "QUADRADO · " : "Q · ") + State.PowerName
                 + (State.PowerCooldown <= 0 ? " · PRONTO" : " · " + Mathf.CeilToInt(State.PowerCooldown) + "s"), smallStyle,
                 State.PowerCooldown <= 0 ? Mint : Muted);
             HudText(new Rect(1010, 18, 246, 25), "ANDAR " + State.Floor, hudStyle, Orange);

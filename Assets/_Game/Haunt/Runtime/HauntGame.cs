@@ -141,6 +141,7 @@ namespace Ecos.Haunt
             PauseAudio(false);
             ClearActors();
             ResetRoomProps();
+            ResetAmmunitionDrops();
             ResetGameFeel();
             State = new RunState(seed, selectedCharacter);
             Floor = DungeonFloor.Generate(seed, State.Floor);
@@ -238,7 +239,9 @@ namespace Ecos.Haunt
             shotCooldown -= dt;
             muzzleTime -= dt;
             State.TickPower(dt);
+            TickAmmunition(dt);
             UpdateWeaponSelection(keyboard);
+            HandleReloadInput();
             if (!InShop && PowerPressed()) UsePower();
             UpdateFeel(dt);
             UpdatePlayer(keyboard, dt);
@@ -407,6 +410,7 @@ namespace Ecos.Haunt
                 AttachFlickerLight(player.transform, CharacterAccent, 2.7f, .14f, .1f, 1090);
             UpdateCamera(0, true);
             UpdatePresentation();
+            RestoreAmmunitionDrops();
             PlaySound(SoundCue.Door, .6f);
             if (room.Kind == RoomKind.Boss && !room.Cleared && enemies.Count > 0) BeginBossIntro(enemies[0]);
         }
@@ -876,6 +880,7 @@ namespace Ecos.Haunt
 
         void ClearCombat()
         {
+            ClearAmmunitionVisuals();
             ClearBossPresentation();
             ClearBulletPatterns();
             ClearCombatSlowZones();
@@ -918,6 +923,7 @@ namespace Ecos.Haunt
             PauseAudio(false);
             ClearActors();
             ResetRoomProps();
+            ResetAmmunitionDrops();
             ResetGameFeel();
             Playing = Paused = InShop = shopMenuOpen = false;
             State = null; Floor = null; CurrentRoom = null;

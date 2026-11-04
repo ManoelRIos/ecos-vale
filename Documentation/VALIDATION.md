@@ -3,9 +3,11 @@
 ## O que foi executado nesta revisão
 
 - 24 testes Python de versões, atalho e empacotamento.
-- Análise de sintaxe dos 28 arquivos C#, referências e metadados: 34 assets e 44 GUIDs.
-- 2.506.067 asserções compilando o núcleo C# real, incluindo 2.436 andares, 645 arenas irregulares, estoque determinístico limitado, compras atômicas, relíquias, progressão, inventário e geometria varrida.
-- Passaram 372 verificações de integração em um helper temporário que compilou todos os módulos reais com tipos Unity/Input System simulados: avisos, ondas, sete chefes, i-frames/recuperação, divisão, cancelamento, colisões, feedback, controle, objetos e descarte. A matemática e os fluxos passam por essas verificações; o comportamento do motor permanece dependente do Editor. A prévia `ARSENAL_AND_ENCOUNTERS.png` usa os pixels reais da arte procedural, sem renderização do motor.
+- Análise de sintaxe dos 30 arquivos C#, referências e metadados: 36 assets e 46 GUIDs.
+- 2.506.552 asserções compilando o núcleo C# real, incluindo 2.436 andares, 645 arenas irregulares, estoque determinístico limitado, compras atômicas, relíquias, progressão, inventário, geometria varrida e 485 verificações novas de munição/recarga.
+- Passaram 956 verificações de integração em um helper temporário que compilou todos os módulos reais com tipos Unity/Input System simulados: avisos, ondas, sete chefes, i-frames/recuperação, divisão, cancelamento, colisões, feedback, controle, objetos e descarte. A expansão cobre carregadores dos quatro heróis e das doze armas compráveis, custo por salva/pulso, último disparo do feixe, limite de projéteis sem perda de munição, R/Triângulo, pausa, troca, poder sem custo, revólver de apoio, drop por morte e revisita/coleta sem duplicação.
+- Áudio em helper externo: 19 efeitos, 12 loops musicais e 12 vozes curtas com PCM finito, determinístico e ganho limitado. Isso não substitui audição.
+- Arte exercitada em helper externo: 184 IDs, 26 animações de quatro poses, 140 poses dos bosses, caches, pivôs, filtro Point e contorno idempotente de um pixel. A prévia atual `NIGHTMARE_ART.png` usa os pixels reais da arte procedural, sem renderização do motor.
 
 **O Editor Unity não está instalado neste ambiente.** Esses resultados não certificam importação, compilação no Unity, shaders, Play Mode, áudio reproduzido, hardware PS4 ou executável Windows. Não há build Windows validado desta revisão. Os testes Editor foram ampliados e precisam ser executados no motor.
 
@@ -18,7 +20,7 @@ python3 -m unittest discover -s Tools -p 'test_*.py'
 dotnet run --project Tools/HauntChecks.csproj
 ```
 
-O ambiente configurado por `bash Tools/setup-cloud.sh` executa a instalação e esses checks. Para gerar o ZIP, rastreie arquivos novos e use `python3 Tools/package_project.py`. O pacote deve conter os parciais Input, Environment, Feel, Patterns e Lighting, o componente HauntFlickerLight, o gerador BulletPatternGenerator e DodgeRules com `.meta`, além da cena, recursos, versões e demais fontes obrigatórias.
+O ambiente configurado por `bash Tools/setup-cloud.sh` executa a instalação e esses checks. Para gerar o ZIP, rastreie arquivos novos e use `python3 Tools/package_project.py`. O pacote deve conter os parciais Input, Environment, Feel, Patterns e Lighting, o componente HauntFlickerLight, os geradores BulletPatternGenerator, WeaponAmmo e DodgeRules e o módulo HauntGame.Ammunition com `.meta`, além da cena, recursos, versões e demais fontes obrigatórias.
 
 ## Verificação necessária no Unity
 
@@ -38,7 +40,7 @@ O build solicitado fica em `Builds/Windows/EcosDaMeiaNoite.exe`. Teste a execuç
 ## Combate, arsenal e cenário
 
 1. Compare salas de enxame, emboscada, fogo cruzado e elite na mesma incursão. Confira combinações, formações e mobilidade diferentes; todas precisam de três ondas, uma recompensa e portas fechadas até a última. Emergência de 0,9 s não deve atacar nem receber dano. Miniboss não deve abrir portal de chefe.
-2. Confira os treze mobs comuns e seus sinais de ataque, incluindo lanterna orbital, cogumelo bruto e diabrete de corda. Verifique que cobertura impede tiros, criaturas não ficam presas nos objetos novos e grupos mantêm rotas de aproximação. Limites de tiros devem preservar o disparo do jogador em salas densas.
+2. Confira os dezessete mobs comuns e seus sinais de ataque, incluindo lanterna orbital, cogumelo bruto e diabrete de corda. Verifique que cobertura impede tiros, criaturas não ficam presas nos objetos novos e grupos mantêm rotas de aproximação. Limites de tiros devem preservar o disparo do jogador em salas densas.
 3. Teste as quatro armas iniciais, nove armas curiosas e três antigas. Confira corpo arredondado, núcleo claro e halo curto co-localizado em pisos claros/escuros, com balas hostis distintas. Rastros e clarões devem reforçar o movimento sem esconder ataques. Troque armas após colisões e confira a restauração de escala, cor e orientação do pool.
 4. Guarda-Chuva: cinco pétalas, dois ricochetes e término no contato sólido seguinte. Colmeia: três ferrões com perseguição suave, sem atravessar cobertura ou procurar inimigos emergindo. Luva: dano pesado e empurrão sem lançar o alvo para paredes/abismos; o chefe recebe apenas um pequeno recuo por impacto. Pião: até três inimigos distintos, sem dano repetido no mesmo alvo.
 5. Raios acompanham a mira, respeitam a cadência e param no primeiro inimigo, parede ou objeto. Soltar, trocar arma, esquivar, pausar, morrer ou abrir catálogo oculta corpo, brilho e loop sonoro.
@@ -99,3 +101,14 @@ O build solicitado fica em `Builds/Windows/EcosDaMeiaNoite.exe`. Teste a execuç
 - Ouça a queda do ambiente, impacto da intro e faixa exclusiva de chefe a 144 BPM entrando por volta de 0,3 s. A faixa continua no combate e só retorna ao ambiente após vitória. Vozes devem ser curtas e limitadas, respeitando SOM, pausa e perda de foco.
 
 Os checks de fontes e helpers com tipos simulados passaram; esta seção ainda exige validação no Editor Unity e audição real.
+
+## Horror, munição e recarga desta revisão
+
+1. Compare os quatro heróis, todos os mobs, o miniboss e os sete bosses à prévia `NIGHTMARE_ART.png`. Confira silhuetas, contorno de um pixel, olhos/mandíbulas e animações em repouso, movimento, ataque e estados do boss. Compare topo/lateral/base de barris, urnas, pilares e decorações em movimento pela sala; confira profundidade, sombras, colisão e visibilidade dos tiros.
+2. Esvazie cada arma inicial e o revólver de apoio (Tab/roda/L1/R1). Segurar o gatilho não pode recarregar nem causar dano. Pressione R/Triângulo: o HUD mostra o tempo, a arma inclina e o som marca início/fim. A reserva fica infinita, o carregador enche apenas ao terminar.
+3. Compre cada arma finita e esgote carregador/reserva. Não pode disparar vazia, durante recarga ou sem munição. Leques pagam uma unidade por salva completa e feixes uma por pulso de dano, sem cobrança nos frames de mira. O último pulso ainda deve causar dano. Teste Balas Gigantes e aumento de cadência sem cobrança extra por projétil.
+4. Recarregue parcialmente, aperte R novamente, troque arma e retorne. Não deve reiniciar relógio, descartar munição ou preencher gratuitamente. Andar/esquivar e Q continuam disponíveis durante a recarga. Pausa, conversa e intro congelam seu tempo. Triângulo no catálogo muda página sem iniciar recarga.
+5. Após comprar uma arma finita, mate vários mobs e procure caixas de munição (12% por morte, sem garantia em uma sala). Colete perto, sem cobertura e fora da esquiva. Cheia, a caixa deve ficar; com arma inicial equipada, deve reabastecer outra arma que precise. Recolher acrescenta até um carregador à reserva, respeitando a capacidade.
+6. Deixe uma caixa, saia e retorne: a caixa deve estar na mesma posição. Colete e revisite: ela não pode reaparecer. Trocar de andar/nova incursão limpa os registros; armas e munição persistem entre andares, enquanto uma incursão nova restaura os valores iniciais.
+
+Estas verificações visuais, de áudio e de interação precisam do Editor/PC; os helpers externos não reproduzem o motor.

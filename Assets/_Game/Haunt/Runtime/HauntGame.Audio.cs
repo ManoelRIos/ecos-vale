@@ -6,12 +6,12 @@ namespace Ecos.Haunt
     enum SoundCue
     {
         Shot, MagicShot, EnemyHit, PlayerHit, Dodge, Wave, Purchase, Door, BossDeath, PlayerDeath, Impact,
-        Explosion, Splash, RelicPickup, BossIntro
+        Explosion, Splash, RelicPickup, BossIntro, ReloadStart, ReloadEnd, DryFire, AmmoPickup
     }
 
     public sealed partial class HauntGame
     {
-        const int AudioSampleRate = 22050, AudioVoiceCount = 8, AudioCueCount = 15, MusicThemeCount = 6;
+        const int AudioSampleRate = 22050, AudioVoiceCount = 8, AudioCueCount = 19, MusicThemeCount = 6;
         const int BossMusicTheme = 5, DialogueVoiceCount = 4, DialoguePitchCount = 3;
         const float AudioMasterGain = .35f, AudioVoiceGain = .45f, AudioRetriggerDelay = .04f;
         const float DialogueRetriggerDelay = .035f;
@@ -350,6 +350,10 @@ namespace Ecos.Haunt
                 case SoundCue.Splash: duration = .32f; break;
                 case SoundCue.RelicPickup: duration = .48f; break;
                 case SoundCue.BossIntro: duration = .92f; break;
+                case SoundCue.ReloadStart: duration = .3f; break;
+                case SoundCue.ReloadEnd: duration = .18f; break;
+                case SoundCue.DryFire: duration = .07f; break;
+                case SoundCue.AmmoPickup: duration = .24f; break;
                 default: duration = .65f; break;
             }
             int count = (int)(duration * AudioSampleRate);
@@ -404,6 +408,18 @@ namespace Ecos.Haunt
                     case SoundCue.RelicPickup:
                         frequency = progress < .25f ? 440 : progress < .5f ? 554.37f : progress < .75f ? 659.25f : 880;
                         toneWeight = .65f; noiseWeight = .01f; decay = 5; break;
+                    case SoundCue.ReloadStart:
+                        frequency = progress < .45f ? 135 : 210;
+                        toneWeight = .35f; noiseWeight = .8f; decay = 10; break;
+                    case SoundCue.ReloadEnd:
+                        frequency = 245 - progress * 115;
+                        toneWeight = .5f; noiseWeight = .8f; decay = 24; break;
+                    case SoundCue.DryFire:
+                        frequency = 130 - progress * 55;
+                        toneWeight = .25f; noiseWeight = .6f; decay = 48; break;
+                    case SoundCue.AmmoPickup:
+                        frequency = progress < .4f ? 392 : 587.33f;
+                        toneWeight = .65f; noiseWeight = .04f; decay = 10; break;
                     case SoundCue.BossIntro:
                         frequency = 27 + 150 * (float)Math.Exp(-t * 11);
                         toneWeight = .8f; noiseWeight = .65f; decay = 5; break;

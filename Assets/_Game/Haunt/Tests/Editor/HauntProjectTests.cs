@@ -1697,6 +1697,309 @@ namespace Ecos.Haunt.Tests
         }
 
         [UnityTest]
+        public IEnumerator InfiniteStarterReserveStillNeedsAManualReloadAndCannotFireDuringIt()
+        {
+            var root = new GameObject("Haunt finite starter magazine test");
+            try
+            {
+                var game = root.AddComponent<HauntGame>();
+                game.enabled = false;
+                game.BeginRun(42);
+                WeaponAmmoStats stats = WeaponAmmo.Stats(game.State.StartingWeapon);
+                Assert.AreEqual(stats.MagazineSize, game.State.Magazine);
+                Assert.AreEqual(-1, game.State.ReserveAmmo, "Infinite reserve does not mean an infinite loaded magazine");
+                for (int round = 0; round < stats.MagazineSize; round++)
+                    Assert.IsTrue((bool)Invoke(game, "FireWeapon", Vector2.right));
+                Assert.AreEqual(0, game.State.Magazine);
+                int projectiles = game.ActiveProjectiles;
+                Assert.IsFalse((bool)Invoke(game, "FireWeapon", Vector2.right));
+                Assert.AreEqual(projectiles, game.ActiveProjectiles, "An empty trigger cannot create a free projectile");
+                Invoke(game, "TickAmmunition", stats.ReloadDuration + 1);
+                Assert.AreEqual(0, game.State.Magazine, "Waiting alone cannot bypass manual reload");
+                Assert.IsFalse(game.State.IsReloading);
+                Assert.IsTrue(game.State.TryReload());
+                Invoke(game, "TickAmmunition", stats.ReloadDuration - .01f);
+                Assert.IsTrue(game.State.IsReloading);
+                Assert.IsFalse((bool)Invoke(game, "FireWeapon", Vector2.right));
+                Assert.AreEqual(0, game.State.Magazine);
+                Assert.AreEqual(projectiles, game.ActiveProjectiles, "Reloading cannot emit or charge an interrupted shot");
+                Invoke(game, "TickAmmunition", .02f);
+                Assert.IsFalse(game.State.IsReloading);
+                Assert.AreEqual(stats.MagazineSize, game.State.Magazine);
+                Assert.AreEqual(-1, game.State.ReserveAmmo);
+                Assert.IsTrue((bool)Invoke(game, "FireWeapon", Vector2.right));
+                Assert.AreEqual(stats.MagazineSize - 1, game.State.Magazine);
+                yield return null;
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally { UnityEngine.Object.Destroy(root); }
+        }
+
+        [UnityTest]
+        public IEnumerator ShotgunSpendsOneRoundPerFanAndRejectsAnIncompleteVolleyWithoutCharging()
+        {
+            var root = new GameObject("Haunt atomic volley ammunition test");
+            try
+            {
+                var game = root.AddComponent<HauntGame>();
+                game.enabled = false;
+                game.BeginRun(SeedOffering(ShopItem.Scattergun));
+                game.State.BossDefeated = true;
+                game.State.Coins = 1000;
+                Assert.IsTrue(game.State.TryBuy(ShopItem.Scattergun, out _));
+                int loaded = game.State.Magazine, reserve = game.State.ReserveAmmo;
+                Assert.IsTrue((bool)Invoke(game, "FireWeapon", Vector2.right));
+                Assert.AreEqual(5, game.ActiveProjectiles, "A shotgun round produces its whole five-pellet fan");
+                Assert.AreEqual(loaded - 1, game.State.Magazine, "Pellets share one ammunition transaction");
+                Assert.AreEqual(reserve, game.State.ReserveAmmo, "Firing spends loaded ammunition, not reserve ammunition");
+                Invoke(game, "ClearCombat");
+                int limit = (int)typeof(HauntGame).GetField("MaxShots", BindingFlags.Static | BindingFlags.NonPublic).GetRawConstantValue();
+                for (int shot = 0; shot < limit - 4; shot++)
+                    Invoke(game, "Fire", Vector2.zero, Vector2.right, true, 1);
+                Assert.AreEqual(limit - 4, game.ActiveProjectiles);
+                Assert.IsFalse((bool)Invoke(game, "FireWeapon", Vector2.right));
+                Assert.AreEqual(limit - 4, game.ActiveProjectiles, "Four free slots must not create a partial five-pellet fan");
+                Assert.AreEqual(loaded - 1, game.State.Magazine, "A capacity refusal cannot charge ammunition");
+                Invoke(game, "ClearCombat");
+                Assert.AreEqual(loaded - 1, game.State.Magazine, "Clearing a room cannot refill the magazine");
+                Assert.IsTrue((bool)Invoke(game, "FireWeapon", Vector2.right));
+                Assert.AreEqual(5, game.ActiveProjectiles);
+                Assert.AreEqual(loaded - 2, game.State.Magazine);
+                yield return null;
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally { UnityEngine.Object.Destroy(root); }
+        }
+
+        [UnityTest]
+        public IEnumerator HeldRayChargesOnlyDamageTicksAndItsLastRoundStillDealsDamage()
+        {
+            var root = new GameObject("Haunt ray ammunition transaction test");
+            try
+            {
+                var game = root.AddComponent<HauntGame>();
+                game.enabled = false;
+                Set(game, "selectedCharacter", CharacterKind.Alchemist);
+                game.BeginRun(42);
+                Invoke(game, "SpawnEnemy", 0, new Vector2(3, 0));
+                FinishEmergence(game);
+                var enemy = Field<IList>(game, "enemies")[0];
+                SetField(enemy, "Health", 1000);
+                int loaded = game.State.Magazine;
+                Invoke(game, "UpdateWeaponTrigger", Vector2.right, true, .016f);
+                Assert.AreEqual(loaded - 1, game.State.Magazine, "A ray damage tick is charged exactly once");
+                Assert.AreEqual(1000 - game.State.Damage, Field<int>(enemy, "Health"));
+                for (int frame = 0; frame < 10; frame++)
+                    Invoke(game, "UpdateWeaponTrigger", Vector2.right, true, .016f);
+                Assert.IsTrue((bool)Invoke(game, "UpdateBeam", Vector2.right, false));
+                Assert.AreEqual(loaded - 1, game.State.Magazine, "Following the aim during cooldown is visual only");
+                Assert.AreEqual(1000 - game.State.Damage, Field<int>(enemy, "Health"));
+                while (game.State.Magazine > 1) Assert.IsTrue(game.State.TryConsumeShot());
+                int health = Field<int>(enemy, "Health");
+                Set(game, "shotCooldown", 0f);
+                Invoke(game, "UpdateWeaponTrigger", Vector2.right, true, .016f);
+                var beam = Field<SpriteRenderer>(game, "beamVisual");
+                Assert.AreEqual(0, game.State.Magazine);
+                Assert.AreEqual(health - game.State.Damage, Field<int>(enemy, "Health"), "The accepted last round must finish its damage tick");
+                Assert.IsTrue(beam.gameObject.activeSelf, "The last charged pulse remains visible during its accepted tick");
+                health = Field<int>(enemy, "Health");
+                Invoke(game, "UpdateWeaponTrigger", Vector2.right, true, .016f);
+                Assert.IsFalse(beam.gameObject.activeSelf, "The next empty frame stops the ray");
+                Assert.AreEqual(health, Field<int>(enemy, "Health"));
+                Assert.IsTrue(game.State.TryReload());
+                Set(game, "shotCooldown", 0f);
+                Invoke(game, "UpdateWeaponTrigger", Vector2.right, true, .016f);
+                Assert.AreEqual(health, Field<int>(enemy, "Health"), "Reloading cannot leak a ray damage tick");
+                Assert.IsFalse(beam.gameObject.activeSelf);
+                Invoke(game, "TickAmmunition", WeaponAmmo.Stats(game.State.Weapon).ReloadDuration + .01f);
+                loaded = game.State.Magazine;
+                Assert.IsTrue((bool)Invoke(game, "FireWeapon", Vector2.right));
+                Assert.AreEqual(loaded - 1, game.State.Magazine, "The direct weapon entry delegates to the ray without a second charge");
+                Assert.AreEqual(health - game.State.Damage, Field<int>(enemy, "Health"));
+                yield return null;
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally { UnityEngine.Object.Destroy(root); }
+        }
+
+        [UnityTest]
+        public IEnumerator KeyboardRAndControllerNorthReloadWithoutRestartingOrResettingShotCadence()
+        {
+            var root = new GameObject("Haunt reload input integration test");
+            var previousPad = Gamepad.current;
+            var previousKeyboard = Keyboard.current;
+            Gamepad pad = null;
+            Keyboard keyboard = null;
+            try
+            {
+                var game = root.AddComponent<HauntGame>();
+                game.enabled = false;
+                game.BeginRun(42);
+                Assert.IsTrue((bool)Invoke(game, "FireWeapon", Vector2.right));
+                int loaded = game.State.Magazine;
+                Set(game, "shotCooldown", .4f);
+                pad = InputSystem.AddDevice<Gamepad>();
+                pad.MakeCurrent();
+                InjectPad(game, pad, new GamepadState().WithButton(GamepadButton.North));
+                Invoke(game, "HandleReloadInput");
+                Assert.IsTrue(game.State.IsReloading, "The north button maps to Triangle on a recognized DualShock");
+                Assert.AreEqual(.4f, Field<float>(game, "shotCooldown"), "Manual reload cannot reset the attack cooldown");
+                Invoke(game, "TickAmmunition", .2f);
+                float remaining = game.State.ReloadRemaining;
+                InjectPad(game, pad, new GamepadState());
+                InjectPad(game, pad, new GamepadState().WithButton(GamepadButton.North));
+                Invoke(game, "HandleReloadInput");
+                Assert.AreEqual(remaining, game.State.ReloadRemaining, .0001f, "Repeated presses cannot restart an accepted reload");
+                Assert.IsFalse((bool)Invoke(game, "FireWeapon", Vector2.right));
+                Assert.AreEqual(loaded, game.State.Magazine);
+                Invoke(game, "TickAmmunition", WeaponAmmo.Stats(game.State.Weapon).ReloadDuration);
+                Assert.IsTrue((bool)Invoke(game, "FireWeapon", Vector2.right));
+                InjectPad(game, pad, new GamepadState());
+                keyboard = InputSystem.AddDevice<Keyboard>();
+                keyboard.MakeCurrent();
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.R));
+                InputSystem.Update();
+                Set(game, "controlFrame", -1);
+                Invoke(game, "PollControlInput");
+                Invoke(game, "HandleReloadInput");
+                Assert.IsTrue(game.State.IsReloading, "R uses the same real reload input path");
+                Assert.AreEqual(.4f, Field<float>(game, "shotCooldown"));
+                yield return null;
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally
+            {
+                if (keyboard != null && keyboard.added) InputSystem.RemoveDevice(keyboard);
+                if (previousKeyboard != null && previousKeyboard.added) previousKeyboard.MakeCurrent();
+                if (pad != null && pad.added) InputSystem.RemoveDevice(pad);
+                if (previousPad != null && previousPad.added) previousPad.MakeCurrent();
+                UnityEngine.Object.Destroy(root);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator CharacterPowerVolleysDoNotSpendWeaponAmmunition()
+        {
+            var root = new GameObject("Haunt power ammunition independence test");
+            try
+            {
+                var game = root.AddComponent<HauntGame>();
+                game.enabled = false;
+                foreach (CharacterKind hero in new[] { CharacterKind.Medium, CharacterKind.Reaper })
+                {
+                    Set(game, "selectedCharacter", hero);
+                    game.BeginRun(42);
+                    int loaded = game.State.Magazine, reserve = game.State.ReserveAmmo;
+                    Invoke(game, "UsePower");
+                    Assert.AreEqual(hero == CharacterKind.Medium ? 9 : 12, game.ActiveProjectiles);
+                    Assert.Greater(game.State.PowerCooldown, 0, "The power was accepted rather than silently rejected");
+                    Assert.AreEqual(loaded, game.State.Magazine, "Power projectiles must not share the normal weapon debit");
+                    Assert.AreEqual(reserve, game.State.ReserveAmmo);
+                }
+                yield return null;
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally { UnityEngine.Object.Destroy(root); }
+        }
+
+        [UnityTest]
+        public IEnumerator SeededAmmoDropsComeFromRealKillsPersistUntilCollectedAndCannotBeCollectedTwice()
+        {
+            var root = new GameObject("Haunt ammunition drop persistence test");
+            try
+            {
+                var game = root.AddComponent<HauntGame>();
+                game.enabled = false;
+                game.BeginRun(42);
+                game.State.BossDefeated = true;
+                game.State.Coins = 1000;
+                Assert.IsTrue(game.State.TryBuy(game.State.ShopWeapons[0], out _));
+                Assert.GreaterOrEqual(game.State.ReserveAmmo, 0, "Loot is relevant only after acquiring a weapon with finite reserve");
+                DungeonRoom room = game.Floor.GetRoom(1);
+                Assert.AreEqual(RoomKind.Combat, room.Kind);
+                Invoke(game, "EnterRoom", room, Vector2.zero);
+                Invoke(game, "ClearCombat");
+                Invoke(game, "SpawnEnemy", 0, new Vector2(-3, 0));
+                // Keep one enemy alive so the four deaths stay in the same wave.
+                for (int ordinal = 1; ordinal <= 4; ordinal++)
+                {
+                    Invoke(game, "SpawnEnemy", 0, new Vector2(3, 0));
+                    FinishEmergence(game);
+                    Invoke(game, "DamageEnemy", 1, 1000, Vector2.left, Color.white, false);
+                    Assert.AreEqual(ordinal, Field<int>(game, "enemiesDefeated"));
+                    Assert.AreEqual(ordinal < 4 ? 0 : 1, Field<IList>(game, "ammoPickups").Count,
+                        "Seed 42, floor 1, room 1 has no drop on kills 1-3 and a drop on kill 4");
+                }
+                var pickups = Field<IList>(game, "ammoPickups");
+                object record = Field<object>(pickups[0], "Record");
+                Vector2 position = Field<Vector2>(record, "Position");
+                Assert.IsFalse(Field<bool>(record, "Collected"));
+                room.Cleared = true;
+                Invoke(game, "EnterRoom", game.Floor.Entrance, Vector2.zero);
+                Assert.AreEqual(0, pickups.Count, "A different room cannot show the previous room's pickup");
+                Invoke(game, "EnterRoom", room, Vector2.zero);
+                Assert.AreEqual(1, pickups.Count, "An uncollected drop returns when its room is revisited");
+                Assert.AreSame(record, Field<object>(pickups[0], "Record"));
+                Assert.AreEqual(position, Field<Vector2>(record, "Position"));
+                Assert.IsTrue(game.State.TryConsumeShot());
+                int loaded = game.State.Magazine, reserve = game.State.ReserveAmmo;
+                Set(game, "playerPosition", position);
+                Invoke(game, "UpdateAmmoPickups");
+                Assert.AreEqual(0, pickups.Count);
+                Assert.IsTrue(Field<bool>(record, "Collected"));
+                Assert.AreEqual(reserve + WeaponAmmo.Stats(game.State.Weapon).AmmoPickupAmount, game.State.ReserveAmmo);
+                Assert.AreEqual(loaded, game.State.Magazine, "Picking up reserve ammunition cannot skip a magazine reload");
+                reserve = game.State.ReserveAmmo;
+                Invoke(game, "EnterRoom", game.Floor.Entrance, Vector2.zero);
+                Invoke(game, "EnterRoom", room, Vector2.zero);
+                Assert.AreEqual(0, pickups.Count, "Collected drops must remain absent on another revisit");
+                Assert.AreEqual(reserve, game.State.ReserveAmmo, "Room transitions cannot duplicate collected ammunition");
+                game.BeginRun(42);
+                Assert.AreEqual(0, Field<IDictionary>(game, "ammoDropsByRoom").Count, "A fresh run clears persistent room drop records");
+                yield return null;
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally { UnityEngine.Object.Destroy(root); }
+        }
+
+        [UnityTest]
+        public IEnumerator ControllerWeaponCycleCanReachTheInfiniteReserveBackupAfterTheStarterRunsDry()
+        {
+            var root = new GameObject("Haunt backup revolver accessibility test");
+            var previousPad = Gamepad.current;
+            Gamepad pad = null;
+            try
+            {
+                var game = root.AddComponent<HauntGame>();
+                game.enabled = false;
+                game.BeginRun(42);
+                while (game.State.Magazine > 0) Assert.IsTrue(game.State.TryConsumeShot());
+                Assert.IsTrue(game.State.TryReload());
+                pad = InputSystem.AddDevice<Gamepad>();
+                pad.MakeCurrent();
+                InjectPad(game, pad, new GamepadState().WithButton(GamepadButton.RightShoulder));
+                Invoke(game, "UpdateWeaponSelection", new object[] { null });
+                Assert.AreEqual(WeaponKind.Pistol, game.State.Weapon, "Cycling must expose the owned backup rather than repeatedly selecting the starter");
+                Assert.AreEqual(-1, game.State.ReserveAmmo);
+                Assert.IsFalse(game.State.IsReloading, "Selecting another weapon cancels the old reload without completing it");
+                Assert.IsTrue((bool)Invoke(game, "FireWeapon", Vector2.right));
+                InjectPad(game, pad, new GamepadState());
+                InjectPad(game, pad, new GamepadState().WithButton(GamepadButton.RightShoulder));
+                Invoke(game, "UpdateWeaponSelection", new object[] { null });
+                Assert.AreEqual(game.State.StartingWeapon, game.State.Weapon);
+                Assert.AreEqual(0, game.State.Magazine, "Switching away and back cannot refill the empty starter");
+                yield return null;
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally
+            {
+                if (pad != null && pad.added) InputSystem.RemoveDevice(pad);
+                if (previousPad != null && previousPad.added) previousPad.MakeCurrent();
+                UnityEngine.Object.Destroy(root);
+            }
+        }
+
+        [UnityTest]
         public IEnumerator CommandLineOpeningDuringPlayPreservesCurrentScene()
         {
             var scene = SceneManager.GetActiveScene();

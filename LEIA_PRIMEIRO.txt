@@ -14,18 +14,24 @@ nao precisa dele. Log do atalho: Logs/MeiaNoite-Editor.log.
 
 TECLADO/MOUSE
 WASD/setas mover; mouse mirar; esquerdo atirar; Espaco/direito esquivar;
-Q poder; E conversar/portal; M mapa; Esc fechar conversa/pausar.
+R recarregar; Q poder; E conversar/portal; M mapa; Esc fechar conversa/pausar.
 Tab/roda troca todas armas. Atalhos 1-0: inicial, grampeador, banana,
 piao, disco, lanterna, flauta, guarda-chuva, colmeia, luva.
 
 CONTROLE PS4 RECONHECIDO PELO INPUT SYSTEM (USB OU BLUETOOTH)
 Analogico esquerdo mover; direito mirar; R2 atirar; Circulo/L2 esquivar;
-Quadrado poder; X conversar/portal/confirmar; L1/R1 trocar armas;
+Triangulo recarregar; Quadrado poder; X conversar/portal/confirmar; L1/R1 trocar armas;
 Options pausa; Share/clique touchpad mapa. Direcional navega menus.
 Na loja: L1/R1 abas, Triangulo paginas, X comprar, Circulo fechar.
 A compatibilidade do seu controle/driver ainda precisa ser testada no PC.
 
 NOVIDADES
+Desenhos macabros dos quatro herois, 17 criaturas, miniboss e sete bosses.
+Barris e objetos com topo/lateral/base para volume aparente.
+R/Triangulo: recarga manual; arma inicial e revolver tem reserva infinita,
+mas carregador finito. Compradas tem reserva limitada. Mortes podem deixar
+caixas de municao (12%); aproxime-se para coletar. Cada arma guarda a sua
+municao. Veja Documentation/MUNICAO_E_TERROR.md e NIGHTMARE_ART.png.
 Salas com 4 perfis, novos mobs e chefes, tiros maiores/luminosos,
 barris explosivos, agua com lentidao, reliquias, 1-2 armas sorteadas
 por loja, paredes com profundidade por camadas e musica de fundo.

@@ -21,14 +21,15 @@ namespace Ecos.Haunt
             aim.Normalize();
             beamPulse = Mathf.Repeat(beamPulse + Mathf.Max(0, dt) * 5, Mathf.PI * 2);
             bool ray = State.Weapon == WeaponKind.ArcCoil || State.Weapon == WeaponKind.RayLantern;
-            if (ray) UpdateBeam(aim, shotCooldown <= 0);
+            if (ray)
+            {
+                if (!UpdateBeam(aim, shotCooldown <= 0)) { ReportEmptyWeapon(); return; }
+            }
             else
             {
                 StopBeam();
                 if (shotCooldown > 0) return;
-                int before = shots.Count;
-                FireWeapon(aim);
-                if (shots.Count == before) return;
+                if (!FireWeapon(aim)) { ReportEmptyWeapon(); return; }
                 PlaySound(State.Weapon == WeaponKind.VeilWand ? SoundCue.MagicShot : SoundCue.Shot, .8f);
             }
             if (shotCooldown > 0) return;
@@ -48,10 +49,15 @@ namespace Ecos.Haunt
             if (beamGlow != null) beamGlow.gameObject.SetActive(false);
         }
 
-        void FireWeapon(Vector2 aim)
+        bool FireWeapon(Vector2 aim)
         {
-            if (InShop || shopMenuOpen || ConversationCapturesInput || Paused || State == null || State.IsDead) return;
+            if (InShop || shopMenuOpen || ConversationCapturesInput || Paused || State == null || State.IsDead) return false;
             aim = aim.sqrMagnitude > .0001f ? aim.normalized : Vector2.right;
+            if (State.Weapon == WeaponKind.ArcCoil || State.Weapon == WeaponKind.RayLantern) return UpdateBeam(aim, true);
+            int required = State.Weapon == WeaponKind.Umbrella || State.Weapon == WeaponKind.Scattergun ? 5
+                : State.Weapon == WeaponKind.VeilWand || State.Weapon == WeaponKind.BoneFlute || State.Weapon == WeaponKind.HiveLauncher ? 3
+                : State.Weapon == WeaponKind.Stapler ? 2 : 1;
+            if (shots.Count > MaxShots - required || !State.TryConsumeShot()) return false;
             Vector2 origin = playerPosition + aim * .48f;
             switch (State.Weapon)
             {
@@ -68,7 +74,16 @@ namespace Ecos.Haunt
                     break;
                 case WeaponKind.Scattergun:
                     for (int pellet = -2; pellet <= 2; pellet++)
-                        Fire(origin, Rotate(aim, pellet * 9) * 15, true, State.Damage);
+                        FireSpecial(origin, Rotate(aim, pellet * 9) * 15, State.Damage, WeaponKind.Scattergun);
+                    break;
+                case WeaponKind.Pistol:
+                    FireSpecial(origin, aim * 17, State.Damage, WeaponKind.Pistol);
+                    break;
+                case WeaponKind.Repeater:
+                    FireSpecial(origin, aim * 25, State.Damage, WeaponKind.Repeater);
+                    break;
+                case WeaponKind.SoulCannon:
+                    FireSpecial(origin, aim * 11, State.Damage * 5, WeaponKind.SoulCannon);
                     break;
                 case WeaponKind.HunterCarbine:
                     FireSpecial(origin, aim * 22, State.Damage, WeaponKind.HunterCarbine);
@@ -107,6 +122,7 @@ namespace Ecos.Haunt
                         State.Damage * (State.Weapon == WeaponKind.SoulCannon ? 5 : 1));
                     break;
             }
+            return true;
         }
 
         void FireSpecial(Vector2 position, Vector2 velocity, int damage, WeaponKind style)
@@ -120,6 +136,15 @@ namespace Ecos.Haunt
             float scale;
             switch (style)
             {
+                case WeaponKind.Repeater:
+                    id = "shot-stinger"; scale = .8f; shot.Color = new Color(1,.7f,.3f); shot.Radius = .11f; shot.Life = 3;
+                    break;
+                case WeaponKind.SoulCannon:
+                    id = "shot-shock"; scale = 1.35f; shot.Color = new Color(.7f,1,.45f); shot.Radius = .26f; shot.Life = 4; shot.Heavy = true;
+                    break;
+                case WeaponKind.Scattergun:
+                    id = "shot-dot"; scale = .65f; shot.Color = new Color(1,.65f,.4f); shot.Radius = .1f; shot.Life = 2;
+                    break;
                 case WeaponKind.Stapler:
                     id = "staple-shot"; scale = .78f; shot.Color = new Color(.65f, .87f, 1);
                     shot.Radius = .12f; shot.Life = 4;
@@ -252,8 +277,11 @@ namespace Ecos.Haunt
             shot.Glow.transform.position = Snap(shot.Position + Vector2.up * .38f);
         }
 
-        void UpdateBeam(Vector2 aim, bool damageTick)
+        bool UpdateBeam(Vector2 aim, bool damageTick)
         {
+            if (State == null || State.IsDead || State.IsReloading || State.Magazine <= 0)
+            { StopBeam(); return false; }
+            if (damageTick && !State.TryConsumeShot()) { StopBeam(); return false; }
             bool lantern = State.Weapon == WeaponKind.RayLantern;
             Color color = lantern ? new Color(.8f, .5f, 1) : new Color(.4f, 1, .45f);
             Vector2 origin = playerPosition;
@@ -312,7 +340,7 @@ namespace Ecos.Haunt
                 beamGlow.color = new Color(color.r, color.g, color.b, .24f);
                 muzzleTime = .035f;
             }
-            if (!damageTick) return;
+            if (!damageTick) return true;
             if (targetIndex >= 0)
                 DamageEnemy(targetIndex, State.Damage * (lantern ? 2 : 1) + State.ProjectileDamageBonus, -aim, color, false);
             else if (propIndex >= 0)
@@ -322,6 +350,7 @@ namespace Ecos.Haunt
             }
             else if (nearest <= 1) Impact(end + Vector2.up * .38f, -aim, color, false);
             Emit("impact-dust", end + Vector2.up * .38f, -aim * .35f, new Color(color.r, color.g, color.b, .4f), .07f, .2f, 0);
+            return true;
         }
 
         static float EnemyHitRadius(Enemy enemy)
@@ -348,6 +377,7 @@ namespace Ecos.Haunt
             EnemyDeath(enemy);
             enemies.RemoveAt(index);
             enemiesDefeated++;
+            TryDropAmmunition(enemy.Position);
             AddCameraTrauma(boss ? .7f : enemy.Kind == 11 ? .3f : .08f);
             if (enemies.Count == 0) CompleteRoom(boss);
         }

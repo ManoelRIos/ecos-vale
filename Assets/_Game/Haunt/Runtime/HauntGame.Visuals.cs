@@ -34,7 +34,7 @@ namespace Ecos.Haunt
         bool playerMoving;
         int roomTheme;
         static readonly string[] FloorThemes = { "JARDINS DA COLHEITA", "GALERIA DOS VÉUS", "CATEDRAL DAS CINZAS", "NINHO DA PESTE", "ABISMO DOS SINOS" };
-        static readonly Color[] FloorColors = { new Color(.88f, .98f, .84f), new Color(.78f, .9f, 1), new Color(1, .78f, .72f), new Color(.72f, .91f, .55f), new Color(.83f, .65f, .92f) };
+        static readonly Color[] FloorColors = { new Color(1, .5f, .2f), new Color(.65f, .55f, .95f), new Color(.9f, .25f, .3f), new Color(.4f, .85f, .3f), new Color(.65f, .3f, .9f) };
         string PlayerArt => State == null || State.Character == CharacterKind.Hunter ? "player" : State.Character == CharacterKind.Medium ? "medium" : State.Character == CharacterKind.Reaper ? "reaper" : "alchemist";
         Color CharacterAccent => State == null || State.Character == CharacterKind.Hunter ? PlayerAccent : State.Character == CharacterKind.Medium ? new Color(.82f, .58f, 1) : State.Character == CharacterKind.Reaper ? new Color(.6f, .8f, 1) : new Color(.65f, 1, .35f);
         string WeaponArt => WeaponSpriteId(State.Weapon);
@@ -353,12 +353,13 @@ namespace Ecos.Haunt
             playerGlow.transform.position = Snap(playerPosition);
             playerGlow.color = new Color(CharacterAccent.r, CharacterAccent.g, CharacterAccent.b, .16f);
             gun.transform.position = Snap(playerPosition + Vector2.up * .35f + aim * (.6f - weaponKick * .2f));
-            gun.transform.rotation = Quaternion.Euler(0, 0, Mathf.Atan2(aim.y, aim.x) * Mathf.Rad2Deg);
+            float reloadTilt = State.IsReloading ? Mathf.Sin(State.ReloadProgress * Mathf.PI) * (aim.x < 0 ? -55 : 55) : 0;
+            gun.transform.rotation = Quaternion.Euler(0, 0, Mathf.Atan2(aim.y, aim.x) * Mathf.Rad2Deg + reloadTilt);
             gun.flipY = aim.x < 0;
             gun.sortingOrder = player.sortingOrder + (aim.y > .3f ? -1 : 1);
             gun.enabled = !rolling;
             muzzle.sortingOrder = gun.sortingOrder + 1;
-            muzzle.enabled = muzzleTime > 0 && !rolling;
+            muzzle.enabled = muzzleTime > 0 && !rolling && !State.IsReloading;
             muzzle.transform.position = Snap(playerPosition + Vector2.up * .35f + aim * 1.05f);
             muzzle.transform.localScale = Vector3.one * (.48f + weaponKick * .18f);
             muzzle.transform.rotation = gun.transform.rotation;

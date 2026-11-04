@@ -15,6 +15,18 @@ O atalho opcional `ABRIR_ECOS_DA_MEIA_NOITE.cmd` continua disponível para insta
 
 Para atualizar por ZIP, use uma extração nova: sobrepor pastas não remove arquivos antigos. Um clone Git atualizado também aplica as remoções rastreadas. Ainda não há um executável Windows validado desta revisão.
 
+## Pesadelos, carregadores e munição
+
+Os quatro heróis, dezessete criaturas, miniboss e sete chefes receberam desenhos mais macabros, inspirados nas proporções compactas e nos contornos fortes das referências: máscaras funerárias, rostos vazios, mandíbulas, costelas e garras. Barris, urnas, pilares, lápides, grades e altares ganharam topo, lateral sombreada e luz direcional para reforçar o volume. As animações e a arte continuam inteiramente procedurais em C#.
+
+**R recarrega a arma; no controle, Triângulo.** Cada arma mantém seu próprio carregador e reserva. A arma inicial de cada alma e o revólver têm reserva infinita, mas exigem recarga manual. Armas compradas têm reserva limitada e podem esgotar. Uma carga paga o disparo completo dos leques; feixes consomem por pulso de dano. A recarga bloqueia tiros, movimenta a arma e tem efeitos sonoros próprios. Trocar de arma cancela a recarga sem perder munição; pausa e conversas congelam seu tempo.
+
+Após adquirir uma arma com reserva finita, inimigos têm **12% de chance** de deixar uma caixa de munição. Aproximar-se repõe uma quantidade equivalente a um carregador na reserva da arma equipada, ou de outra arma possuída que precise. Se todas estiverem cheias, a caixa fica no chão. Caixas não coletadas persistem nas revisitas ao mesmo andar. Veja os valores e padrões em [MUNICAO_E_TERROR.md](Documentation/MUNICAO_E_TERROR.md).
+
+Prévia dos pixels reais gerados pelo código, **sem renderização no Unity**:
+
+![Heróis, criaturas, chefes e objetos redesenhados](Documentation/NIGHTMARE_ART.png)
+
 ## Salas irregulares e expansão de Halloween
 
 As salas usam cinco formatos: **L, T, H, octógono e alcovas**, com recortes, contornos elevados e abismos internos. Quatro acessos cardinais e um núcleo seguro preservam as portas; os formatos L/T recebem corredores de acesso quando necessário. A sala H liga duas áreas pela passagem central. O minimapa agora mostra a silhueta real de cada sala. A colisão dos recortes é compartilhada por movimento, tiros e raios, e a navegação dos inimigos contorna paredes e cobertura.
@@ -29,7 +41,7 @@ O atendente oferece diálogo com retrato, letras graduais e voz procedural. E av
 
 A prévia a seguir é produzida pelos desenhos C# reais, **sem renderização no Editor Unity**. Veja [SALAS_E_HISTORIAS.md](Documentation/SALAS_E_HISTORIAS.md) para módulos e validação.
 
-![Sprites, estados dos bosses e objetos da expansão](Documentation/IRREGULAR_HALLOWEEN.png)
+A prévia anterior permanece em [IRREGULAR_HALLOWEEN.png](Documentation/IRREGULAR_HALLOWEEN.png); os desenhos atuais estão acima.
 
 ## Câmera, impacto e evasão
 
@@ -59,7 +71,7 @@ Os cinco temas mantêm pisos e paredes próprios: Jardins da Colheita, Galeria d
 
 A prévia abaixo mostra os pixels gerados pelos métodos C# com tipos auxiliares fora do Editor. **Não é captura da renderização Unity.**
 
-![Novos inimigos, chefes, armas, balas, objetos e paredes](Documentation/ARSENAL_AND_ENCOUNTERS.png)
+[Prévia anterior do arsenal e dos encontros](Documentation/ARSENAL_AND_ENCOUNTERS.png).
 
 ## Personagens, arsenal e relíquias
 
@@ -101,6 +113,7 @@ O suporte inicial usa o **Unity Input System**. Um **DualShock 4 de PS4** reconh
 | Mover | WASD / setas | Analógico esquerdo |
 | Mirar | Mouse | Analógico direito |
 | Atirar | Botão esquerdo | R2 |
+| Recarregar | R | Triângulo, fora do catálogo |
 | Esquivar / saltar | Espaço / botão direito | Círculo / L2 |
 | Usar poder | Q | Quadrado |
 | Conversar / usar portal | E | X |
@@ -117,7 +130,7 @@ M abre um atlas de 1060 × 580 na referência 1280 × 720, com desenhos a 95% e 
 
 ## Música e efeitos
 
-Cinco trilhas ambientes e uma faixa exclusiva de chefe, todas sintetizadas e originais, usam melodia, harmonia, baixo e percussão. O mercado recebe uma camada calma; o combate e os chefes aumentam a intensidade, com transições suaves. Disparos, impactos, poderes, explosões, água, compras e mortes têm efeitos curtos. O áudio tem limite de vozes, pausa com o jogo, respeita perda de foco e pode ser desligado em **SOM** no menu de pausa. Não são necessários arquivos de áudio externos.
+Cinco trilhas ambientes e uma faixa exclusiva de chefe, todas sintetizadas e originais, usam melodia, harmonia, baixo e percussão. O mercado recebe uma camada calma; o combate e os chefes aumentam a intensidade, com transições suaves. Disparos, impactos, recargas, gatilho vazio, coleta de munição, poderes, explosões, água, compras e mortes têm efeitos curtos. O áudio tem limite de vozes, pausa com o jogo, respeita perda de foco e pode ser desligado em **SOM** no menu de pausa. Não são necessários arquivos de áudio externos.
 
 ## Desenvolvimento e limites da validação
 
@@ -128,7 +141,7 @@ python3 -m unittest discover -s Tools -p 'test_*.py'
 dotnet run --project Tools/HauntChecks.csproj
 ```
 
-Passaram **24 testes Python** e **2.506.067 asserções do núcleo real C#**, incluindo 2.436 andares. A sintaxe e os metadados também foram conferidos. Helpers temporários com tipos Unity simulados verificaram contratos entre os parciais e lógica de combate, objetos, controle, arte e áudio; não são uma execução no motor.
+Passaram **24 testes Python** e **2.506.552 asserções do núcleo real C#**, incluindo 2.436 andares. A sintaxe e os metadados também foram conferidos. Helpers temporários com tipos Unity simulados verificaram contratos entre os parciais e lógica de combate, objetos, controle, arte e áudio; não são uma execução no motor.
 
 **O Editor Unity não está instalado neste ambiente.** Importação, compilação no Unity, aparência renderizada, reprodução sonora, build e controle PS4 físico ainda precisam ser validados no Editor/PC. O jogo continua solo e sem save entre sessões. Consulte [VALIDATION.md](Documentation/VALIDATION.md), [ARCHITECTURE.md](Documentation/ARCHITECTURE.md) e [UNITY_TROUBLESHOOTING.md](Documentation/UNITY_TROUBLESHOOTING.md).
 
