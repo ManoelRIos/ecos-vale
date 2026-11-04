@@ -57,7 +57,7 @@ namespace Ecos.Haunt.Tests
                     for (int i = 0; i < 4; i++)
                     {
                         frames[i] = art.Frame(id, i);
-                        Assert.AreEqual(frames[0].rect, frames[i].rect, "Animation bounds must not jitter: " + id);
+                        Assert.AreEqual(frames[0].rect.size, frames[i].rect.size, "Animation bounds must not jitter when atlas origins change: " + id);
                         Assert.AreEqual(frames[0].pivot, frames[i].pivot, id);
                         Assert.AreEqual(FilterMode.Point, frames[i].texture.filterMode, id);
                     }
@@ -810,7 +810,8 @@ namespace Ecos.Haunt.Tests
                     var boss = enemies[0];
                     var type = boss.GetType();
                     var sprite = (SpriteRenderer)type.GetField("Sprite").GetValue(boss);
-                    StringAssert.Contains("/" + ids[archetype] + "/", sprite.sprite.name);
+                    Assert.AreSame(Resources.Load<Texture2D>("ReferenceSheets/bosses/" + ids[archetype]), sprite.sprite.texture,
+                        "The selected guardian must render from its own authored atlas: " + ids[archetype]);
                     type.GetField("Cooldown").SetValue(boss, 0f);
                     Invoke(game, "UpdateBoss", boss, Vector2.down, 0f);
                     Assert.AreEqual(0, game.ActiveProjectiles, "Preparation must precede the first projectile");

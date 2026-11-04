@@ -26,12 +26,16 @@ Na loja: L1/R1 abas, Triangulo paginas, X comprar, Circulo fechar.
 A compatibilidade do seu controle/driver ainda precisa ser testada no PC.
 
 NOVIDADES
+Folhas de animacao como na nova prancha: 24 PNGs transparentes,
+1700 quadros, jogadores/mobs de 24px, bosses de 48px e objetos de 16px.
+Assets/_Game/Resources/ReferenceSheets contem PNGs e manifesto.
+Veja Documentation/SPRITESHEETS.md e REFERENCE_SPRITESHEETS.png.
 Desenhos macabros dos quatro herois, 17 criaturas, miniboss e sete bosses.
 Barris e objetos com topo/lateral/base para volume aparente.
 R/Triangulo: recarga manual; arma inicial e revolver tem reserva infinita,
 mas carregador finito. Compradas tem reserva limitada. Mortes podem deixar
 caixas de municao (12%); aproxime-se para coletar. Cada arma guarda a sua
-municao. Veja Documentation/MUNICAO_E_TERROR.md e NIGHTMARE_ART.png.
+municao. Veja Documentation/MUNICAO_E_TERROR.md e REFERENCE_SPRITESHEETS.png.
 Salas com 4 perfis, novos mobs e chefes, tiros maiores/luminosos,
 barris explosivos, agua com lentidao, reliquias, 1-2 armas sorteadas
 por loja, paredes com profundidade por camadas e musica de fundo.

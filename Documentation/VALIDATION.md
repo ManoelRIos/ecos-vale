@@ -3,11 +3,12 @@
 ## O que foi executado nesta revisão
 
 - 24 testes Python de versões, atalho e empacotamento.
-- Análise de sintaxe dos 30 arquivos C#, referências e metadados: 36 assets e 46 GUIDs.
+- Análise de sintaxe dos 35 arquivos C#, referências e metadados: 66 assets e 80 GUIDs.
 - 2.506.552 asserções compilando o núcleo C# real, incluindo 2.436 andares, 645 arenas irregulares, estoque determinístico limitado, compras atômicas, relíquias, progressão, inventário, geometria varrida e 485 verificações novas de munição/recarga.
-- Passaram 956 verificações de integração em um helper temporário que compilou todos os módulos reais com tipos Unity/Input System simulados: avisos, ondas, sete chefes, i-frames/recuperação, divisão, cancelamento, colisões, feedback, controle, objetos e descarte. A expansão cobre carregadores dos quatro heróis e das doze armas compráveis, custo por salva/pulso, último disparo do feixe, limite de projéteis sem perda de munição, R/Triângulo, pausa, troca, poder sem custo, revólver de apoio, drop por morte e revisita/coleta sem duplicação.
+- Passaram 12.276 verificações de integração em um helper temporário que compilou todos os módulos reais com tipos Unity/Input System simulados: avisos, ondas, sete chefes, i-frames/recuperação, divisão, cancelamento, colisões, feedback, controle, objetos e descarte. A expansão cobre carregadores dos quatro heróis e das doze armas compráveis, custo por salva/pulso, último disparo do feixe, limite de projéteis sem perda de munição, R/Triângulo, pausa, troca, poder sem custo, revólver de apoio, drop por morte e revisita/coleta sem duplicação.
 - Áudio em helper externo: 19 efeitos, 12 loops musicais e 12 vozes curtas com PCM finito, determinístico e ganho limitado. Isso não substitui audição.
-- Arte exercitada em helper externo: 184 IDs, 26 animações de quatro poses, 140 poses dos bosses, caches, pivôs, filtro Point e contorno idempotente de um pixel. A prévia atual `NIGHTMARE_ART.png` usa os pixels reais da arte procedural, sem renderização do motor.
+- Folhas: 24 PNGs transparentes e 1.700 células com metadados estáveis. `python3 Tools/export_sprite_sheets.py --check` passou sem diferenças. O helper integrado carregou os PNGs reais, conferiu retângulos/pivôs/cache e comparou os pixels de cada célula ao gerador C#, além de validar recorte dos ícones/retratos. A prévia atual `REFERENCE_SPRITESHEETS.png` usa esses pixels, sem renderização do motor.
+- Um helper de animação executou mais 80 verificações sobre estados reais do herói, seis mobs, mortes e estágios de barris, totalizando 1.036 com a suíte anterior. Foram acrescentados seis testes Editor de folhas, importação, estados e descarte; eles aguardam execução no Unity.
 
 **O Editor Unity não está instalado neste ambiente.** Esses resultados não certificam importação, compilação no Unity, shaders, Play Mode, áudio reproduzido, hardware PS4 ou executável Windows. Não há build Windows validado desta revisão. Os testes Editor foram ampliados e precisam ser executados no motor.
 
@@ -18,6 +19,7 @@ python3 -m pip install -r Tools/requirements-validation.txt
 python3 Tools/validate_project.py
 python3 -m unittest discover -s Tools -p 'test_*.py'
 dotnet run --project Tools/HauntChecks.csproj
+python3 Tools/export_sprite_sheets.py --check
 ```
 
 O ambiente configurado por `bash Tools/setup-cloud.sh` executa a instalação e esses checks. Para gerar o ZIP, rastreie arquivos novos e use `python3 Tools/package_project.py`. O pacote deve conter os parciais Input, Environment, Feel, Patterns e Lighting, o componente HauntFlickerLight, os geradores BulletPatternGenerator, WeaponAmmo e DodgeRules e o módulo HauntGame.Ammunition com `.meta`, além da cena, recursos, versões e demais fontes obrigatórias.
@@ -104,7 +106,7 @@ Os checks de fontes e helpers com tipos simulados passaram; esta seção ainda e
 
 ## Horror, munição e recarga desta revisão
 
-1. Compare os quatro heróis, todos os mobs, o miniboss e os sete bosses à prévia `NIGHTMARE_ART.png`. Confira silhuetas, contorno de um pixel, olhos/mandíbulas e animações em repouso, movimento, ataque e estados do boss. Compare topo/lateral/base de barris, urnas, pilares e decorações em movimento pela sala; confira profundidade, sombras, colisão e visibilidade dos tiros.
+1. Compare os quatro heróis, todos os mobs, o miniboss e os sete bosses à prévia `REFERENCE_SPRITESHEETS.png`. Confira silhuetas, contorno de um pixel, olhos/mandíbulas e animações em repouso, movimento, ataque e estados do boss. Compare topo/lateral/base de barris, urnas, pilares e decorações em movimento pela sala; confira profundidade, sombras, colisão e visibilidade dos tiros.
 2. Esvazie cada arma inicial e o revólver de apoio (Tab/roda/L1/R1). Segurar o gatilho não pode recarregar nem causar dano. Pressione R/Triângulo: o HUD mostra o tempo, a arma inclina e o som marca início/fim. A reserva fica infinita, o carregador enche apenas ao terminar.
 3. Compre cada arma finita e esgote carregador/reserva. Não pode disparar vazia, durante recarga ou sem munição. Leques pagam uma unidade por salva completa e feixes uma por pulso de dano, sem cobrança nos frames de mira. O último pulso ainda deve causar dano. Teste Balas Gigantes e aumento de cadência sem cobrança extra por projétil.
 4. Recarregue parcialmente, aperte R novamente, troque arma e retorne. Não deve reiniciar relógio, descartar munição ou preencher gratuitamente. Andar/esquivar e Q continuam disponíveis durante a recarga. Pausa, conversa e intro congelam seu tempo. Triângulo no catálogo muda página sem iniciar recarga.

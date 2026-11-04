@@ -18,7 +18,7 @@ namespace Ecos.Haunt
             public int Health;
             public bool Explosive, Acid, Pillar, Detonated;
             public float ParticleClock;
-            public float Fuse, Flash;
+            public float Fuse, Flash, BreakPresentation;
             public long Key;
         }
         sealed class DamageZone
@@ -85,9 +85,10 @@ namespace Ecos.Haunt
                 string id = explosive ? "barrel-explosive" : acid ? "barrel-acid" : pillar ? "destructible-pillar" : "water-urn";
                 var prop = new RoomProp { Position = position, Key = key, Bounds = bounds,
                     Explosive = explosive, Acid = acid, Pillar = pillar, Health = pillar ? 7 : explosive ? 3 : 2,
-                    Sprite = MakeSprite(id, position + Vector2.up * (pillar ? .65f : .55f), roomRoot.transform, Depth(position.y)) };
+                    Sprite = MakeSprite(id, position + Vector2.up * (pillar ? .65f : explosive || acid ? .4375f : .55f), roomRoot.transform, Depth(position.y)) };
+                if (explosive || acid) prop.Sprite.sprite = art.PropFrame(id, 0);
                 var propShadow = MakeSprite("shadow", position + new Vector2(.2f, -.2f), roomRoot.transform, -70);
-                propShadow.transform.localScale = new Vector3(pillar ? 2 : 1.6f, .8f, 1);
+                propShadow.transform.localScale = new Vector3(pillar ? 2 : explosive || acid ? 1.05f : 1.6f, explosive || acid ? .6f : .8f, 1);
                 propShadow.color = new Color(1,1,1,.72f);
                 roomProps.Add(prop);
             }
@@ -144,9 +145,11 @@ namespace Ecos.Haunt
 
         void BreakPropArt(RoomProp prop)
         {
-            prop.Sprite.sprite = art.Get("shattered-prop");
-            prop.Sprite.transform.position = Snap(prop.Position);
-            prop.Sprite.sortingOrder = -130;
+            bool barrel = prop.Explosive || prop.Acid;
+            prop.BreakPresentation = barrel ? .64f : 0;
+            prop.Sprite.sprite = barrel ? art.PropFrame(prop.Explosive ? "barrel-explosive" : "barrel-acid", 2) : art.Get("shattered-prop");
+            prop.Sprite.transform.position = Snap(prop.Position + Vector2.up * (barrel ? .4375f : 0));
+            prop.Sprite.sortingOrder = barrel ? Depth(prop.Position.y) + 1 : -130;
             prop.Sprite.color = new Color(1, 1, 1, .8f);
             if (prop.Warning) { Destroy(prop.Warning.gameObject); prop.Warning = null; }
         }
@@ -304,17 +307,35 @@ namespace Ecos.Haunt
             foreach (var prop in roomProps)
             {
                 prop.Flash = Mathf.Max(0, prop.Flash - dt);
+                if (prop.Detonated && prop.BreakPresentation > 0)
+                {
+                    prop.BreakPresentation = Mathf.Max(0, prop.BreakPresentation - dt);
+                    float progress = 1 - prop.BreakPresentation / .64f;
+                    int stage = progress < .5f ? 2 : 3;
+                    int frame = Mathf.Clamp(Mathf.FloorToInt((progress * 2 % 1) * 4), 0, 3);
+                    prop.Sprite.sprite = art.PropFrame(prop.Explosive ? "barrel-explosive" : "barrel-acid", stage, frame);
+                    prop.Sprite.color = Color.white;
+                    if (prop.BreakPresentation <= 0)
+                    {
+                        prop.Sprite.sprite = art.Get("shattered-prop");
+                        prop.Sprite.transform.position = Snap(prop.Position);
+                        prop.Sprite.sortingOrder = -130;
+                        prop.Sprite.color = new Color(1, 1, 1, .8f);
+                    }
+                    continue;
+                }
                 if (prop.Health > 0)
                 {
                     prop.Sprite.color = prop.Flash > 0 ? new Color(1, .65f, .5f) : DungeonAmbientTint;
                     int frame = prop.Pillar ? Mathf.Clamp((7 - prop.Health) / 2, 0, 3) : Mathf.FloorToInt(simulationTime * 7);
-                    if (prop.Explosive || prop.Acid || prop.Pillar)
-                        prop.Sprite.sprite = art.Frame(prop.Explosive ? "barrel-explosive" : prop.Acid ? "barrel-acid" : "destructible-pillar", frame);
+                    if (prop.Explosive || prop.Acid)
+                        prop.Sprite.sprite = art.PropFrame(prop.Explosive ? "barrel-explosive" : "barrel-acid", prop.Acid && prop.Health < 2 ? 1 : 0, frame);
+                    else if (prop.Pillar) prop.Sprite.sprite = art.Frame("destructible-pillar", frame);
                     prop.ParticleClock -= dt;
                     if (prop.ParticleClock <= 0 && (prop.Explosive || prop.Acid))
                     {
                         prop.ParticleClock = prop.Explosive ? .18f : .35f;
-                        Emit(prop.Explosive ? "spark" : "dust", prop.Position + Vector2.up * (prop.Explosive ? 1.5f : 1.1f),
+                        Emit(prop.Explosive ? "spark" : "dust", prop.Position + Vector2.up * (prop.Explosive ? .95f : .82f),
                             prop.Explosive ? new Vector2(.12f, .55f) : Vector2.down * .15f,
                             prop.Explosive ? new Color(1,.65f,.2f,.8f) : new Color(.35f,1,.12f,.8f),
                             .35f, prop.Explosive ? .15f : .12f, prop.Explosive ? 1.2f : .4f);
@@ -323,6 +344,7 @@ namespace Ecos.Haunt
                 }
                 if (!prop.Explosive || prop.Detonated) continue;
                 prop.Fuse -= dt;
+                prop.Sprite.sprite = art.PropFrame("barrel-explosive", 1, Mathf.FloorToInt((.55f - prop.Fuse) * 12));
                 prop.Sprite.color = Mathf.Sin(prop.Fuse * 45) > 0 ? Color.white : new Color(1, .35f, .15f);
                 if (prop.Warning) prop.Warning.color = new Color(1, .5f, .12f, .6f + .2f * Mathf.Sin(prop.Fuse * 35));
                 if (prop.Fuse <= 0) ExplodeRoomProp(prop);

@@ -34,6 +34,7 @@ class PackageProjectTests(unittest.TestCase):
                          'Assets/_Game/Haunt/Runtime/HauntPixelText.cs',
                          'Assets/_Game/Haunt/Runtime/HauntGame.Weapons.cs',
                          'Assets/_Game/Haunt/Runtime/HauntGame.Ammunition.cs',
+                         'Assets/_Game/Haunt/Runtime/HauntGame.SpriteAnimation.cs',
                          'Assets/_Game/Haunt/Runtime/HauntGame.Audio.cs',
                          'Assets/_Game/Haunt/Runtime/HauntGame.Input.cs',
                          'Assets/_Game/Haunt/Runtime/HauntGame.Environment.cs',
@@ -46,6 +47,9 @@ class PackageProjectTests(unittest.TestCase):
                          'Assets/_Game/Haunt/Runtime/HauntGame.Lighting.cs',
                          'Assets/_Game/Haunt/Runtime/HauntFlickerLight.cs',
                          'Assets/_Game/Haunt/Art/HauntPixelArt.cs',
+                         'Assets/_Game/Haunt/Art/HauntPixelArt.Actors.cs',
+                         'Assets/_Game/Haunt/Art/HauntPixelArt.ReferenceBosses.cs',
+                         'Assets/_Game/Haunt/Art/HauntPixelArt.SpriteSheets.cs',
                          'Assets/_Game/Haunt/Core/DungeonFloor.cs',
                          'Assets/_Game/Haunt/Core/RunState.cs',
                          'Assets/_Game/Haunt/Core/WeaponAmmo.cs',
@@ -63,6 +67,19 @@ class PackageProjectTests(unittest.TestCase):
             self.write(relative + '.meta', 'fileFormatVersion: 2\nguid: fixture\n')
         self.write('Tools/HauntChecks.csproj', '<Project />\n')
         self.write('Tools/package_project.py', '# tracked packaging helper\n')
+        for name in ('actors/player', 'actors/player-body', 'actors/medium', 'actors/medium-body',
+                     'actors/reaper', 'actors/reaper-body', 'actors/alchemist', 'actors/alchemist-body',
+                     'actors/scarecrow', 'actors/gargoyle', 'actors/stalker-shadow', 'actors/fire-bat',
+                     'actors/skeleton', 'actors/slime', 'bosses/boss', 'bosses/widow', 'bosses/bishop',
+                     'bosses/matriarch', 'bosses/bell', 'bosses/iron-executioner', 'bosses/bog-oracle',
+                     'props/barrel-explosive', 'props/barrel-acid', 'props/decrepit-chest'):
+            self.write('Assets/_Game/Resources/ReferenceSheets/' + name + '.png', 'sheet fixture\n')
+            self.write('Assets/_Game/Resources/ReferenceSheets/' + name + '.png.meta', 'texture fixture\n')
+        self.write('Assets/_Game/Resources/ReferenceSheets/manifest.json', '{}\n')
+        self.write('Assets/_Game/Resources/ReferenceSheets/manifest.json.meta', 'manifest metadata\n')
+        for name in ('Tools/export_sprite_sheets.py', 'Tools/SpriteSheetExport/Program.cs',
+                     'Tools/SpriteSheetExport/UnityPixelStubs.cs', 'Tools/SpriteSheetExport/SpriteSheetExport.csproj'):
+            self.write(name, 'exporter fixture\n')
         self.git('add', '--all')
 
     def git(self, *args):

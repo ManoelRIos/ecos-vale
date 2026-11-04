@@ -525,7 +525,20 @@ namespace Ecos.Haunt
         {
             Sprite sprite = art.Get(id);
             if (!sprite) return;
-            GUI.DrawTexture(rect, sprite.texture, ScaleMode.ScaleToFit, true);
+            DrawSpriteCell(rect, sprite);
+        }
+
+        static void DrawSpriteCell(Rect destination, Sprite sprite)
+        {
+            if (!sprite || !sprite.texture) return;
+            Rect cell = sprite.rect;
+            float scale = Mathf.Min(destination.width / cell.width, destination.height / cell.height);
+            var fitted = new Rect(destination.x + (destination.width - cell.width * scale) * .5f,
+                destination.y + (destination.height - cell.height * scale) * .5f,
+                cell.width * scale, cell.height * scale);
+            var uv = new Rect(cell.x / sprite.texture.width, cell.y / sprite.texture.height,
+                cell.width / sprite.texture.width, cell.height / sprite.texture.height);
+            GUI.DrawTextureWithTexCoords(fitted, sprite.texture, uv, true);
         }
 
         void Fill(Rect rect, Color color)

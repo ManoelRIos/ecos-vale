@@ -1,14 +1,14 @@
 # Pesadelos e munição
 
-O visual usa as proporções compactas, silhuetas distintas e contorno de um pixel das referências fornecidas. Os desenhos são originais, gerados em C#, com paleta reduzida e filtro Point. A prévia [NIGHTMARE_ART.png](NIGHTMARE_ART.png) foi extraída dos pixels do gerador, sem renderização no Unity.
+O visual usa as proporções compactas, silhuetas distintas e contorno de um pixel das referências fornecidas. Os desenhos são originais, gerados em C#, com paleta reduzida e filtro Point. A prévia [REFERENCE_SPRITESHEETS.png](REFERENCE_SPRITESHEETS.png) foi extraída dos pixels do gerador, sem renderização no Unity.
 
 ## Personagens e cenário
 
-- Caçador: máscara funerária, capa escura e detalhes de osso.
-- Médium: vazio sob o capuz, cajado orgânico e orbes pálidos.
-- Ceifador: mandíbula, costelas expostas, manto e foice.
-- Alquimista: máscara da peste e frascos luminosos.
-- Dezessete criaturas, miniboss e sete bosses: olhos localizados, mandíbulas, presas, garras e anatomias distintas. Os cinco estados animados dos bosses continuam disponíveis, com quatro poses por estado.
+- Caçador: rosto visível, cabelo castanho e roupa verde, conforme a prancha atual.
+- Médium: cabelo/capuz roxo, rosto visível, cajado e orbes arcanos.
+- Ceifador: capuz vermelho, rosto pálido e foice com arco de ataque.
+- Alquimista: chapéu pontudo, roupa roxa e frascos verdes luminosos.
+- O catálogo preserva dezessete criaturas e miniboss. Seis mobs da nova prancha possuem folhas de estados; os sete bosses usam cinco estados e quatro quadros por estado.
 - Barris, urnas, pilares, lápides e cenários temáticos: topo iluminado, lateral escura e base para volume aparente. O cenário permanece em 2D com ordenação pela posição dos pés, sombras e camadas; não há malhas 3D nesta revisão.
 
 ## Regras de munição

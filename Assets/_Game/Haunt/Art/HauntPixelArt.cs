@@ -7,7 +7,7 @@ namespace Ecos.Haunt
     public enum BossAnimationState { Idle, Telegraph, Attack, Enrage, Death }
 
     /// <summary>Original pixel art and four-pose animation. Runtime textures belong to this instance.</summary>
-    public sealed class HauntPixelArt : IDisposable
+    public sealed partial class HauntPixelArt : IDisposable
     {
         readonly Dictionary<string, Sprite> sprites = new Dictionary<string, Sprite>();
         readonly List<Texture2D> textures = new List<Texture2D>();
@@ -33,6 +33,10 @@ namespace Ecos.Haunt
         public Sprite Frame(string id, int frame)
         {
             if (disposed) throw new ObjectDisposedException(nameof(HauntPixelArt));
+            if (HasActorSheet(id)) return ActorFrame(id, ActorAnimationState.Idle, frame);
+            int referenceBoss = ReferenceBossIndex(id);
+            if (referenceBoss >= 0) return ReferenceBossFrame(referenceBoss, BossAnimationState.Idle, frame);
+            if (id == "barrel-explosive" || id == "barrel-acid" || id == "decrepit-chest") return PropFrame(id, 0, frame);
             bool animated = id == "scarecrow" || id == "gargoyle" || id == "stalker-shadow" || id == "fire-bat"
                 || id == "barrel-explosive" || id == "barrel-acid" || id == "destructible-pillar" || id == "ossuary-candle"
                 || id == "lantern-wisp" || id == "mushroom-brute" || id == "clockwork-imp"
@@ -245,6 +249,8 @@ namespace Ecos.Haunt
         {
             if (disposed) throw new ObjectDisposedException(nameof(HauntPixelArt));
             if (!Enum.IsDefined(typeof(BossAnimationState), state)) throw new ArgumentOutOfRangeException(nameof(state));
+            int referenceBoss = ReferenceBossIndex(id);
+            if (referenceBoss >= 0) return ReferenceBossFrame(referenceBoss, state, frame);
             frame = ((frame % 4) + 4) % 4;
             string key = "boss-state/" + id + "/" + state + "/" + frame;
             if (sprites.TryGetValue(key, out var cached)) return cached;
@@ -259,7 +265,7 @@ namespace Ecos.Haunt
                 wrapMode = TextureWrapMode.Clamp, anisoLevel = 0
             };
             texture.SetPixels32(pixels.Pixels);
-            texture.Apply(false, true);
+            texture.Apply(false, useReferenceSheets);
             var sprite = Sprite.Create(texture, new Rect(0, 0, pixels.Width, pixels.Height),
                 new Vector2(.5f, .5f), 16, 0, SpriteMeshType.FullRect);
             sprite.name = "Haunt / " + key;
@@ -2705,7 +2711,7 @@ namespace Ecos.Haunt
             foreach(var sprite in sprites.Values) DestroyOwned(sprite);
             foreach(var texture in textures) DestroyOwned(texture);
             if(material) DestroyOwned(material);
-            sprites.Clear(); textures.Clear(); material=null;
+            sprites.Clear(); textures.Clear(); referenceTextures.Clear(); material=null;
         }
         static void DestroyOwned(UnityEngine.Object value)
         {

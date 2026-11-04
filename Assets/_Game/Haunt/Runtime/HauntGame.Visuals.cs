@@ -332,21 +332,21 @@ namespace Ecos.Haunt
             Cursor.visible = !UsingController && (InShop || PointerOverInterface());
             Vector2 aim = AimDirection();
             bool rolling = rollRemaining > 0;
-            int frame = playerMoving ? Mathf.FloorToInt(walkDistance * 4.5f) : Mathf.FloorToInt(simulationTime * 2) % 2 * 2;
-            if (muzzleTime > 0) frame = 2;
-            player.sprite = art.Frame(PlayerArt, frame);
+            ActorAnimationState state = PlayerSpriteState(out int frame);
+            ActorFacing facing = SpriteFacing(rolling ? rollDirection : aim);
+            player.sprite = art.ActorFrame(PlayerArt, state, frame, facing, false);
             gun.sprite = art.Get(WeaponArt);
             float bob = rolling ? Mathf.Sin((1 - rollRemaining / RollTime) * Mathf.PI) * .65f : playerMoving ? Mathf.Sin(walkDistance * 14) * .045f : Mathf.Sin(simulationTime * 2) * .02f;
-            player.transform.position = Snap(playerPosition + Vector2.up * (.38f + bob));
+            player.transform.position = Snap(playerPosition + Vector2.up * bob);
             player.sortingOrder = Depth(playerPosition.y);
-            player.flipX = aim.x < 0;
+            player.flipX = facing == ActorFacing.Right && (rolling ? rollDirection.x : aim.x) < 0;
             player.color = flash > 0 ? new Color(1, .6f, .65f) : invincible > 0 && Mathf.Sin(simulationTime * 30) > 0
                 ? new Color(.65f, 1, .9f, .72f) : Color.white;
-            float tilt = rolling ? (1 - rollRemaining / RollTime) * (rollDirection.x < 0 ? -360 : 360) : playerMoving ? Mathf.Sin(walkDistance * 8) * 3 : 0;
+            float tilt = !rolling && playerMoving ? Mathf.Sin(walkDistance * 8) * 2 : 0;
             player.transform.rotation = Quaternion.Euler(0, 0, tilt);
             player.transform.localScale = rolling ? new Vector3(1.05f, .78f, 1) : new Vector3(1, 1 + Mathf.Sin(simulationTime * 2) * .015f, 1);
-            shadow.transform.position = Snap(playerPosition + new Vector2(.16f, -.25f));
-            shadow.transform.localScale = new Vector3(1.8f - bob * .35f, .95f - bob * .15f, 1);
+            shadow.transform.position = Snap(playerPosition + new Vector2(.07f, -.08f));
+            shadow.transform.localScale = new Vector3(.65f - bob * .15f, .5f - bob * .1f, 1);
             shadow.color = new Color(1, 1, 1, .72f);
             playerMarker.transform.position = Snap(playerPosition + Vector2.down * .2f);
             playerMarker.color = new Color(PlayerAccent.r, PlayerAccent.g, PlayerAccent.b, rolling ? .65f : .95f);
@@ -357,9 +357,9 @@ namespace Ecos.Haunt
             gun.transform.rotation = Quaternion.Euler(0, 0, Mathf.Atan2(aim.y, aim.x) * Mathf.Rad2Deg + reloadTilt);
             gun.flipY = aim.x < 0;
             gun.sortingOrder = player.sortingOrder + (aim.y > .3f ? -1 : 1);
-            gun.enabled = !rolling;
+            gun.enabled = !rolling && state != ActorAnimationState.Cast;
             muzzle.sortingOrder = gun.sortingOrder + 1;
-            muzzle.enabled = muzzleTime > 0 && !rolling && !State.IsReloading;
+            muzzle.enabled = muzzleTime > 0 && !rolling && !State.IsReloading && state != ActorAnimationState.Cast;
             muzzle.transform.position = Snap(playerPosition + Vector2.up * .35f + aim * 1.05f);
             muzzle.transform.localScale = Vector3.one * (.48f + weaponKick * .18f);
             muzzle.transform.rotation = gun.transform.rotation;
@@ -380,6 +380,9 @@ namespace Ecos.Haunt
             bool stone = enemy.Kind == 16 && GargoyleIsStone(enemy);
             bool disguised = enemy.Kind == 15 && !enemy.Awakened;
             int frame = stone || disguised ? 0 : Mathf.FloorToInt(enemy.Phase * (enemy.Kind == 4 ? 6 : enemy.Kind == 3 || enemy.Kind == 18 ? 10 : 6));
+            string id = EnemySprite(enemy.Kind);
+            bool hasSheet = HauntPixelArt.HasActorSheet(id);
+            ActorFacing facing = SpriteFacing(direction);
             if (enemy.Kind == 4)
             {
                 BossAnimationState state = enemy.Tell > 0 ? BossAnimationState.Telegraph
@@ -387,11 +390,17 @@ namespace Ecos.Haunt
                     : enemy.Health < enemy.MaxHealth * .5f ? BossAnimationState.Enrage : BossAnimationState.Idle;
                 enemy.Sprite.sprite = art.BossFrame(EnemySprite(enemy.Kind), state, frame);
             }
-            else enemy.Sprite.sprite = art.Frame(EnemySprite(enemy.Kind), frame);
+            else if (hasSheet)
+            {
+                ActorAnimationState state = EnemySpriteState(enemy, stone, disguised, out frame);
+                enemy.Sprite.sprite = art.ActorFrame(id, state, frame, facing);
+            }
+            else enemy.Sprite.sprite = art.Frame(id, frame);
             float floatHeight = stone || disguised ? 0 : enemy.Kind == 1 || enemy.Kind == 3 || enemy.Kind == 12 || enemy.Kind == 18
                 ? Mathf.Sin(enemy.Phase * (enemy.Kind == 18 ? 8 : 4)) * .12f : Mathf.Sin(enemy.Phase * 5) * .025f;
             float emerged = Mathf.Clamp01(1 - enemy.SpawnRemaining / .9f);
-            enemy.Sprite.transform.position = Snap(enemy.Position + Vector2.up * (.38f + floatHeight - (1 - emerged) * .65f));
+            float baseline = enemy.Kind == 4 ? 1.375f * 1.15f : hasSheet ? 0 : .38f;
+            enemy.Sprite.transform.position = Snap(enemy.Position + Vector2.up * (baseline + floatHeight - (1 - emerged) * .65f));
             if (enemy.Rift)
             {
                 enemy.Rift.enabled = enemy.SpawnRemaining > 0;
@@ -399,7 +408,7 @@ namespace Ecos.Haunt
                 enemy.Rift.transform.position = Snap(enemy.Position);
                 enemy.Rift.transform.localScale = Vector3.one * (enemy.Kind == 11 || enemy.Kind == 4 ? 1.5f : 1);
             }
-            enemy.Sprite.flipX = direction.x < 0;
+            enemy.Sprite.flipX = (!hasSheet || facing == ActorFacing.Right) && direction.x < 0;
             Color normal = enemy.Kind == 4 && BossVariant == 1 ? new Color(.72f, 1, .97f)
                 : enemy.Kind == 4 && BossVariant == 2 ? new Color(1, .74f, .91f) : Color.white;
             if (stone) normal = new Color(.58f, .6f, .68f);
@@ -418,7 +427,9 @@ namespace Ecos.Haunt
             Color emergingColor = enemy.Sprite.color; emergingColor.a = emerged * (enemy.Kind == 17 ? .6f : 1); enemy.Sprite.color = emergingColor;
             float scale = enemy.Kind == 4 ? 1.15f : enemy.Kind == 11 ? 1.1f : enemy.Kind == 13 ? 1.15f : 1;
             enemy.Sprite.transform.localScale = new Vector3(scale * (1 - stretch), scale * (1 + stretch) * (.2f + .8f * emerged), 1);
-            enemy.Shadow.transform.position = Snap(enemy.Position + Vector2.down * .25f);
+            enemy.Shadow.transform.position = Snap(enemy.Position + Vector2.down * (hasSheet || enemy.Kind == 4 ? .08f : .25f));
+            if (hasSheet || enemy.Kind == 4)
+                enemy.Shadow.transform.localScale = enemy.Kind == 4 ? new Vector3(1.3f, .8f, 1) : new Vector3(.62f, .45f, 1);
             enemy.Shadow.color = new Color(1, 1, 1, enemy.Kind == 17 ? .28f : .65f);
             enemy.Ring.enabled = !disguised;
             enemy.Ring.transform.position = Snap(enemy.Position + Vector2.down * .2f);
@@ -544,10 +555,12 @@ namespace Ecos.Haunt
 
         void EnemyDeath(Enemy enemy)
         {
+            PlayMobDeathPresentation(enemy);
             if (enemy.Kind == 4) PlaySound(SoundCue.BossDeath);
             Burst(enemy.Position + Vector2.up * .4f, enemy.Kind == 1 ? new Color(.85f, .95f, 1) : HostileAccent, enemy.Kind == 4 ? 22 : 10);
             RingEffect(enemy.Position, enemy.Kind == 4 ? new Color(1, .65f, .24f) : HostileAccent, enemy.Kind == 4 ? 2.2f : .6f);
-            Emit(EnemySprite(enemy.Kind), enemy.Position + Vector2.up * .4f, Vector2.up * 1.2f, new Color(.7f, .5f, .7f, .45f), .35f, .75f, 6, 90);
+            if (enemy.Kind != 4 && !HauntPixelArt.HasActorSheet(EnemySprite(enemy.Kind)))
+                Emit(EnemySprite(enemy.Kind), enemy.Position + Vector2.up * .4f, Vector2.up * 1.2f, new Color(.7f, .5f, .7f, .45f), .35f, .75f, 6, 90);
             if (enemy.Rift) Destroy(enemy.Rift.gameObject);
             if (enemy.Aura) Destroy(enemy.Aura.gameObject);
             Destroy(enemy.Sprite.gameObject); Destroy(enemy.Shadow.gameObject); Destroy(enemy.Ring.gameObject); Destroy(enemy.Telegraph.gameObject);

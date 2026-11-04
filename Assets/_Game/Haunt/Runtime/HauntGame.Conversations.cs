@@ -311,8 +311,7 @@ namespace Ecos.Haunt
                 ? art.BossFrame(dialoguePortrait, BossAnimationState.Telegraph, frame)
                 : art.Frame(dialoguePortrait, frame);
             if (portrait)
-                GUI.DrawTexture(new Rect(rect.x + 14, rect.y + 13, rect.width - 28, rect.height - 26),
-                    portrait.texture, ScaleMode.ScaleToFit, true);
+                DrawSpriteCell(new Rect(rect.x + 14, rect.y + 13, rect.width - 28, rect.height - 26), portrait);
             Fill(new Rect(rect.x + 4, rect.y + 4, 8, 2), Color.Lerp(accent, Color.white, .5f));
             Fill(new Rect(rect.x + 4, rect.y + 4, 2, 8), Color.Lerp(accent, Color.white, .5f));
         }

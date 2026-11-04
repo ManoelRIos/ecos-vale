@@ -30,6 +30,7 @@ namespace Ecos.Haunt
 
         void UpdateBossPresentation(float dt)
         {
+            UpdateSpriteAnimations(dt);
             for (int i = bossRemnants.Count - 1; i >= 0; i--)
             {
                 var remnant = bossRemnants[i]; remnant.Remaining -= dt;
@@ -80,6 +81,7 @@ namespace Ecos.Haunt
 
         void ClearBossPresentation()
         {
+            ClearSpriteAnimations();
             foreach (var remnant in bossRemnants) if (remnant.Sprite) Destroy(remnant.Sprite.gameObject);
             bossRemnants.Clear();
             foreach (var sprite in heroOrbitals) if (sprite) Destroy(sprite.gameObject);

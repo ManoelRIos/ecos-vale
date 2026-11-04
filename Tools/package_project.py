@@ -33,6 +33,7 @@ REQUIRED_FILES = {
     'Assets/_Game/Haunt/Runtime/HauntPixelText.cs', 'Assets/_Game/Haunt/Runtime/HauntPixelText.cs.meta',
     'Assets/_Game/Haunt/Runtime/HauntGame.Weapons.cs', 'Assets/_Game/Haunt/Runtime/HauntGame.Weapons.cs.meta',
     'Assets/_Game/Haunt/Runtime/HauntGame.Ammunition.cs', 'Assets/_Game/Haunt/Runtime/HauntGame.Ammunition.cs.meta',
+    'Assets/_Game/Haunt/Runtime/HauntGame.SpriteAnimation.cs', 'Assets/_Game/Haunt/Runtime/HauntGame.SpriteAnimation.cs.meta',
     'Assets/_Game/Haunt/Runtime/HauntGame.Audio.cs', 'Assets/_Game/Haunt/Runtime/HauntGame.Audio.cs.meta',
     'Assets/_Game/Haunt/Runtime/HauntGame.Input.cs', 'Assets/_Game/Haunt/Runtime/HauntGame.Input.cs.meta',
     'Assets/_Game/Haunt/Runtime/HauntGame.Environment.cs', 'Assets/_Game/Haunt/Runtime/HauntGame.Environment.cs.meta',
@@ -45,6 +46,9 @@ REQUIRED_FILES = {
     'Assets/_Game/Haunt/Runtime/HauntGame.Lighting.cs', 'Assets/_Game/Haunt/Runtime/HauntGame.Lighting.cs.meta',
     'Assets/_Game/Haunt/Runtime/HauntFlickerLight.cs', 'Assets/_Game/Haunt/Runtime/HauntFlickerLight.cs.meta',
     'Assets/_Game/Haunt/Art/HauntPixelArt.cs', 'Assets/_Game/Haunt/Art/HauntPixelArt.cs.meta',
+    'Assets/_Game/Haunt/Art/HauntPixelArt.Actors.cs', 'Assets/_Game/Haunt/Art/HauntPixelArt.Actors.cs.meta',
+    'Assets/_Game/Haunt/Art/HauntPixelArt.ReferenceBosses.cs', 'Assets/_Game/Haunt/Art/HauntPixelArt.ReferenceBosses.cs.meta',
+    'Assets/_Game/Haunt/Art/HauntPixelArt.SpriteSheets.cs', 'Assets/_Game/Haunt/Art/HauntPixelArt.SpriteSheets.cs.meta',
     'Assets/_Game/Haunt/Core/DungeonFloor.cs', 'Assets/_Game/Haunt/Core/DungeonFloor.cs.meta',
     'Assets/_Game/Haunt/Core/RunState.cs', 'Assets/_Game/Haunt/Core/RunState.cs.meta',
     'Assets/_Game/Haunt/Core/WeaponAmmo.cs', 'Assets/_Game/Haunt/Core/WeaponAmmo.cs.meta',
@@ -59,6 +63,22 @@ REQUIRED_FILES = {
     'Assets/_Game/Haunt/Art/HauntSprites.shader', 'Assets/_Game/Haunt/Art/HauntSprites.shader.meta',
     'Assets/_Game/Resources/HauntSprites.mat', 'Assets/_Game/Resources/HauntSprites.mat.meta',
 }
+
+SPRITE_SHEETS = (
+    'actors/player', 'actors/player-body', 'actors/medium', 'actors/medium-body',
+    'actors/reaper', 'actors/reaper-body', 'actors/alchemist', 'actors/alchemist-body',
+    'actors/scarecrow', 'actors/gargoyle', 'actors/stalker-shadow', 'actors/fire-bat',
+    'actors/skeleton', 'actors/slime',
+    'bosses/boss', 'bosses/widow', 'bosses/bishop', 'bosses/matriarch', 'bosses/bell',
+    'bosses/iron-executioner', 'bosses/bog-oracle',
+    'props/barrel-explosive', 'props/barrel-acid', 'props/decrepit-chest',
+)
+REQUIRED_FILES.update('Assets/_Game/Resources/ReferenceSheets/' + name + suffix
+                      for name in SPRITE_SHEETS for suffix in ('.png', '.png.meta'))
+REQUIRED_FILES.update({'Assets/_Game/Resources/ReferenceSheets/manifest.json',
+                       'Assets/_Game/Resources/ReferenceSheets/manifest.json.meta',
+                       'Tools/export_sprite_sheets.py', 'Tools/SpriteSheetExport/SpriteSheetExport.csproj',
+                       'Tools/SpriteSheetExport/Program.cs', 'Tools/SpriteSheetExport/UnityPixelStubs.cs'})
 
 
 class PackagingError(ValueError):
