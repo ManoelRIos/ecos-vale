@@ -5,6 +5,7 @@ Shader "Haunt/Pixel Sprites"
         _SrcBlend ("Source blend", Float) = 5
         _DstBlend ("Destination blend", Float) = 10
         _Emission ("Emission intensity", Float) = 1
+        [PerRendererData] _HitFlash ("Hit flash", Range(0,1)) = 0
         [PerRendererData] _MainTex ("Sprite", 2D) = "white" {}
         _Color ("Tint", Color) = (1,1,1,1)
         // As in URP's sprite shader, keep the legacy tint property for material
@@ -47,6 +48,7 @@ Shader "Haunt/Pixel Sprites"
             CBUFFER_START(UnityPerMaterial)
                 half4 _Color;
                 half _Emission;
+                half _HitFlash;
             CBUFFER_END
 
             Varyings Vert(Attributes input)
@@ -67,6 +69,7 @@ Shader "Haunt/Pixel Sprites"
             half4 Frag(Varyings input) : SV_Target
             {
                 half4 pixel = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv) * input.color;
+                pixel.rgb = lerp(pixel.rgb, half3(1,1,1), saturate(_HitFlash));
                 pixel.rgb *= _Emission;
                 return pixel;
             }

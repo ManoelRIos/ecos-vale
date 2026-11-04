@@ -23,11 +23,23 @@ namespace Ecos.Haunt
         {
             public SpriteRenderer Sprite;
             public Vector2 Position;
-            public float Remaining, Phase;
+            public float Remaining, Phase, RadiusX = 1.65f, RadiusY = .95f;
+            public Color Tint = new Color(.55f, .9f, .72f, .8f);
+            public bool CombatZone;
         }
 
         void ResetRoomProps() { brokenRoomProps.Clear(); ClearRoomProps(); }
         void ClearRoomProps() { roomProps.Clear(); wetPatches.Clear(); }
+
+        void ClearCombatSlowZones()
+        {
+            for (int i = wetPatches.Count - 1; i >= 0; i--)
+                if (wetPatches[i].CombatZone)
+                {
+                    if (wetPatches[i].Sprite) Destroy(wetPatches[i].Sprite.gameObject);
+                    wetPatches.RemoveAt(i);
+                }
+        }
 
         void InitializeRoomProps()
         {
@@ -65,8 +77,9 @@ namespace Ecos.Haunt
                     Sprite = MakeSprite(explosive ? "barrel-explosive" : "water-urn",
                         position + Vector2.up * .42f, roomRoot.transform, Depth(position.y))
                 };
-                MakeSprite("shadow", position + new Vector2(.2f, -.2f), roomRoot.transform, -70)
-                    .transform.localScale = new Vector3(1.6f, .8f, 1);
+                var propShadow = MakeSprite("shadow", position + new Vector2(.2f, -.2f), roomRoot.transform, -70);
+                propShadow.transform.localScale = new Vector3(1.6f, .8f, 1);
+                propShadow.color = new Color(1, 1, 1, .72f);
                 obstacles.Add(prop.Bounds);
                 roomProps.Add(prop);
             }
@@ -136,7 +149,7 @@ namespace Ecos.Haunt
             RingEffect(prop.Position, orange, 2.4f);
             Burst(prop.Position + Vector2.up * .4f, orange, 18);
             PlaySound(SoundCue.Explosion, .85f);
-            shake = Mathf.Max(shake, .23f);
+            AddCameraTrauma(.7f);
             // Snapshot the current wave. Killing its last enemy may start a new wave.
             Enemy[] victims = enemies.ToArray();
             foreach (var enemy in victims)
@@ -145,7 +158,7 @@ namespace Ecos.Haunt
                     || CoverBetween(prop.Position, enemy.Position)) continue;
                 int index = enemies.IndexOf(enemy);
                 if (index >= 0) DamageEnemy(index, 7 + Mathf.Min(8, State.Floor),
-                    (enemy.Position - prop.Position).normalized, orange, true);
+                    (prop.Position - enemy.Position).normalized, orange, true);
             }
             if (Vector2.Distance(prop.Position, playerPosition) < 2.4f + PlayerRadius
                 && !CoverBetween(prop.Position, playerPosition)) HurtPlayer();
@@ -170,12 +183,33 @@ namespace Ecos.Haunt
 
         void AddWetPatch(Vector2 position)
         {
-            if (wetPatches.Count >= 10) return;
+            CreateSlowZone(position, 1.65f, .95f, 14, new Color(.45f, .92f, .68f, .8f));
+            RingEffect(position, new Color(.45f, .92f, .68f), 1.5f);
+        }
+
+        // Enemy webs and water share bounded ground effects, with independent
+        // radii and lifetime. Their lights remain below the readable projectiles.
+        void AddCombatSlowZone(Vector2 position, float radius, float duration, Color color)
+        {
+            if (!Playing || InShop || State == null || State.IsDead || CurrentRoom == null || CurrentRoom.Cleared
+                || float.IsNaN(radius) || float.IsInfinity(radius) || float.IsNaN(duration) || float.IsInfinity(duration)) return;
+            radius = Mathf.Clamp(radius, .4f, 2.8f);
+            duration = Mathf.Clamp(duration, .2f, 18);
+            position.x = Mathf.Clamp(position.x, -HalfWidth + radius, HalfWidth - radius);
+            position.y = Mathf.Clamp(position.y, -HalfHeight + radius, HalfHeight - radius);
+            color.a = .75f;
+            CreateSlowZone(position, radius, radius * .65f, duration, color, true);
+        }
+
+        void CreateSlowZone(Vector2 position, float radiusX, float radiusY, float duration, Color color, bool combatZone = false)
+        {
+            if (wetPatches.Count >= 10 || !roomRoot) return;
             var sprite = MakeSprite("wet-puddle", position, roomRoot.transform, -145);
-            sprite.transform.localScale = new Vector3(1.2f, 1.25f, 1);
-            sprite.color = new Color(.65f, .88f, 1, .85f);
-            wetPatches.Add(new WetPatch { Sprite = sprite, Position = position, Remaining = 14, Phase = simulationTime });
-            RingEffect(position, new Color(.5f, .8f, 1), 1.5f);
+            sprite.transform.localScale = new Vector3(1.2f * radiusX / 1.65f, 1.25f * radiusY / .95f, 1);
+            sprite.color = color;
+            wetPatches.Add(new WetPatch { Sprite = sprite, Position = position, Remaining = duration,
+                Phase = simulationTime, RadiusX = radiusX, RadiusY = radiusY, Tint = color, CombatZone = combatZone });
+            AttachFlickerLight(sprite.transform, color, radiusX * 1.7f, .16f, .1f, -110);
         }
 
         float RoomMovementMultiplier(Vector2 position)
@@ -183,8 +217,8 @@ namespace Ecos.Haunt
             foreach (var patch in wetPatches)
             {
                 Vector2 offset = position - patch.Position;
-                if (patch.Remaining > 0 && offset.x * offset.x / (1.65f * 1.65f)
-                    + offset.y * offset.y / (.95f * .95f) < 1) return .6f;
+                if (patch.Remaining > 0 && offset.x * offset.x / (patch.RadiusX * patch.RadiusX)
+                    + offset.y * offset.y / (patch.RadiusY * patch.RadiusY) < 1) return .6f;
             }
             return 1;
         }
@@ -196,7 +230,7 @@ namespace Ecos.Haunt
                 prop.Flash = Mathf.Max(0, prop.Flash - dt);
                 if (prop.Health > 0)
                 {
-                    prop.Sprite.color = prop.Flash > 0 ? new Color(1, .65f, .5f) : Color.white;
+                    prop.Sprite.color = prop.Flash > 0 ? new Color(1, .65f, .5f) : DungeonAmbientTint;
                     continue;
                 }
                 if (!prop.Explosive || prop.Detonated) continue;
@@ -209,8 +243,11 @@ namespace Ecos.Haunt
             {
                 var patch = wetPatches[i];
                 patch.Remaining -= dt;
-                patch.Sprite.color = new Color(.65f, .88f, 1, .85f * Mathf.Clamp01(patch.Remaining / 3));
-                patch.Sprite.transform.localScale = new Vector3(1.2f + .02f * Mathf.Sin(simulationTime * 2 + patch.Phase), 1.25f, 1);
+                float flicker = .92f + .08f * Mathf.PerlinNoise(patch.Phase + 17, simulationTime * .4f);
+                patch.Sprite.color = new Color(patch.Tint.r, patch.Tint.g, patch.Tint.b,
+                    patch.Tint.a * Mathf.Clamp01(patch.Remaining / 3) * flicker);
+                patch.Sprite.transform.localScale = new Vector3((1.2f + .02f * Mathf.Sin(simulationTime * 2 + patch.Phase)) * patch.RadiusX / 1.65f,
+                    1.25f * patch.RadiusY / .95f, 1);
                 if (patch.Remaining > 0) continue;
                 Destroy(patch.Sprite.gameObject); wetPatches.RemoveAt(i);
             }

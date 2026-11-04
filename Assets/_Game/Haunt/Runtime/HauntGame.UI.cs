@@ -54,6 +54,7 @@ namespace Ecos.Haunt
         void OnGUI()
         {
             EnsureStyles();
+            DrawDungeonVignette();
             Matrix4x4 previous = GUI.matrix;
             Color color = GUI.color;
             float scale = Mathf.Min(Screen.width / 1280f, Screen.height / 720f);

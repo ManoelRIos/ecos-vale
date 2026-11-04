@@ -717,6 +717,7 @@ namespace Ecos.Haunt.Tests
                     Assert.AreEqual(1, game.LivingEnemies);
                     FinishEmergence(game);
                     Invoke(game, "UpdateEnemies", 3f);
+                    Invoke(game, "UpdateBulletPatterns", .35f);
                     Assert.Greater(game.ActiveProjectiles, 0, "Every boss must attack on floor " + floor);
                 }
                 game.BeginRun(42);
@@ -800,6 +801,7 @@ namespace Ecos.Haunt.Tests
                     StartFloor(game, seed, number);
                     Invoke(game, "EnterRoom", game.Floor.Boss, Vector2.zero);
                     Assert.AreEqual(archetype, game.Floor.BossArchetype);
+                    FinishEmergence(game);
                     var enemies = (IList)typeof(HauntGame).GetField("enemies", PrivateInstance).GetValue(game);
                     var boss = enemies[0];
                     var type = boss.GetType();
@@ -807,29 +809,18 @@ namespace Ecos.Haunt.Tests
                     StringAssert.Contains("/ " + ids[archetype] + "/", sprite.sprite.name);
                     type.GetField("Cooldown").SetValue(boss, 0f);
                     Invoke(game, "UpdateBoss", boss, Vector2.down, 0f);
-                    int firstVolley = game.ActiveProjectiles;
-                    Assert.Greater(firstVolley, 0);
+                    Assert.AreEqual(0, game.ActiveProjectiles, "Preparation must precede the first projectile");
+                    Invoke(game, "UpdateBulletPatterns", .31f);
+                    Assert.AreEqual(0, game.ActiveProjectiles, "The visible warning cannot fire early");
+                    Invoke(game, "UpdateBulletPatterns", .02f);
+                    Assert.Greater(game.ActiveProjectiles, 0, "Every guardian emits its distinctive pattern");
                     type.GetField("Cooldown").SetValue(boss, 0f);
                     Invoke(game, "UpdateBoss", boss, Vector2.down, 0f);
                     Assert.AreEqual(2, type.GetField("Attack").GetValue(boss));
-                    if (archetype > 0)
-                        Assert.AreNotEqual(firstVolley, game.ActiveProjectiles - firstVolley, "Guardian alternates different volleys: " + ids[archetype]);
-                    if (archetype == 1)
-                        Assert.Greater((float)type.GetField("DashTime").GetValue(boss), 0, "The Widow's alternate attack starts a charge");
-                    if (archetype >= 2)
-                    {
-                        var warnings = (IList)typeof(HauntGame).GetField("warnings", PrivateInstance).GetValue(game);
-                        Assert.Greater(warnings.Count, 0, "The alternate attack must mark the ground: " + ids[archetype]);
-                    }
-                    if (archetype >= 5)
-                    {
-                        int beforeThirdPattern = game.ActiveProjectiles;
-                        type.GetField("Cooldown").SetValue(boss, 0f);
-                        Invoke(game, "UpdateBoss", boss, Vector2.down, 0f);
-                        Assert.AreEqual(3, type.GetField("Attack").GetValue(boss));
-                        Assert.Greater(game.ActiveProjectiles, beforeThirdPattern,
-                            "A new guardian follows its marked-ground attack with a third projectile pattern");
-                    }
+                    var warnings = Field<IList>(game, "warnings");
+                    Assert.Greater(warnings.Count, 0, "Alternating patterns retain a marked ground attack");
+                    Invoke(game, "ClearBulletPatterns");
+                    Assert.AreEqual(0, Field<IList>(game, "pendingPatterns").Count, "Sequences cancel without a delayed volley");
                     Assert.AreEqual(number - 1, game.Floor.ThemeIndex, "Encounter choice must not replace the floor theme");
                 }
                 yield return null;
@@ -1475,6 +1466,98 @@ namespace Ecos.Haunt.Tests
                     "Temporary layout reservations cannot leave an invisible collider at the destroyed prop");
                 yield return null;
                 LogAssert.NoUnexpectedReceived();
+            }
+            finally { UnityEngine.Object.Destroy(root); }
+        }
+
+        [UnityTest]
+        public IEnumerator SpectralDodgeLetsBulletsPassOnlyDuringItsFirstSixtyPercent()
+        {
+            var root = new GameObject("Haunt spectral recovery test");
+            try
+            {
+                var game = root.AddComponent<HauntGame>(); game.enabled = false;
+                game.BeginRun(42);
+                Invoke(game, "EnterRoom", game.Floor.Rooms.First(r => r.Kind == RoomKind.Combat), Vector2.zero);
+                Invoke(game, "ClearCombat");
+                int health = game.State.Health;
+                Set(game, "rollRemaining", .2f);
+                Invoke(game, "Fire", new Vector2(-1, 0), Vector2.right * 20, false, 1);
+                Invoke(game, "UpdateShots", .06f);
+                Assert.AreEqual(health, game.State.Health);
+                Assert.AreEqual(1, game.ActiveProjectiles, "I-frames pass through the projectile instead of consuming it");
+                Set(game, "rollRemaining", .05f); Set(game, "invincible", 0f);
+                Invoke(game, "UpdateShots", .01f);
+                Assert.AreEqual(health - 1, game.State.Health, "Recovery is vulnerable while the animation is still rolling");
+                Assert.AreEqual(0, game.ActiveProjectiles);
+                yield return null; LogAssert.NoUnexpectedReceived();
+            }
+            finally { UnityEngine.Object.Destroy(root); }
+        }
+
+        [UnityTest]
+        public IEnumerator OracleOrbsTelegraphAndSplitOnceAtTheirTravelDistance()
+        {
+            var root = new GameObject("Haunt oracle split test");
+            try
+            {
+                var game = root.AddComponent<HauntGame>(); game.enabled = false;
+                int seed = Enumerable.Range(0, 2000).First(n => DungeonFloor.Generate(n, 2).BossArchetype == 6);
+                StartFloor(game, seed, 2);
+                Invoke(game, "EnterRoom", game.Floor.Boss, Vector2.zero);
+                FinishEmergence(game);
+                var boss = Field<IList>(game, "enemies")[0]; SetField(boss, "Cooldown", 0f);
+                Set(game, "playerPosition", new Vector2(10, -6));
+                Invoke(game, "UpdateBoss", boss, Vector2.down, 0f);
+                Assert.AreEqual(0, game.ActiveProjectiles);
+                Invoke(game, "UpdateBulletPatterns", .35f);
+                Assert.AreEqual(2, game.ActiveProjectiles);
+                Invoke(game, "UpdateShots", 1.5f);
+                Assert.AreEqual(24, game.ActiveProjectiles, "Two orbs each split into twelve projectiles");
+                foreach (object shot in Field<IList>(game, "shots"))
+                    Assert.AreEqual(0, Field<float>(shot, "Age"), "Children wait for the next simulation tick");
+                Invoke(game, "ClearCombat");
+                Invoke(game, "UpdateBulletPatterns", 10f);
+                Assert.AreEqual(0, game.ActiveProjectiles, "Cancelled sequences cannot reappear after combat");
+                yield return null; LogAssert.NoUnexpectedReceived();
+            }
+            finally { UnityEngine.Object.Destroy(root); }
+        }
+
+        [UnityTest]
+        public IEnumerator HitFlashIsIndividualAndCasingsAfterimagesAndKickAreBounded()
+        {
+            var root = new GameObject("Haunt feel feedback test");
+            try
+            {
+                var game = root.AddComponent<HauntGame>(); game.enabled = false;
+                game.BeginRun(42);
+                Invoke(game, "SpawnEnemy", 0, new Vector2(-1, 2));
+                Invoke(game, "SpawnEnemy", 0, new Vector2(1, 2)); FinishEmergence(game);
+                var enemies = Field<IList>(game, "enemies");
+                Invoke(game, "DamageEnemy", 0, 1, Vector2.left, Color.white, false);
+                Assert.IsTrue(Field<HauntPixelArt>(game, "art").Material.HasProperty("_HitFlash"), "The active shader must support the per-renderer flash");
+                var block = new MaterialPropertyBlock();
+                Field<SpriteRenderer>(enemies[0], "Sprite").GetPropertyBlock(block);
+                Assert.AreEqual(1, block.GetFloat("_HitFlash"));
+                Field<SpriteRenderer>(enemies[1], "Sprite").GetPropertyBlock(block);
+                Assert.AreEqual(0, block.GetFloat("_HitFlash"), "One target's flash cannot change another target's material");
+                Invoke(game, "UpdateFeel", .061f);
+                Invoke(game, "PresentEnemyHitFeedback", enemies[0]);
+                Field<SpriteRenderer>(enemies[0], "Sprite").GetPropertyBlock(block);
+                Assert.AreEqual(0, block.GetFloat("_HitFlash"));
+                for (int i = 0; i < 120; i++) Invoke(game, "OnPlayerWeaponFired", Vector2.right, false, false);
+                Assert.Less(Field<Vector2>(game, "cameraKick").x, 0);
+                Assert.LessOrEqual(Field<Vector2>(game, "cameraKick").magnitude, .3501f);
+                Assert.LessOrEqual(Field<IList>(game, "casings").Count, 96);
+                Invoke(game, "EmitRollAfterimage");
+                Assert.AreEqual(1, Field<IList>(game, "afterimages").Count);
+                Invoke(game, "UpdateFeel", .21f);
+                Assert.AreEqual(0, Field<IList>(game, "afterimages").Count);
+                Invoke(game, "ResetGameFeel");
+                Assert.AreEqual(0, Field<IList>(game, "casings").Count);
+                Assert.AreEqual(Vector2.zero, Field<Vector2>(game, "cameraKick"));
+                yield return null; LogAssert.NoUnexpectedReceived();
             }
             finally { UnityEngine.Object.Destroy(root); }
         }

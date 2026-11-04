@@ -26,10 +26,14 @@ namespace Ecos.Haunt
             {
                 StopBeam();
                 if (shotCooldown > 0) return;
+                int before = shots.Count;
                 FireWeapon(aim);
+                if (shots.Count == before) return;
                 PlaySound(State.Weapon == WeaponKind.VeilWand ? SoundCue.MagicShot : SoundCue.Shot, .8f);
             }
             if (shotCooldown > 0) return;
+            bool heavy = State.Weapon == WeaponKind.SoulCannon || State.Weapon == WeaponKind.BoxingGlove;
+            OnPlayerWeaponFired(aim, heavy, ray);
             weaponKick = 1;
             muzzleTime = .045f;
             shotCooldown = State.WeaponInterval;
@@ -251,7 +255,7 @@ namespace Ecos.Haunt
         void UpdateBeam(Vector2 aim, bool damageTick)
         {
             bool lantern = State.Weapon == WeaponKind.RayLantern;
-            Color color = lantern ? new Color(.8f, .5f, 1) : new Color(.35f, .85f, 1);
+            Color color = lantern ? new Color(.8f, .5f, 1) : new Color(.4f, 1, .45f);
             Vector2 origin = playerPosition;
             Vector2 end = origin + aim * (lantern ? 11 : 7);
             float beamRadius = .055f * Mathf.Clamp(State.ProjectileScale, 1, 1.6f);
@@ -326,45 +330,69 @@ namespace Ecos.Haunt
         }
 
         void DamageEnemy(int index, int damage, Vector2 normal, Color color, bool heavy)
+            => DamageEnemyWithFeedback(index, damage, normal, color, heavy, true);
+
+        void DamageEnemyWithFeedback(int index, int damage, Vector2 normal, Color color, bool heavy, bool applyKnockback)
         {
             var enemy = enemies[index];
             enemy.Health -= damage;
             PlaySound(SoundCue.EnemyHit, .45f);
-            enemy.HurtFlash = .09f;
+            ApplyEnemyHitFeedback(enemy, -normal, damage, heavy, applyKnockback);
             Impact(enemy.Position + Vector2.up * .38f, normal, color, heavy);
             if (enemy.Health > 0) return;
             bool boss = enemy.Kind == 4;
+            OnEnemyDeathPattern(enemy);
             EnemyDeath(enemy);
             enemies.RemoveAt(index);
             enemiesDefeated++;
-            shake = boss ? .3f : enemy.Kind == 11 ? .16f : .07f;
+            AddCameraTrauma(boss ? .7f : enemy.Kind == 11 ? .3f : .08f);
             if (enemies.Count == 0) CompleteRoom(boss);
         }
 
         void UpdateShots(float dt)
         {
-            for (int i = shots.Count - 1; i >= 0; i--)
+            // Appended pattern children wait until the next frame. Every removal is
+            // confined to the current index, so child emission cannot shift work backward.
+            int snapshotCount = shots.Count;
+            for (int i = snapshotCount - 1; i >= 0; i--)
             {
                 var shot = shots[i];
+                bool cancelled = State == null || State.IsDead || (!shot.Friendly && CurrentRoom.Cleared);
+                if (cancelled)
+                {
+                    RecycleShot(i);
+                    continue;
+                }
                 shot.Age += dt;
+                shot.Life -= dt;
+                if (shot.Life <= 0)
+                {
+                    if (!shot.Friendly) OnHostileShotEnd(shot, false, false);
+                    RecycleShot(i);
+                    continue;
+                }
                 if (shot.Curve != 0) shot.Velocity = Rotate(shot.Velocity, shot.Curve * dt);
                 if (shot.Friendly && shot.Style == WeaponKind.HiveLauncher) GuideStinger(shot, dt);
+                else if (!shot.Friendly) UpdateHostileShotMotion(shot, dt);
                 if (shot.Spin != 0) shot.Sprite.transform.rotation = Quaternion.Euler(0, 0, shot.Age * shot.Spin);
                 if (shot.Style == WeaponKind.SpinningTop) shot.Sprite.sprite = art.Frame("top-shot", Mathf.FloorToInt(shot.Age * 16));
                 if (shot.Style == WeaponKind.MirrorDisc) shot.Sprite.sprite = art.Frame("shot-disc", Mathf.FloorToInt(shot.Age * 20));
                 Vector2 old = shot.Position;
                 Vector2 next = old + shot.Velocity * dt;
-                shot.Life -= dt;
-                if (shot.Life <= 0 || (!shot.Friendly && CurrentRoom.Cleared))
+                bool distanceEnd = !shot.Friendly && !shot.PatternTriggered && shot.SplitDistance > 0
+                    && shot.Travelled + Vector2.Distance(old, next) >= shot.SplitDistance;
+                if (distanceEnd)
                 {
-                    RecycleShot(i);
-                    continue;
+                    // Split at the requested distance rather than beyond a nearby wall
+                    // or across the player when a long frame crosses the threshold.
+                    float remaining = Mathf.Max(0, shot.SplitDistance - shot.Travelled);
+                    next = old + shot.Velocity.normalized * remaining;
                 }
                 shot.TrailTimer -= dt;
                 if (shot.TrailTimer <= 0)
                 {
                     ShotTrail(shot, old);
-                    shot.TrailTimer = shot.Friendly ? .045f : .16f;
+                    shot.TrailTimer = shot.Friendly ? .045f : .07f;
                 }
                 FindSolidContact(old, next, shot.Radius, out float nearest, out Vector2 solidNormal);
                 int propIndex = -1;
@@ -395,18 +423,17 @@ namespace Ecos.Haunt
                             shot.HitEnemies.Add(enemies[targetIndex]);
                             piercing = --shot.Pierces > 0;
                         }
-                        if (shot.Style == WeaponKind.BoxingGlove)
+                        bool glove = shot.Style == WeaponKind.BoxingGlove;
+                        if (glove)
                         {
                             var enemy = enemies[targetIndex];
-                            // Guardians hold their ground; other targets are pushed only
-                            // along legal ground so a glove cannot throw them into cover.
                             if (enemy.Kind != 4)
                                 enemy.Position = MoveEnemy(enemy, shot.Velocity.normalized * (enemy.Kind == 11 ? .3f : .85f), EnemyHitRadius(enemy));
                         }
-                        DamageEnemy(targetIndex, shot.Damage, -shot.Velocity.normalized, shot.Color, shot.Heavy);
+                        DamageEnemyWithFeedback(targetIndex, shot.Damage, -shot.Velocity.normalized, shot.Color, shot.Heavy, !glove || enemies[targetIndex].Kind == 4);
                     }
                 }
-                else if (rollRemaining <= 0 && CombatGeometry.CircleHitFraction(old.x, old.y, next.x, next.y,
+                else if (!RollInvulnerable && CombatGeometry.CircleHitFraction(old.x, old.y, next.x, next.y,
                     playerPosition.x, playerPosition.y, PlayerRadius + shot.Radius, out float playerContact) && playerContact < nearest)
                 {
                     nearest = playerContact;
@@ -417,6 +444,8 @@ namespace Ecos.Haunt
                 if (nearest <= 1)
                 {
                     Vector2 contact = Vector2.Lerp(old, next, Mathf.Clamp01(nearest));
+                    shot.Travelled += Vector2.Distance(old, contact);
+                    shot.Position = contact;
                     bool solidHit = targetIndex < 0 && !playerHit && propIndex < 0;
                     if (propIndex >= 0) DamageRoomProp(propIndex, shot.Damage);
                     if (targetIndex < 0) Impact(contact + Vector2.up * .38f, solidHit ? solidNormal : -shot.Velocity.normalized, shot.Color, shot.Heavy);
@@ -429,17 +458,53 @@ namespace Ecos.Haunt
                     }
                     else
                     {
-                        if (!piercing) { RecycleShot(i); continue; }
+                        if (!piercing)
+                        {
+                            if (!shot.Friendly) OnHostileShotEnd(shot, solidHit || propIndex >= 0, playerHit);
+                            RecycleShot(i);
+                            continue;
+                        }
                         // Check the remaining segment next frame before a piercing
                         // projectile is allowed to reach another enemy behind cover.
                         next = contact + shot.Velocity.normalized * .02f;
                     }
                 }
+                else
+                {
+                    shot.Travelled += Vector2.Distance(old, next);
+                    if (distanceEnd) shot.Travelled = Mathf.Max(shot.Travelled, shot.SplitDistance);
+                }
                 shot.Position = next;
+                if (!shot.Friendly && TryTriggerDistancePattern(shot))
+                {
+                    RecycleShot(i);
+                    continue;
+                }
                 shot.Sprite.transform.position = Snap(next + Vector2.up * .38f);
                 shot.Glow.transform.position = Snap(next + Vector2.up * .38f);
                 shot.Glow.transform.rotation = Quaternion.identity;
             }
+        }
+
+        void UpdateHostileShotMotion(Shot shot, float dt)
+        {
+            float speed = shot.Velocity.magnitude;
+            if (shot.Deceleration > 0)
+            {
+                speed = BulletPatternGenerator.SpeedAt(shot.Age, shot.InitialSpeed, shot.MinimumSpeed, shot.Deceleration);
+                shot.Velocity = shot.Velocity.normalized * speed;
+            }
+            if (shot.HomingRemaining <= 0 || speed <= .001f) return;
+            float window = Mathf.Min(dt, shot.HomingRemaining);
+            shot.HomingRemaining = Mathf.Max(0, shot.HomingRemaining - dt);
+            Vector2 direction = playerPosition - shot.Position;
+            if (direction.sqrMagnitude < .0001f) return;
+            float angle = Mathf.Atan2(shot.Velocity.y, shot.Velocity.x) * Mathf.Rad2Deg;
+            float target = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+            float turned = BulletPatternGenerator.TurnTowardsDegrees(angle, target, Mathf.Max(0, shot.TurnRate) * window);
+            shot.Velocity = Rotate(Vector2.right, turned) * speed;
+            if (shot.Spin == 0)
+                shot.Sprite.transform.rotation = Quaternion.Euler(0, 0, turned);
         }
 
         void GuideStinger(Shot shot, float dt)

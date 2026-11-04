@@ -29,6 +29,9 @@ NOVIDADES
 Salas com 4 perfis, novos mobs e chefes, tiros maiores/luminosos,
 barris explosivos, agua com lentidao, reliquias, 1-2 armas sorteadas
 por loja, paredes com profundidade por camadas e musica de fundo.
+Camera com antecipacao e trauma, flash de impacto, evasao espectral
+(60% protecao / 40% recuperacao), luzes com flicker e padroes de tiros.
+Veja Documentation/GAME_FEEL.md para o catalogo dos ataques.
 Morrer encerra a incursao; nao ha save entre sessoes ou multiplayer.
 
 O Editor nao esta instalado no ambiente desta revisao. Checks C#,

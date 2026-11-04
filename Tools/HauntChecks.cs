@@ -494,6 +494,71 @@ static class HauntChecks
         Console.WriteLine("Shop/relics: deterministic limited stock, no rerolls, atomic refusals, character effects and passive caps checked.");
     }
 
+    static void BulletPatternsAndDodge()
+    {
+        static float Delta(float a, float b) => (float)(Math.Atan2(Math.Sin((a-b)*Math.PI/180), Math.Cos((a-b)*Math.PI/180))*180/Math.PI);
+        var cone = BulletPatternGenerator.Fan(3, 0, 22);
+        Check(cone.SequenceEqual(new[] { -11f, 0, 11 }), "Skeleton cone has a centered ray and symmetric boundaries");
+        Check(BulletPatternGenerator.Fan(1, 35, 60).Single() == 35, "Single-ray fans preserve aim");
+        foreach (int count in new[] { 2, 4, 6, 8, 12, 24 })
+            foreach (float phase in new[] { -180f, -17f, 0f, 22.5f, 179f, 720f })
+            {
+                float[] ring = BulletPatternGenerator.Ring(count, phase);
+                Check(ring.Length == count && ring.Distinct().Count() == count, "Radial pattern has no duplicate seam");
+                for (int i = 0; i < count; i++)
+                    Check(Math.Abs(Delta(ring[(i+1)%count], ring[i]) - (count == 2 ? -180 : 360f/count)) < .001f
+                        || count == 2 && Math.Abs(Math.Abs(Delta(ring[(i+1)%count], ring[i]))-180) < .001f,
+                        "Ring rays preserve angular spacing");
+            }
+        var sentinel = BulletPatternGenerator.Ring(8, 0);
+        var interleaved = BulletPatternGenerator.Ring(8, 22.5f);
+        Check(!sentinel.Intersect(interleaved).Any(), "Sentinel rings interleave without coincident rays");
+        for (int phase = 0; phase < 360; phase += 7)
+        {
+            var gap = BulletPatternGenerator.GapRing(24, phase, phase + 37, 52);
+            Check(gap.Length >= 20 && gap.Length <= 22, "Bell leaves a playable gap in its 24 candidate positions");
+            Check(gap.All(angle => Math.Abs(Delta(angle, phase+37)) > 26), "Rotating gap contains no projectile");
+        }
+        var cross = BulletPatternGenerator.CrossFormation(2, .5f, 37, 4);
+        Check(cross.Length == 9, "Cross has a center and four arms without a duplicate center");
+        foreach (var part in cross)
+        {
+            Check(part.OffsetX == 0 || part.OffsetY == 0, "Cross offsets lie on perpendicular arms");
+            Check(Math.Abs(part.VelocityX-cross[0].VelocityX) < .00001f && Math.Abs(part.VelocityY-cross[0].VelocityY) < .00001f,
+                "Common velocity preserves a traveling cross instead of scattering four rays");
+            Check(Math.Abs((part.OffsetX+part.VelocityX*1.3f)-(cross[0].OffsetX+cross[0].VelocityX*1.3f)-part.OffsetX) < .00001f,
+                "Cross offsets remain constant in flight");
+        }
+        Check(Math.Abs(BulletPatternGenerator.PredictiveAim(0,0,5,0,0,3,5,2)-36.8699f)<.001f,
+            "Predictive aim solves perpendicular target interception");
+        Check(BulletPatternGenerator.PredictiveAim(0,0,5,0,6,0,5,2)==0, "Unreachable target falls back to direct aim");
+        Check(BulletPatternGenerator.PredictiveAim(0,0,5,0,0,3,5,.1f)<4, "Predictive lead is bounded");
+        float previous = 7;
+        for (int i=0;i<=400;i++)
+        {
+            float speed=BulletPatternGenerator.SpeedAt(i*.01f,7,2.2f,4);
+            Check(speed<=previous+.00001f && speed>=2.2f, "Radial shots decelerate monotonically to a floor"); previous=speed;
+        }
+        Check(BulletPatternGenerator.TurnTowardsDegrees(170,-170,5)==175, "Homing takes shortest turn across the angular seam");
+        Check(Math.Abs(Delta(BulletPatternGenerator.TurnTowardsDegrees(179,-179,5),-179))<.001f, "Homing cannot overshoot the target");
+        Check(BulletPatternGenerator.Ring(int.MaxValue,0).Length<=256
+            && BulletPatternGenerator.CrossFormation(int.MaxValue,1,0,4).Length<=256, "Pattern allocations remain bounded");
+        foreach(float invalid in new[]{float.NaN,float.PositiveInfinity,float.NegativeInfinity})
+        {
+            Check(BulletPatternGenerator.Ring(8,invalid).Length==0 && BulletPatternGenerator.Fan(5,0,invalid).Length==0,
+                "Non-finite pattern inputs are rejected");
+            Check(!DodgeRules.IsInvulnerable(invalid,.24f)&&!DodgeRules.IsInvulnerable(.1f,invalid), "Non-finite dodge timers do not grant protection");
+        }
+        const float duration=.24f;
+        Check(DodgeRules.IsInvulnerable(duration,duration), "Dodge starts protected");
+        Check(DodgeRules.IsInvulnerable(duration*.401f,duration), "Protection extends through the first 60 percent");
+        Check(!DodgeRules.IsInvulnerable(duration*.4f,duration) && !DodgeRules.IsInvulnerable(duration*.2f,duration),
+            "The exact 60-percent boundary and recovery are vulnerable");
+        Check(!DodgeRules.IsInvulnerable(0,duration)&&!DodgeRules.IsInvulnerable(-1,duration)
+            &&!DodgeRules.IsInvulnerable(duration+1,duration)&&!DodgeRules.IsInvulnerable(.1f,0), "Expired and invalid roll states are vulnerable");
+        Console.WriteLine("Bullet patterns/dodge: fans, radial spacing, rotating gaps, cross formation, interception, deceleration, limited turn and 60/40 protection checked.");
+    }
+
     public static void Main()
     {
         Maps();
@@ -503,6 +568,7 @@ static class HauntChecks
         CharactersAndArsenal();
         CuriousShopWeapons();
         ShopStockAndRelics();
+        BulletPatternsAndDodge();
         Console.WriteLine($"PASS — {assertions} assertions against production dungeon and run-state code.");
     }
 }

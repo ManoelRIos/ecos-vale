@@ -87,6 +87,8 @@ namespace Ecos.Haunt
 
         void BuildRoom(bool shop)
         {
+            ClearRoomFeel();
+            ClearRoomLighting();
             ClearRoomProps();
             if (roomRoot) { roomRoot.SetActive(false); Destroy(roomRoot); }
             roomRoot = new GameObject(shop ? "Mercado das Almas" : "Cripta • sala " + CurrentRoom.Id);
@@ -185,6 +187,7 @@ namespace Ecos.Haunt
                         Vector2 point = new Vector2(side * 13, row * 6.8f);
                         var prop = MakeSprite("decor-theme" + roomTheme, point, roomRoot.transform, Depth(point.y));
                         prop.transform.localScale = Vector3.one * 1.1f;
+                        if (roomTheme == 1 || roomTheme == 4) AttachFlickerLight(prop.transform, new Color(.6f, .3f, 1), 3, .18f, .13f, -110);
                         AddGroundGlow(point, accent, 3.5f, .15f);
                     }
                 for (int i = 0; i < 9 + Mathf.Min(State.Floor, 12); i++)
@@ -218,7 +221,7 @@ namespace Ecos.Haunt
                 {
                     Vector2 point = new Vector2(side * 11, row * 7.2f);
                     AnimatedProp("candle", point, Depth(point.y));
-                    AddGroundGlow(point, shop ? new Color(1, .7f, .3f) : FloorColors[roomTheme], 3.8f, .17f);
+                    AddGroundGlow(point, new Color(1, .45f, .15f), 3.8f, .24f);
                 }
             for (int side = -1; side <= 1; side += 2)
             {
@@ -239,6 +242,7 @@ namespace Ecos.Haunt
             }
             BuildRaisedWalls(shop);
             if (!shop) InitializeRoomProps();
+            if (!shop) TintDungeonRoom();
             UpdateRoomAmbience(0);
         }
 
@@ -307,11 +311,7 @@ namespace Ecos.Haunt
 
         void AddGroundGlow(Vector2 position, Color color, float size, float opacity)
         {
-            var glow = MakeSprite("glow", position, roomRoot.transform, -170);
-            glow.sharedMaterial = GlowMaterial;
-            glow.transform.localScale = Vector3.one * size;
-            glow.color = new Color(color.r, color.g, color.b, opacity);
-            roomGlows.Add(glow);
+            CreateRoomLight(null, position, color, size, opacity, .16f, -170);
         }
 
         void UpdateDoorArt()
@@ -332,12 +332,13 @@ namespace Ecos.Haunt
             if (State != null)
                 foreach (var display in shopDisplays)
                     if (display.Sprite) display.Sprite.enabled = !State.Sold(display.Item);
+            TickRoomLighting(dt);
             foreach (var fog in fogPatches)
                 if (fog.Sprite)
                 {
                     fog.Sprite.transform.position = Snap(fog.Anchor + new Vector2(Mathf.Sin(simulationTime * .18f + fog.Phase) * 1.3f, Mathf.Cos(simulationTime * .12f + fog.Phase) * .4f));
                     Color tint = FloorColors[roomTheme];
-                    fog.Sprite.color = new Color(tint.r * .8f, tint.g * .85f, tint.b, .32f + .05f * Mathf.Sin(simulationTime * .6f + fog.Phase));
+                    fog.Sprite.color = new Color(tint.r * .65f, tint.g * .7f, tint.b, .16f + .07f * Mathf.PerlinNoise(fog.Phase + 2, simulationTime * .2f));
                 }
             if (Playing && !InShop && dt > 0 && Mathf.FloorToInt(simulationTime * 12) != Mathf.FloorToInt((simulationTime - dt) * 12))
             {
@@ -388,7 +389,7 @@ namespace Ecos.Haunt
             player.transform.localScale = rolling ? new Vector3(1.05f, .78f, 1) : new Vector3(1, 1 + Mathf.Sin(simulationTime * 2) * .015f, 1);
             shadow.transform.position = Snap(playerPosition + new Vector2(.16f, -.25f));
             shadow.transform.localScale = new Vector3(1.8f - bob * .35f, .95f - bob * .15f, 1);
-            shadow.color = new Color(1, 1, 1, .95f);
+            shadow.color = new Color(1, 1, 1, .72f);
             playerMarker.transform.position = Snap(playerPosition + Vector2.down * .2f);
             playerMarker.color = new Color(PlayerAccent.r, PlayerAccent.g, PlayerAccent.b, rolling ? .65f : .95f);
             playerGlow.transform.position = Snap(playerPosition);
@@ -452,6 +453,7 @@ namespace Ecos.Haunt
             enemy.Telegraph.transform.rotation = Quaternion.Euler(0, 0, Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg);
             enemy.Telegraph.transform.localScale = new Vector3(enemy.Kind == 3 ? 3f : 1.5f, .6f, 1);
             enemy.Telegraph.color = new Color(1, .2f, .32f, .5f + .2f * Mathf.Sin(enemy.Phase * 25));
+            PresentEnemyHitFeedback(enemy);
         }
 
         void UpdateVisualMotion(float dt)
@@ -461,8 +463,8 @@ namespace Ecos.Haunt
             trailTimer -= dt; dustTimer -= dt;
             if (player && rollRemaining > 0 && trailTimer <= 0)
             {
-                Emit("player", playerPosition + Vector2.up * .38f, Vector2.zero, new Color(.25f, 1, .85f, .32f), .18f, .95f, 0);
-                trailTimer = .045f;
+                EmitRollAfterimage();
+                trailTimer = .035f;
             }
             else if (player && playerMoving && dustTimer <= 0)
             {
@@ -473,19 +475,7 @@ namespace Ecos.Haunt
             UpdateCamera(dt, false);
         }
 
-        void UpdateCamera(float dt, bool snap)
-        {
-            view.orthographicSize = CameraSize;
-            Vector2 focus = playerPosition + Vector2.up * .45f;
-            float horizontal = Mathf.Max(0, HalfWidth + 1.5f - CameraSize * Mathf.Max(.5f, view.aspect));
-            float vertical = Mathf.Max(0, HalfHeight + 1.5f - CameraSize);
-            focus.x = Mathf.Clamp(focus.x, -horizontal, horizontal);
-            focus.y = Mathf.Clamp(focus.y, -vertical, vertical);
-            cameraPosition = snap ? focus : Vector2.Lerp(cameraPosition, focus, 1 - Mathf.Exp(-10 * dt));
-            Vector2 offset = new Vector2(Mathf.Sin(simulationTime * 143), Mathf.Cos(simulationTime * 157)) * (shake * .2f);
-            view.transform.position = new Vector3(Mathf.Round((cameraPosition.x + offset.x) * 32) / 32f,
-                Mathf.Round((cameraPosition.y + offset.y) * 32) / 32f, -20);
-        }
+        void UpdateCamera(float dt, bool snap) => UpdateDynamicCamera(dt, snap);
 
         void Emit(string id, Vector2 position, Vector2 velocity, Color color, float duration, float scale, float gravity, float spin = 0)
         {
@@ -529,19 +519,18 @@ namespace Ecos.Haunt
                 Emit("impact-dust", position, Rotate(normal, (i - count / 2) * 24) * (.8f + i % 3 * .45f), dust,
                     .10f + i % 3 * .025f, .24f + i % 2 * .05f, 2, i % 2 == 0 ? 75 : -75);
             }
-            if (heavy) shake = Mathf.Max(shake, .09f);
+            if (heavy) AddCameraTrauma(.08f);
         }
 
         void ShotTrail(Shot shot, Vector2 origin)
         {
             // A short translucent stroke follows travel instead of spawning stars.
-            if (!shot.Friendly) return;
             Vector2 direction = shot.Velocity.normalized;
             Color tint = Color.Lerp(shot.Color, new Color(1, .95f, .85f), .25f);
-            tint.a = .32f;
+            tint.a = shot.Friendly ? .32f : .24f;
             int before = sparks.Count;
             Emit("shot-trail", origin + Vector2.up * .38f - direction * .16f, -direction * .45f,
-                tint, .1f, .42f, 0);
+                tint, shot.Friendly ? .1f : .08f, shot.Friendly ? .42f : .28f, 0);
             if (sparks.Count == before) return;
             var tail = sparks[sparks.Count - 1];
             tail.Aspect = Mathf.Clamp(shot.Velocity.magnitude * .08f, 1, 2.2f);
