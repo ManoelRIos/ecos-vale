@@ -12,7 +12,7 @@ namespace Ecos.Haunt
         // follows the cursor smoothly while damage still respects the weapon rate.
         void UpdateWeaponTrigger(Vector2 aim, bool pressed, float dt)
         {
-            if (!pressed || InShop || shopMenuOpen || Paused || State == null || State.IsDead || rollRemaining > 0)
+            if (!pressed || InShop || shopMenuOpen || ConversationCapturesInput || Paused || State == null || State.IsDead || rollRemaining > 0)
             {
                 StopBeam();
                 return;
@@ -50,7 +50,7 @@ namespace Ecos.Haunt
 
         void FireWeapon(Vector2 aim)
         {
-            if (InShop || shopMenuOpen || Paused || State == null || State.IsDead) return;
+            if (InShop || shopMenuOpen || ConversationCapturesInput || Paused || State == null || State.IsDead) return;
             aim = aim.sqrMagnitude > .0001f ? aim.normalized : Vector2.right;
             Vector2 origin = playerPosition + aim * .48f;
             switch (State.Weapon)
@@ -335,6 +335,8 @@ namespace Ecos.Haunt
         void DamageEnemyWithFeedback(int index, int damage, Vector2 normal, Color color, bool heavy, bool applyKnockback)
         {
             var enemy = enemies[index];
+            if (!IsEnemyDamageable(enemy))
+            { Impact(enemy.Position + Vector2.up * .38f, normal, new Color(.6f,.62f,.7f), false); return; }
             enemy.Health -= damage;
             PlaySound(SoundCue.EnemyHit, .45f);
             ApplyEnemyHitFeedback(enemy, -normal, damage, heavy, applyKnockback);
@@ -342,6 +344,7 @@ namespace Ecos.Haunt
             if (enemy.Health > 0) return;
             bool boss = enemy.Kind == 4;
             OnEnemyDeathPattern(enemy);
+            if (boss) PlayBossDeathPresentation(enemy);
             EnemyDeath(enemy);
             enemies.RemoveAt(index);
             enemiesDefeated++;
@@ -427,7 +430,7 @@ namespace Ecos.Haunt
                         if (glove)
                         {
                             var enemy = enemies[targetIndex];
-                            if (enemy.Kind != 4)
+                            if (enemy.Kind != 4 && IsEnemyDamageable(enemy))
                                 enemy.Position = MoveEnemy(enemy, shot.Velocity.normalized * (enemy.Kind == 11 ? .3f : .85f), EnemyHitRadius(enemy));
                         }
                         DamageEnemyWithFeedback(targetIndex, shot.Damage, -shot.Velocity.normalized, shot.Color, shot.Heavy, !glove || enemies[targetIndex].Kind == 4);
@@ -514,7 +517,7 @@ namespace Ecos.Haunt
             Vector2 forward = shot.Velocity.normalized;
             foreach (var enemy in enemies)
             {
-                if (enemy.SpawnRemaining > 0 || enemy.Health <= 0) continue;
+                if (!IsEnemyDamageable(enemy)) continue;
                 Vector2 delta = enemy.Position - shot.Position;
                 float distance = delta.sqrMagnitude;
                 // Limited turning preserves an aimed shot and cannot track through cover.

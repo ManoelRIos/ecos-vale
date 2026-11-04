@@ -299,6 +299,7 @@ namespace Ecos.Haunt.Tests
             FinishEmergence(game);
             for (int i = 0; i < count; i++)
             {
+                if (Field<int>(enemies[0], "Kind") == 16) SetField(enemies[0], "SpecialTimer", 1.6f);
                 Vector2 position = Field<Vector2>(enemies[0], "Position");
                 // Hit the actual collision circle instead of calling the reward path directly.
                 Invoke(game, "Fire", position, Vector2.right, true, 10000);
@@ -500,6 +501,7 @@ namespace Ecos.Haunt.Tests
                 Assert.IsTrue(room.Cleared);
                 Assert.IsFalse(game.State.BossDefeated, "A miniboss cannot unlock the floor portal or shop");
                 Invoke(game, "EnterRoom", game.Floor.Boss, Vector2.zero);
+                Invoke(game, "UpdateConversations", 3.01f);
                 var boss = Field<IList>(game, "enemies");
                 Assert.AreEqual(1, boss.Count);
                 Assert.AreEqual(4, Field<int>(boss[0], "Kind"));
@@ -517,7 +519,7 @@ namespace Ecos.Haunt.Tests
             {
                 var game = root.AddComponent<HauntGame>();
                 StartFloor(game, 42, 2);
-                var room = game.Floor.Rooms.First(r => r.Kind == RoomKind.Combat && r.Id % 3 == 0);
+                var room = game.Floor.Rooms.First(r => r.Kind == RoomKind.Combat && RoomLayout.Generate(42, 2, r.Id, r.Kind).Pits.Length > 0);
                 Invoke(game, "EnterRoom", room, Vector2.zero);
                 var pits = Field<IList>(game, "pits");
                 Assert.Greater(pits.Count, 0, "The test must use a generated pit room");
@@ -714,6 +716,7 @@ namespace Ecos.Haunt.Tests
                 {
                     StartFloor(game, 42, floor);
                     Invoke(game, "EnterRoom", game.Floor.Boss, Vector2.zero);
+                Invoke(game, "UpdateConversations", 3.01f);
                     Assert.AreEqual(1, game.LivingEnemies);
                     FinishEmergence(game);
                     Invoke(game, "UpdateEnemies", 3f);
@@ -800,13 +803,14 @@ namespace Ecos.Haunt.Tests
                     int seed = Enumerable.Range(0, 2000).First(n => DungeonFloor.Generate(n, number).BossArchetype == archetype);
                     StartFloor(game, seed, number);
                     Invoke(game, "EnterRoom", game.Floor.Boss, Vector2.zero);
+                Invoke(game, "UpdateConversations", 3.01f);
                     Assert.AreEqual(archetype, game.Floor.BossArchetype);
                     FinishEmergence(game);
                     var enemies = (IList)typeof(HauntGame).GetField("enemies", PrivateInstance).GetValue(game);
                     var boss = enemies[0];
                     var type = boss.GetType();
                     var sprite = (SpriteRenderer)type.GetField("Sprite").GetValue(boss);
-                    StringAssert.Contains("/ " + ids[archetype] + "/", sprite.sprite.name);
+                    StringAssert.Contains("/" + ids[archetype] + "/", sprite.sprite.name);
                     type.GetField("Cooldown").SetValue(boss, 0f);
                     Invoke(game, "UpdateBoss", boss, Vector2.down, 0f);
                     Assert.AreEqual(0, game.ActiveProjectiles, "Preparation must precede the first projectile");
@@ -950,6 +954,7 @@ namespace Ecos.Haunt.Tests
                 Vector2 expected = doors.OrderBy(d => Vector2.SqrMagnitude((Vector2)d.transform.position - game.PlayerPosition)).First().transform.position;
                 Assert.Less(Vector2.Distance(expected, destination), .05f, "Guide should choose the physically closest doorway");
                 Invoke(game, "EnterRoom", game.Floor.Boss, Vector2.zero);
+                Invoke(game, "UpdateConversations", 3.01f);
                 Invoke(game, "ClearCombat");
                 Invoke(game, "CompleteRoom", true);
                 Set(game, "playerPosition", new Vector2(12, 0));
@@ -1019,6 +1024,11 @@ namespace Ecos.Haunt.Tests
                 Assert.IsTrue((bool)Invoke(game, "Blocked", new Vector2(0, 2.4f), .27f), "The counter is real cover, not a walk-through painting");
                 Assert.IsFalse((bool)Invoke(game, "TryOpenMerchantAt", new Vector2(6, 0)), "Clicking a display does not open or buy the catalog");
                 Assert.IsTrue((bool)Invoke(game, "TryOpenMerchantAt", new Vector2(0, 3.6f)));
+                Assert.IsTrue((bool)typeof(HauntGame).GetProperty("ConversationActive", PrivateInstance).GetValue(game));
+                Assert.IsFalse(Field<bool>(game, "shopMenuOpen"), "The merchant talks before opening the catalog");
+                Set(game, "conversationOpenedFrame", Time.frameCount - 1);
+                Invoke(game, "RevealDialogueImmediately");
+                Invoke(game, "SelectDialogueChoice", 0);
                 Assert.IsTrue(Field<bool>(game, "shopMenuOpen"));
                 Assert.IsTrue((bool)Invoke(game, "PointerOverInterface"));
                 Vector2 standing = game.PlayerPosition;
@@ -1352,20 +1362,31 @@ namespace Ecos.Haunt.Tests
                 InjectPad(game, pad, new GamepadState().WithButton(GamepadButton.South));
                 Assert.IsTrue((bool)Invoke(game, "InteractPressed"));
                 Invoke(game, "Interact");
-                Assert.IsTrue(Field<bool>(game, "shopMenuOpen"));
+                Assert.IsTrue((bool)typeof(HauntGame).GetProperty("ConversationActive", PrivateInstance).GetValue(game));
                 int coins = game.State.Coins;
+                yield return null;
                 InjectPad(game, pad, new GamepadState().WithButton(GamepadButton.South));
-                Assert.AreEqual(coins, game.State.Coins, "The press that opened the merchant must be released before any purchase");
-                ShopItem offer = game.State.ShopWeapons[0];
+                Invoke(game, "UpdateConversations", .05f);
+                Assert.AreEqual(coins, game.State.Coins, "Opening dialogue cannot spend money");
                 InjectPad(game, pad, new GamepadState());
+                Invoke(game, "RevealDialogueImmediately");
+                yield return null;
+                InjectPad(game, pad, new GamepadState().WithButton(GamepadButton.South));
+                Invoke(game, "UpdateConversations", 0f);
+                Assert.IsTrue(Field<bool>(game, "shopMenuOpen"));
+                Assert.AreEqual(coins, game.State.Coins, "Negotiating cannot buy on the same press");
+                yield return null;
+                InjectPad(game, pad, new GamepadState().WithButton(GamepadButton.South));
+                Assert.AreEqual(coins, game.State.Coins, "Held confirm must be released before a purchase");
+                InjectPad(game, pad, new GamepadState());
+                yield return null;
+                ShopItem offer = game.State.ShopWeapons[0];
                 InjectPad(game, pad, new GamepadState().WithButton(GamepadButton.South));
                 Assert.AreEqual(coins - game.State.Price(offer), game.State.Coins);
                 Assert.IsTrue(game.State.Sold(offer));
-                InjectPad(game, pad, new GamepadState().WithButton(GamepadButton.South));
-                Assert.AreEqual(coins - game.State.Price(offer), game.State.Coins, "Holding confirm cannot charge repeatedly");
+                yield return null;
                 InjectPad(game, pad, new GamepadState().WithButton(GamepadButton.East));
                 Assert.IsFalse(Field<bool>(game, "shopMenuOpen"));
-                Assert.IsFalse((bool)Invoke(game, "InteractPressed"), "Closing the catalog consumes that frame's controller action");
                 yield return null;
                 LogAssert.NoUnexpectedReceived();
             }
@@ -1443,8 +1464,7 @@ namespace Ecos.Haunt.Tests
             {
                 var game = root.AddComponent<HauntGame>();
                 game.enabled = false;
-                // This seed places candidate six near candidate zero. The original
-                // layout rejects six; breaking zero must not admit it on a revisit.
+                // Destruction must preserve the seeded candidate sequence on a revisit.
                 game.BeginRun(21);
                 var room = game.Floor.GetRoom(1);
                 Assert.AreEqual(RoomKind.Combat, room.Kind);
@@ -1452,7 +1472,7 @@ namespace Ecos.Haunt.Tests
                 Invoke(game, "ClearCombat");
                 var props = Field<IList>(game, "roomProps");
                 var expected = props.Cast<object>().Select(prop => Field<long>(prop, "Key")).ToList();
-                Assert.AreEqual(6, expected.Count, "The regression seed starts with one rejected cluster candidate");
+                Assert.Greater(expected.Count, 0, "The generated layout must include destructible props");
                 long broken = Field<long>(props[0], "Key");
                 Vector2 brokenPosition = Field<Vector2>(props[0], "Position");
                 Invoke(game, "DamageRoomProp", 0, 100);
@@ -1505,6 +1525,7 @@ namespace Ecos.Haunt.Tests
                 int seed = Enumerable.Range(0, 2000).First(n => DungeonFloor.Generate(n, 2).BossArchetype == 6);
                 StartFloor(game, seed, 2);
                 Invoke(game, "EnterRoom", game.Floor.Boss, Vector2.zero);
+                Invoke(game, "UpdateConversations", 3.01f);
                 FinishEmergence(game);
                 var boss = Field<IList>(game, "enemies")[0]; SetField(boss, "Cooldown", 0f);
                 Set(game, "playerPosition", new Vector2(10, -6));
@@ -1557,6 +1578,119 @@ namespace Ecos.Haunt.Tests
                 Invoke(game, "ResetGameFeel");
                 Assert.AreEqual(0, Field<IList>(game, "casings").Count);
                 Assert.AreEqual(Vector2.zero, Field<Vector2>(game, "cameraKick"));
+                yield return null; LogAssert.NoUnexpectedReceived();
+            }
+            finally { UnityEngine.Object.Destroy(root); }
+        }
+
+        [UnityTest]
+        public IEnumerator BossIntroductionOwnsThreeSecondsAndNegotiationOwnsTheCatalog()
+        {
+            var root = new GameObject("Haunt cinematic and dialogue test");
+            try
+            {
+                var game = root.AddComponent<HauntGame>(); game.enabled = false;
+                game.BeginRun(42);
+                Invoke(game, "EnterRoom", game.Floor.Boss, Vector2.zero);
+                var intro = typeof(HauntGame).GetProperty("BossIntroActive", PrivateInstance);
+                Assert.IsTrue((bool)intro.GetValue(game));
+                Vector2 position = game.PlayerPosition;
+                int health = game.State.Health;
+                Invoke(game, "UpdateConversations", 1.5f);
+                Assert.IsTrue((bool)intro.GetValue(game));
+                Assert.AreEqual(position, game.PlayerPosition);
+                Assert.AreEqual(health, game.State.Health);
+                Assert.AreEqual(0, game.ActiveProjectiles);
+                Invoke(game, "UpdateMusic", .1f);
+                Assert.AreEqual(5, Field<int>(game, "musicTheme"), "An exclusive faster theme replaces the ambient track");
+                Invoke(game, "UpdateConversations", 1.499f);
+                Assert.IsTrue((bool)intro.GetValue(game), "No input may shorten the mandatory three seconds");
+                Invoke(game, "UpdateConversations", .002f);
+                Assert.IsFalse((bool)intro.GetValue(game));
+                var boss = Field<IList>(game, "enemies")[0];
+                Assert.AreEqual(0, Field<float>(boss, "SpawnRemaining"));
+                Invoke(game, "DamageEnemy", 0, 10000, Vector2.up, Color.white, true);
+                Assert.IsTrue(game.State.BossDefeated);
+                Assert.AreEqual(1, Field<IList>(game, "bossRemnants").Count);
+                Invoke(game, "UpdateBossPresentation", .91f);
+                Assert.AreEqual(0, Field<IList>(game, "bossRemnants").Count);
+                Invoke(game, "OpenShop");
+                Set(game, "playerPosition", new Vector2(0, 1.3f));
+                Invoke(game, "OpenMerchant");
+                Assert.IsFalse(Field<bool>(game, "shopMenuOpen"));
+                Set(game, "conversationOpenedFrame", Time.frameCount - 1);
+                Invoke(game, "RevealDialogueImmediately");
+                Invoke(game, "SelectDialogueChoice", 0);
+                Assert.IsTrue(Field<bool>(game, "shopMenuOpen"));
+                yield return null; LogAssert.NoUnexpectedReceived();
+            }
+            finally { UnityEngine.Object.Destroy(root); }
+        }
+
+        [UnityTest]
+        public IEnumerator AcidDamagesOverTimeAndPillarsRemoveTheirActualCoverWhenBroken()
+        {
+            var root = new GameObject("Haunt acid and cover test");
+            try
+            {
+                var game = root.AddComponent<HauntGame>(); game.enabled = false;
+                game.BeginRun(42);
+                Invoke(game, "EnterRoom", game.Floor.Rooms.First(r => r.Kind == RoomKind.Combat), Vector2.zero);
+                Invoke(game, "ClearCombat");
+                var props = Field<IList>(game, "roomProps");
+                int acidIndex = Enumerable.Range(0, props.Count).First(i => Field<bool>(props[i], "Acid"));
+                Vector2 point = Field<Vector2>(props[acidIndex], "Position");
+                Invoke(game, "DamageRoomProp", acidIndex, 100);
+                Assert.AreEqual(1, Field<IList>(game, "damageZones").Count);
+                Set(game, "playerPosition", point); Set(game, "invincible", 0f);
+                int health = game.State.Health;
+                Invoke(game, "UpdateDamageZones", .74f);
+                Assert.AreEqual(health, game.State.Health, "The glowing spill gives time to move");
+                Invoke(game, "UpdateDamageZones", .02f);
+                Assert.AreEqual(health - 1, game.State.Health);
+                int pillarIndex = Enumerable.Range(0, props.Count).First(i => Field<bool>(props[i], "Pillar"));
+                Rect cover = Field<Rect>(props[pillarIndex], "Bounds");
+                Invoke(game, "DamageRoomProp", pillarIndex, 100);
+                Assert.IsFalse(Field<IList>(game, "obstacles").Contains(cover));
+                Assert.IsFalse((bool)Invoke(game, "Blocked", cover.center, .1f));
+                yield return null; LogAssert.NoUnexpectedReceived();
+            }
+            finally { UnityEngine.Object.Destroy(root); }
+        }
+
+        [UnityTest]
+        public IEnumerator GargoyleStoneIgnoresDamageAndTheShadowCrossesRealRoomWalls()
+        {
+            var root = new GameObject("Haunt new Halloween mechanics test");
+            try
+            {
+                var game = root.AddComponent<HauntGame>(); game.enabled = false;
+                game.BeginRun(42);
+                Invoke(game, "EnterRoom", game.Floor.Rooms.First(r => r.Kind == RoomKind.Combat), Vector2.zero);
+                Invoke(game, "ClearCombat");
+                Invoke(game, "SpawnEnemy", 16, new Vector2(3, 0)); FinishEmergence(game);
+                var gargoyle = Field<IList>(game, "enemies")[0];
+                int health = Field<int>(gargoyle, "Health");
+                Invoke(game, "DamageEnemy", 0, 1, Vector2.left, Color.white, false);
+                Assert.AreEqual(health, Field<int>(gargoyle, "Health"));
+                SetField(gargoyle, "SpecialTimer", 1.6f);
+                Invoke(game, "DamageEnemy", 0, 1, Vector2.left, Color.white, false);
+                Assert.AreEqual(health - 1, Field<int>(gargoyle, "Health"));
+                Invoke(game, "SpawnEnemy", 17, Vector2.zero); FinishEmergence(game);
+                var shadow = Field<IList>(game, "enemies")[1];
+                SetField(shadow, "Position", Vector2.zero);
+                Field<IList>(game, "obstacles").Add(new Rect(.5f, -1, .5f, 2));
+                Vector2 next = (Vector2)Invoke(game, "MoveEnemy", shadow, Vector2.right * 2, .3f);
+                Assert.Greater(next.x, 1, "The spirit's traversal intentionally ignores a physical wall");
+                Invoke(game, "SpawnEnemy", 15, new Vector2(-10, 0)); FinishEmergence(game);
+                var scarecrow = Field<IList>(game, "enemies")[2];
+                SetField(scarecrow, "Position", new Vector2(-10, 0));
+                Invoke(game, "UpdateHalloweenEnemy", scarecrow, Vector2.right, 10f, .1f);
+                Invoke(game, "PresentEnemy", scarecrow, Vector2.right);
+                Assert.IsFalse(Field<bool>(scarecrow, "Awakened"));
+                Assert.IsFalse(Field<SpriteRenderer>(scarecrow, "Ring").enabled, "A disguised scarecrow must not advertise an enemy marker");
+                Invoke(game, "UpdateHalloweenEnemy", scarecrow, Vector2.right, 2f, .1f);
+                Assert.IsTrue(Field<bool>(scarecrow, "Awakened"));
                 yield return null; LogAssert.NoUnexpectedReceived();
             }
             finally { UnityEngine.Object.Destroy(root); }

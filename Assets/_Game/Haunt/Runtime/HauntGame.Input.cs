@@ -40,6 +40,8 @@ namespace Ecos.Haunt
                 controllerHasAim = true;
             }
 
+            if (ConversationCapturesInput && !Paused) return;
+
             int context = !Playing ? 0 : State.IsDead ? 1 : Paused ? 2 : shopMenuOpen ? 3 : 4;
             if (context != controlContext)
             {
@@ -206,7 +208,7 @@ namespace Ecos.Haunt
 
         void UpdateWeaponSelection(Keyboard keyboard)
         {
-            if (shopMenuOpen || ControlsConsumed) return;
+            if (shopMenuOpen || ConversationCapturesInput || ControlsConsumed) return;
             int digit = WeaponDigit(keyboard);
             if (digit >= 0) State.Equip(WeaponAt(digit));
             var pad = Gamepad.current;

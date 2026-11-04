@@ -559,6 +559,173 @@ static class HauntChecks
         Console.WriteLine("Bullet patterns/dodge: fans, radial spacing, rotating gaps, cross formation, interception, deceleration, limited turn and 60/40 protection checked.");
     }
 
+    static string LayoutSignature(RoomLayout layout)
+    {
+        var signature = new System.Text.StringBuilder(layout.Shape + ":");
+        for (int y = -RoomLayout.MaxY; y <= RoomLayout.MaxY; y++)
+            for (int x = -RoomLayout.MaxX; x <= RoomLayout.MaxX; x++)
+                signature.Append(layout.IsPit(x, y) ? 'P' : layout.IsFloor(x, y) ? '#' : '.');
+        foreach (LayoutRect rect in layout.Walls.Concat(layout.Pits))
+            signature.Append($";{rect.X},{rect.Y},{rect.Width},{rect.Height}");
+        return signature.ToString();
+    }
+
+    static bool RectContains(LayoutRect rect, int x, int y) => x >= rect.X && x < rect.X + rect.Width
+        && y >= rect.Y && y < rect.Y + rect.Height;
+
+    static void RoomLayouts()
+    {
+        Check(RoomLayout.Width == 29 && RoomLayout.Height == 17 && RoomLayout.MaxX == 14 && RoomLayout.MaxY == 8,
+            "Room grid retains the existing arena coordinate contract");
+        var shapes = new HashSet<RoomShape>();
+        var signatures = new HashSet<string>();
+        int sawPits = 0, sweptCases = 0, layouts = 0;
+        GridPoint[] doors = { new GridPoint(-14, 0), new GridPoint(14, 0), new GridPoint(0, -8), new GridPoint(0, 8) };
+        GridPoint[] directions = { new GridPoint(0, 1), new GridPoint(1, 0), new GridPoint(0, -1), new GridPoint(-1, 0) };
+        foreach (int seed in Enumerable.Range(-20, 41).Concat(new[] { int.MinValue, int.MaxValue }))
+            foreach (int number in new[] { 1, 2, 5, 11, int.MaxValue })
+                foreach (int roomId in new[] { 1, 2, 9 })
+                {
+                    RoomLayout layout = RoomLayout.Generate(seed, number, roomId, RoomKind.Combat);
+                    string signature = LayoutSignature(layout);
+                    signatures.Add(signature); shapes.Add(layout.Shape); layouts++;
+                    Check(signature == LayoutSignature(RoomLayout.Generate(seed, number, roomId, RoomKind.Combat)),
+                        "Room footprint, pits and merged colliders must replay from the seed");
+                    LayoutRect[] walls = layout.Walls, pits = layout.Pits;
+                    int safeCount = 0, floorCount = 0;
+                    bool checkedClearance = false;
+                    for (int y = -RoomLayout.MaxY; y <= RoomLayout.MaxY; y++)
+                        for (int x = -RoomLayout.MaxX; x <= RoomLayout.MaxX; x++)
+                        {
+                            bool floor = layout.IsFloor(x, y), pit = layout.IsPit(x, y);
+                            Check(layout.InBounds(x, y) && layout.IsInside(x, y) == floor, "IsInside means the footprint, not its bounding rectangle");
+                            Check(walls.Count(rect => RectContains(rect, x, y)) == (floor ? 0 : 1),
+                                "Merged wall rectangles must cover every void tile exactly once and no floor tile");
+                            Check(pits.Count(rect => RectContains(rect, x, y)) == (pit ? 1 : 0),
+                                "Pit rectangles must match the pit mask without overlap");
+                            Check(layout.ContainsCircle(x, y, 0) == floor, "Point containment agrees with room rendering");
+                            if (!floor) continue;
+                            floorCount++;
+                            Check(layout.ContainsCircle(x, y, .49f), "A floor cell holds a sub-cell body even at the wall edge");
+                            Check(layout.ContainsCircle(x, y, .49f, false) == !pit,
+                                "Grounded containment rejects pits while airborne containment permits them");
+                            if (!pit) safeCount++;
+                            if (Math.Abs(x) <= 1 || Math.Abs(y) <= 1)
+                                Check(!pit, "All four three-cell-wide approaches remain free of pits");
+                            if (pit)
+                            {
+                                Check(Math.Abs(x) >= 3 && Math.Abs(y) >= 3, "Pits cannot cut the cardinal bridges");
+                                for (int dy = -2; dy <= 2; dy++)
+                                    for (int dx = -2; dx <= 2; dx++)
+                                        Check(layout.IsFloor(x + dx, y + dy), "Every pit keeps two cells of surrounding structural floor");
+                            }
+                            if (!checkedClearance && directions.Any(d => !layout.IsFloor(x + d.X, y + d.Y)))
+                            {
+                                Check(!layout.ContainsCircle(x, y, .51f), "Circle containment checks the body's radius against the wall, not only its center");
+                                checkedClearance = true;
+                            }
+                        }
+                    Check(floorCount >= RoomLayout.Width * RoomLayout.Height / 2 && floorCount < RoomLayout.Width * RoomLayout.Height,
+                        "Irregular arenas retain usable combat area while visibly removing corners or bays");
+                    Check(checkedClearance && walls.Length > 0, "Every shape has a physical irregular boundary");
+                    Check(walls.All(rect => rect.Width > 0 && rect.Height > 0 && rect.X >= -14.5f && rect.Y >= -8.5f
+                        && rect.X + rect.Width <= 14.5f && rect.Y + rect.Height <= 8.5f), "Wall runs stay within the arena bounds");
+                    var reachable = new HashSet<GridPoint> { new GridPoint(0, 0) };
+                    var queue = new Queue<GridPoint>();
+                    queue.Enqueue(new GridPoint(0, 0));
+                    while (queue.Count > 0)
+                    {
+                        GridPoint point = queue.Dequeue();
+                        foreach (GridPoint direction in directions)
+                        {
+                            var next = new GridPoint(point.X + direction.X, point.Y + direction.Y);
+                            if (!layout.IsFloor(next.X, next.Y) || layout.IsPit(next.X, next.Y) || !reachable.Add(next)) continue;
+                            queue.Enqueue(next);
+                        }
+                    }
+                    Check(reachable.Count == safeCount, "All safe floor cells, including alcoves, connect to the central hub");
+                    foreach (GridPoint door in doors)
+                    {
+                        Check(reachable.Contains(door), "Every cardinal doorway is reachable");
+                        GridPoint cursor = door;
+                        var path = new HashSet<GridPoint> { cursor };
+                        while (cursor.X != 0 || cursor.Y != 0)
+                        {
+                            Check(layout.TryNextStep(cursor.X, cursor.Y, 0, 0, out GridPoint next), "BFS finds a route from each door to the center");
+                            Check(Math.Abs(next.X - cursor.X) + Math.Abs(next.Y - cursor.Y) == 1
+                                && layout.IsFloor(next.X, next.Y) && !layout.IsPit(next.X, next.Y), "A route takes one safe cardinal step");
+                            Check(path.Add(next), "Following the next-step API cannot loop");
+                            cursor = next;
+                        }
+                    }
+                    Check(layout.TryNextStep(0, 0, 0, 0, out GridPoint same) && same.Equals(new GridPoint(0, 0)),
+                        "A path already at its target remains stationary");
+                    Check(layout.ContainsCircle(-13.1f, 0, .85f, false) && layout.ContainsCircle(13.1f, 0, .85f, false)
+                        && layout.ContainsCircle(0, -7.1f, .85f, false) && layout.ContainsCircle(0, 7.1f, .85f, false),
+                        "Existing room arrival points fit both player and large-enemy clearance");
+                    Check(layout.ContainsCircle(0, 0, .85f, false) && layout.ContainsCircle(0, 3.8f, .85f, false),
+                        "The center and existing guardian spawn remain safe");
+                    Check(!layout.IsFloor(int.MinValue, int.MaxValue) && !layout.IsPit(int.MaxValue, int.MinValue)
+                        && !layout.IsInside(15, 0) && !layout.InBounds(0, 9), "Out-of-bounds lookups do not index the masks");
+                    Check(!layout.TryNextStep(int.MinValue, 0, 0, 0, out _)
+                        && !layout.TryNextStep(0, 0, int.MaxValue, 0, out _), "Invalid path endpoints are rejected");
+                    // A row with floor on both ends and a void bay in between is
+                    // a counterexample to checking only projectile endpoints.
+                    for (int y = -8; y <= 8; y++)
+                    {
+                        int first = Enumerable.Range(-14, 29).FirstOrDefault(x => layout.IsFloor(x, y), -99);
+                        int last = Enumerable.Range(-14, 29).LastOrDefault(x => layout.IsFloor(x, y), -99);
+                        if (first == -99 || !Enumerable.Range(first, last - first + 1).Any(x => !layout.IsFloor(x, y))) continue;
+                        Check(walls.Any(rect => CombatGeometry.BoxHitFraction(first, y, last, y,
+                            rect.X, rect.Y, rect.X + rect.Width, rect.Y + rect.Height, out float contact) && contact > 0 && contact < 1),
+                            "A swept projectile meets an irregular wall even when both endpoints lie on floor");
+                        var detour = new GridPoint(first, y);
+                        var detourPath = new HashSet<GridPoint> { detour };
+                        while (detour.X != last || detour.Y != y)
+                        {
+                            Check(layout.TryNextStep(detour.X, detour.Y, last, y, out GridPoint step),
+                                "BFS finds a detour when the direct segment crosses a void bay");
+                            Check(Math.Abs(step.X - detour.X) + Math.Abs(step.Y - detour.Y) == 1
+                                && layout.IsFloor(step.X, step.Y) && !layout.IsPit(step.X, step.Y) && detourPath.Add(step),
+                                "Concave-room detours remain cardinal, safe and loop-free");
+                            detour = step;
+                        }
+                        sweptCases++;
+                        break;
+                    }
+                    if (pits.Length > 0)
+                    {
+                        sawPits++;
+                        LayoutRect first = pits[0];
+                        int px = (int)(first.X + .5f), py = (int)(first.Y + .5f);
+                        Check(!layout.TryNextStep(px, py, 0, 0, out _) && !layout.TryNextStep(0, 0, px, py, out _),
+                            "Paths never start or end inside an internal pit");
+                        pits[0] = new LayoutRect(0, 0, 29, 17);
+                    }
+                    walls[0] = new LayoutRect(0, 0, 29, 17);
+                    Check(signature == LayoutSignature(layout), "Collider snapshots cannot alter the live room layout");
+                }
+        Check(shapes.SetEquals(Enum.GetValues<RoomShape>()), "Seeded combat rooms reach all five shapes");
+        Check(signatures.Count > 50 && sawPits > 0 && sweptCases > 0, "Room seeds vary silhouettes and internal hazards");
+        foreach (RoomKind kind in new[] { RoomKind.Entrance, RoomKind.Boss })
+            foreach (int seed in new[] { int.MinValue, -1, 0, 1, int.MaxValue })
+            {
+                RoomLayout room = RoomLayout.Generate(seed, 99, 7, kind);
+                Check(room.Shape == RoomShape.Octagon && room.Pits.Length == 0,
+                    "Entrance and boss rooms use an octagon with no internal pit");
+                Check(room.ContainsCircle(0, 3.8f, .85f, false), "A guardian fits safely at its authored arrival");
+            }
+        Check(LayoutSignature(RoomLayout.Generate(42, 0, 1, RoomKind.Combat))
+            == LayoutSignature(RoomLayout.Generate(42, 1, 1, RoomKind.Combat)), "Invalid floor numbers normalize before layout seeding");
+        RoomLayout normal = RoomLayout.Generate(42, 1, 1, RoomKind.Combat);
+        foreach (float invalid in new[] { float.NaN, float.PositiveInfinity, float.NegativeInfinity })
+            Check(!normal.ContainsCircle(invalid, 0, .2f) && !normal.ContainsCircle(0, invalid, .2f)
+                && !normal.ContainsCircle(0, 0, invalid), "Non-finite circle queries fail safely");
+        Check(!normal.ContainsCircle(0, 0, -1) && !normal.ContainsCircle(float.MaxValue, float.MaxValue, 1),
+            "Invalid and remote circle queries cannot overflow room indexing");
+        Console.WriteLine($"Room layouts: {layouts} seeded arenas, five shapes, four connected approaches, body clearance, merged walls, safe pits and BFS steering checked.");
+    }
+
     public static void Main()
     {
         Maps();
@@ -569,6 +736,7 @@ static class HauntChecks
         CuriousShopWeapons();
         ShopStockAndRelics();
         BulletPatternsAndDodge();
+        RoomLayouts();
         Console.WriteLine($"PASS — {assertions} assertions against production dungeon and run-state code.");
     }
 }

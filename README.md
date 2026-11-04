@@ -15,6 +15,22 @@ O atalho opcional `ABRIR_ECOS_DA_MEIA_NOITE.cmd` continua disponível para insta
 
 Para atualizar por ZIP, use uma extração nova: sobrepor pastas não remove arquivos antigos. Um clone Git atualizado também aplica as remoções rastreadas. Ainda não há um executável Windows validado desta revisão.
 
+## Salas irregulares e expansão de Halloween
+
+As salas usam cinco formatos: **L, T, H, octógono e alcovas**, com recortes, contornos elevados e abismos internos. Quatro acessos cardinais e um núcleo seguro preservam as portas; os formatos L/T recebem corredores de acesso quando necessário. A sala H liga duas áreas pela passagem central. O minimapa agora mostra a silhueta real de cada sala. A colisão dos recortes é compartilhada por movimento, tiros e raios, e a navegação dos inimigos contorna paredes e cobertura.
+
+**Barris explosivos** têm madeira abaulada, cintas, caveira e pavio com faíscas. A explosão anunciada causa dano, empurrão e trauma. **Barris de ácido** têm metal amassado, transbordamento e gotas verdes; deixam uma poça luminosa que causa dano em pulsos por oito segundos. **Pilares destrutíveis** recebem rachaduras antes de perder a colisão. Urnas de água continuam disponíveis. Lápides, grades e velas ossuárias decoram as bordas sem fechar passagens.
+
+Os quatro heróis receberam silhuetas e animação: capa do Caçador, cajado e orbes da Médium, foice e arco do Ceifador, frascos e fumaça do Alquimista. Quatro criaturas ampliam o catálogo para **17 mobs comuns**: Espantalho Amaldiçoado, Gárgula de Pedra, Sombra Perseguidora e Morcego de Fogo. A gárgula alterna 1,5 s de pedra imune e 1,5 s de voo; a sombra cruza paredes; o morcego deixa brasas e dispara quatro tiros ao morrer enquanto o combate continua.
+
+Os sete bosses possuem **Idle, Telegraph, Attack, Enrage e Death**, com quatro poses em cada estado. A fúria aparece abaixo de 50% de vida e aumenta a mobilidade/cadência. Entrar em uma sala de chefe inicia uma **intro obrigatória de três segundos**, com pan de câmera, tarjas, título, subtítulo e provocação. É possível responder ao desafio dentro dessa janela com E ou 1/2; a resposta não encurta o tempo da apresentação.
+
+O atendente oferece diálogo com retrato, letras graduais e voz procedural. E avança/completa o texto; 1/2 escolhem respostas; **NEGOCIAR** abre o catálogo. Há dicas e história além do comércio. Controle usa direcional e X, Círculo fecha. A trilha ambiente desaparece ao entrar no chefe; uma faixa exclusiva a **144 BPM** começa na intro e continua até a vitória, quando retorna o tema do andar.
+
+A prévia a seguir é produzida pelos desenhos C# reais, **sem renderização no Editor Unity**. Veja [SALAS_E_HISTORIAS.md](Documentation/SALAS_E_HISTORIAS.md) para módulos e validação.
+
+![Sprites, estados dos bosses e objetos da expansão](Documentation/IRREGULAR_HALLOWEEN.png)
+
 ## Câmera, impacto e evasão
 
 A câmera antecipa a mira em **20%**, com limite de duas unidades, suavização e recuo oposto ao disparo. O screen shake usa **trauma e Perlin Noise**, com reações fortes a explosões e golpes de chefes. Acertos geram flash branco de **0,06 s**, deformação breve e recuo com colisão; chefes resistem mais ao empurrão. O cano recebe clarão luminoso e ejeta cápsulas que pousam e ficam no chão da sala, com limite de quantidade.
@@ -27,11 +43,11 @@ Os inimigos agora usam um **gerador modular de padrões**: cones, anéis que des
 
 Cada sala de combate mantém **três ondas**, mas recebe um perfil próprio: **enxame**, **emboscada**, **fogo cruzado** ou **elite**. Formações e combinações variam, os inimigos são mais ativos e a vida cresce de modo mais moderado. As criaturas emergem de fendas durante 0,9 s; nesse preparo não atacam nem recebem dano. A recompensa e as saídas são liberadas após a última onda. Minibosses aparecem junto aos grupos em salas determinadas pela semente.
 
-Há treze criaturas comuns, além do miniboss e dos chefes. As novas são **Lanterna Errante**, que orbita e atira; **Cogumelo Bruto**, que pressiona com avanços e ataques marcados; e **Diabrete de Corda**, que alterna movimento e rajadas. A separação entre criaturas reduz os amontoados. O runtime limita os tiros hostis a 140 e reserva capacidade para os disparos do jogador.
+Há dezessete criaturas comuns, além do miniboss e dos chefes. O catálogo também preserva **Lanterna Errante**, que orbita e atira; **Cogumelo Bruto**, que pressiona com avanços e ataques marcados; e **Diabrete de Corda**, que alterna movimento e rajadas. A separação entre criaturas reduz os amontoados. O runtime limita os tiros hostis a 140 e reserva capacidade para os disparos do jogador.
 
 As salas têm **barris explosivos** e **urnas de água** atingíveis por tiros de ambos os lados e por raios. Barris anunciam a explosão por 0,55 s, ferem criaturas e jogador e podem provocar reações em cadeia; cobertura bloqueia a explosão. Urnas deixam poças por até 14 s, reduzindo a velocidade de quem anda sobre elas a 60%; esquivar permite atravessar sem essa redução. Objetos quebrados permanecem quebrados ao revisitar a sala durante a incursão.
 
-Andares começam com 7 salas, recebem duas a cada avanço e chegam ao limite de 27. Arenas medem 29 × 17 unidades, com câmera próxima que acompanha o personagem. Algumas salas têm abismos atravessáveis por esquiva/salto; cair custa uma vida e retorna ao último chão seguro. Uma seta aponta à saída mais próxima após a purificação e prioriza o portal após o chefe.
+Andares começam com 7 salas, recebem duas a cada avanço e chegam ao limite de 27. O limite das arenas é 29 × 17 unidades, com área ocupada variando por formato, com câmera próxima que acompanha o personagem. Algumas salas têm abismos atravessáveis por esquiva/salto; cair custa uma vida e retorna ao último chão seguro. Uma seta aponta à saída mais próxima após a purificação e prioriza o portal após o chefe.
 
 ## Pixel art, projéteis e profundidade
 
@@ -62,7 +78,7 @@ A loja sorteia **uma ou duas armas por andar**, entre as ainda não adquiridas. 
 
 As três novas armas são o **Guarda-Chuva**, com cinco pétalas e dois ricochetes; a **Colmeia de Bolso**, com três ferrões de perseguição suave; e a **Luva de Boxe**, com tiro pesado que empurra criaturas sem atravessar obstáculos. O catálogo inclui ainda Grampeador, Banana, Pião do Caos, Disco Espelho, Lanterna de Raios, Flauta de Ossos, Bacamarte, Repetidora e Canhão das Almas. Armas têm cadências e padrões próprios; cobertura e paredes bloqueiam projéteis e raios.
 
-Caminhe até o atendente e use E/X ou clique nele para abrir o catálogo a até 2,8 unidades. Apenas a conversa bloqueia o movimento. Itens usam ícones, preço e uma característica curta, com três cartões por página. Feche a conversa e caminhe até o portal para descer. Compras recusadas não consomem almas; equipamentos e melhorias duram até o fim da incursão.
+Caminhe até o atendente e use E/X ou clique nele a até 2,8 unidades para conversar; escolha NEGOCIAR para abrir o catálogo. Apenas a conversa bloqueia o movimento. Itens usam ícones, preço e uma característica curta, com três cartões por página. Feche a conversa e caminhe até o portal para descer. Compras recusadas não consomem almas; equipamentos e melhorias duram até o fim da incursão.
 
 ## Sete chefes
 
@@ -101,7 +117,7 @@ M abre um atlas de 1060 × 580 na referência 1280 × 720, com desenhos a 95% e 
 
 ## Música e efeitos
 
-Cinco trilhas sintetizadas originais usam melodia, harmonia, baixo e percussão. O mercado recebe uma camada calma; o combate e os chefes aumentam a intensidade, com transições suaves. Disparos, impactos, poderes, explosões, água, compras e mortes têm efeitos curtos. O áudio tem limite de vozes, pausa com o jogo, respeita perda de foco e pode ser desligado em **SOM** no menu de pausa. Não são necessários arquivos de áudio externos.
+Cinco trilhas ambientes e uma faixa exclusiva de chefe, todas sintetizadas e originais, usam melodia, harmonia, baixo e percussão. O mercado recebe uma camada calma; o combate e os chefes aumentam a intensidade, com transições suaves. Disparos, impactos, poderes, explosões, água, compras e mortes têm efeitos curtos. O áudio tem limite de vozes, pausa com o jogo, respeita perda de foco e pode ser desligado em **SOM** no menu de pausa. Não são necessários arquivos de áudio externos.
 
 ## Desenvolvimento e limites da validação
 
@@ -112,7 +128,7 @@ python3 -m unittest discover -s Tools -p 'test_*.py'
 dotnet run --project Tools/HauntChecks.csproj
 ```
 
-Passaram **24 testes Python** e **493.738 asserções do núcleo real C#**, incluindo 2.436 andares. A sintaxe e os metadados também foram conferidos. Helpers temporários com tipos Unity simulados verificaram contratos entre os parciais e lógica de combate, objetos, controle, arte e áudio; não são uma execução no motor.
+Passaram **24 testes Python** e **2.506.067 asserções do núcleo real C#**, incluindo 2.436 andares. A sintaxe e os metadados também foram conferidos. Helpers temporários com tipos Unity simulados verificaram contratos entre os parciais e lógica de combate, objetos, controle, arte e áudio; não são uma execução no motor.
 
 **O Editor Unity não está instalado neste ambiente.** Importação, compilação no Unity, aparência renderizada, reprodução sonora, build e controle PS4 físico ainda precisam ser validados no Editor/PC. O jogo continua solo e sem save entre sessões. Consulte [VALIDATION.md](Documentation/VALIDATION.md), [ARCHITECTURE.md](Documentation/ARCHITECTURE.md) e [UNITY_TROUBLESHOOTING.md](Documentation/UNITY_TROUBLESHOOTING.md).
 

@@ -64,6 +64,7 @@ namespace Ecos.Haunt
 
         void OnPlayerWeaponFired(Vector2 aim, bool heavy, bool beam)
         {
+            EmitReaperSlash(aim);
             cameraKick = Vector2.ClampMagnitude(cameraKick - aim.normalized * (beam ? .035f : heavy ? .18f : .085f), .35f);
             AddCameraTrauma(heavy ? .12f : .025f);
             Vector2 tip = playerPosition + Vector2.up * .35f + aim * 1.05f;

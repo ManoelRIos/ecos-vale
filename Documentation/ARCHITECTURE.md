@@ -51,3 +51,13 @@ A loja é uma sala explorável. Balcão e prateleiras têm colisão; as uma ou d
 Checks Python cobrem arquivos, referências, metadados, versões, atalho e ZIP determinístico; checks C# executam o núcleo real. Helpers externos com tipos Unity simulados permitem conferir lógica e assinaturas, sem validar o motor. Testes Editor em `Assets/_Game/Haunt/Tests/Editor` precisam de Unity licenciado. A preparação URP acontece em `HauntSetup`, e `HauntProject` abre cena e gera build quando solicitado.
 
 `Tools/package_project.py` empacota arquivos rastreados com os conteúdos atuais, timestamps fixos e raiz curta `EcosDaMeiaNoite/`; rejeita caminhos inseguros, symlinks e projeto incompleto. Exclui Distribution, builds e caches. Os parciais de combate, câmera e iluminação, o componente de flicker, as regras de evasão e o gerador matemático com seus metadados são arquivos obrigatórios. O runtime não tem dependências de APIs externas ou segredos.
+
+## Salas irregulares e narrativa
+
+`RoomLayout` gera uma máscara de 29×17 células para L/T/H/octógono/alcovas, com núcleo e quatro aproximações conectadas. `IsInside`/`IsFloor` representam a pegada incluindo abismos, `IsPit` separa risco de queda. Retângulos de vazio unidos por faixas entram nos mesmos obstáculos consultados por movimento, cover, tiros e raios. `ContainsCircle` valida o raio do corpo; BFS fornece passos seguros. `HauntGame.Rooms.cs` instancia a geometria, os contornos e os caches de mapas, além de spawn e navegação que também consideram obstáculos dinâmicos.
+
+`HauntGame.Bestiary.cs` concentra os quatro comportamentos novos e a imunidade temporária da gárgula. `HauntGame.Environment.cs` adiciona pilares, barris de ácido e zonas de dano em pulsos, com snapshots de criaturas para não atingir ondas recém-criadas. Estado quebrado mantém a seleção de posições determinística nas revisitas. A física continua 2D.
+
+`BossFrame` no gerador de arte fornece cinco estados×quatro quadros por guardião. `AttackVisualTime`, `Tell` e vida selecionam a pose; `HauntGame.BossPresentation.cs` mantém morte temporária, orbes e fumaça sem manter o boss vivo na simulação. A animação de morte é descartada ao trocar de sala.
+
+`HauntGame.Conversations.cs` possui diálogo, escolhas, máquina de escrever e intro de três segundos. O laço principal atualiza esse relógio e retorna antes do combate enquanto a apresentação está ativa. Input modal é consumido antes de armas/loja, impedindo negociações e compras com a mesma pressão. A música consulta esse estado para fazer a transição ao sexto tema exclusivo de chefe; vozes são clipes originais curtos cacheados.

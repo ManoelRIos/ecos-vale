@@ -3,9 +3,9 @@
 ## O que foi executado nesta revisão
 
 - 24 testes Python de versões, atalho e empacotamento.
-- Análise de sintaxe dos 23 arquivos C#, referências e metadados: 29 assets e 39 GUIDs.
-- 493.738 asserções compilando o núcleo C# real, incluindo 2.436 andares, estoque determinístico limitado, compras atômicas, relíquias, progressão, inventário e geometria varrida.
-- Passaram 207 verificações de integração em um helper temporário que compilou todos os módulos reais com tipos Unity/Input System simulados: avisos, ondas, sete chefes, i-frames/recuperação, divisão, cancelamento, colisões, feedback, controle, objetos e descarte. A matemática e os fluxos passam por essas verificações; o comportamento do motor permanece dependente do Editor. A prévia `ARSENAL_AND_ENCOUNTERS.png` usa os pixels reais da arte procedural, sem renderização do motor.
+- Análise de sintaxe dos 28 arquivos C#, referências e metadados: 34 assets e 44 GUIDs.
+- 2.506.067 asserções compilando o núcleo C# real, incluindo 2.436 andares, 645 arenas irregulares, estoque determinístico limitado, compras atômicas, relíquias, progressão, inventário e geometria varrida.
+- Passaram 372 verificações de integração em um helper temporário que compilou todos os módulos reais com tipos Unity/Input System simulados: avisos, ondas, sete chefes, i-frames/recuperação, divisão, cancelamento, colisões, feedback, controle, objetos e descarte. A matemática e os fluxos passam por essas verificações; o comportamento do motor permanece dependente do Editor. A prévia `ARSENAL_AND_ENCOUNTERS.png` usa os pixels reais da arte procedural, sem renderização do motor.
 
 **O Editor Unity não está instalado neste ambiente.** Esses resultados não certificam importação, compilação no Unity, shaders, Play Mode, áudio reproduzido, hardware PS4 ou executável Windows. Não há build Windows validado desta revisão. Os testes Editor foram ampliados e precisam ser executados no motor.
 
@@ -86,3 +86,16 @@ O build solicitado fica em `Builds/Windows/EcosDaMeiaNoite.exe`. Teste a execuç
 3. Antes de cada ataque, confira aviso visível e nenhum disparo antecipado. Matar um inimigo durante a preparação deve cancelar a sequência correspondente. Complete uma onda com bombas, teias ou orbes ainda ativos; não devem gerar filhos ou zonas novas depois da purificação ou na sala seguinte.
 4. Teste orbes atravessando a distância de divisão no mesmo frame em que uma parede ou jogador estaria no caminho. O primeiro contato precisa vencer; filhos não podem aparecer além da cobertura nem ser atualizados duas vezes no mesmo tick. Desviar de um orbe nos i-frames não deve consumir a bala; o contato na recuperação continua válido.
 5. Use o pulso do Caçador sobre bombas/orbes: os tiros cancelados não podem explodir nem dividir. Tiros fora do raio e sequências fora dele devem continuar. Confira limites de projéteis e filas em sala densa, pausa, morte, nova incursão e descarte.
+
+## Salas, criaturas e narrativa de Halloween
+
+- Gere os cinco formatos e teste as quatro chegadas com mouse e controle. Confira contorno do chão, paredes dos recortes, sombra e decoração, sem piso invisível ou caminhos fechados. A silhueta no mapa deve corresponder ao cenário. Dispare de uma área a outra através de uma concavidade: o recorte deve bloquear tiros e raios.
+- Em salas H, atravesse a ponte com jogador e miniboss, desvie de cobertura destruída e atraia criaturas de uma área à outra. Inimigos terrestres devem contornar paredes/abismos, os flutuantes podem cruzar buracos, e somente a Sombra ignora paredes. Teste spawn e chegada nos cinco formatos, além da limpeza de colisores ao trocar de sala/loja.
+- Destrua barris de madeira e confira faíscas, fusível, dano, empurrão e trauma. Destrua ácido, fique 0,75 s na área, saia, retorne e salte: dano em pulsos respeita a proteção pós-hit e não ocorre durante o salto. Ácido também atinge criaturas vulneráveis. Pilares devem rachar, deixar destroços e remover a cobertura. Revisitando, compare todas as posições/chaves dos objetos sobreviventes e ausência de colisores invisíveis.
+- Espantalho fica disfarçado até aproximação/dano, então lança lâminas giratórias. Gárgula é imune nos primeiros 1,5 s e vulnerável em voo; luva e explosão não devem empurrar a estátua. Sombra é translúcida e atravessa paredes. Morcego percorre zigue-zague, deixa brasas temporárias e anuncia quatro tiros ao morrer, cancelados se a onda termina.
+- Observe heróis e cinco estados dos sete bosses, incluindo preparação visível, execução, fúria abaixo de 50% e morte de 0,9 s. Confira as quatro poses de cada estado, os orbes da Médium, a fumaça do Alquimista e o arco do Ceifador, sem crescimento de objetos ao reiniciar.
+- Entre na sala de cada boss e tente andar, disparar, usar poder e abrir mapa durante os três segundos: combate deve permanecer congelado. A câmera deve focar o boss, com tarjas, nome/subtítulo e provocação legíveis. E/1/2 mudam a fala sem encurtar o tempo. Pausa deve congelar o relógio e retomar sem saltar direto para a luta.
+- Converse com o atendente por teclado, mouse e controle. Abrir diálogo não abre nem compra catálogo. E revela letras antes de avançar; 1/2 e direcional/X escolhem negociação, dicas e história. A mesma pressão não pode negociar e comprar. Esc/Círculo fecha sem deixar controles presos; sair da loja exige encerrar diálogo e catálogo.
+- Ouça a queda do ambiente, impacto da intro e faixa exclusiva de chefe a 144 BPM entrando por volta de 0,3 s. A faixa continua no combate e só retorna ao ambiente após vitória. Vozes devem ser curtas e limitadas, respeitando SOM, pausa e perda de foco.
+
+Os checks de fontes e helpers com tipos simulados passaram; esta seção ainda exige validação no Editor Unity e audição real.

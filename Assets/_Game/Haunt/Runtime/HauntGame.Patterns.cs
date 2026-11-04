@@ -29,7 +29,7 @@ namespace Ecos.Haunt
             if (pendingPatterns.Count >= 96 || CurrentRoom == null || CurrentRoom.Cleared || State.IsDead) return;
             pendingPatterns.Add(new PendingPattern { Source = source, Origin = origin, Recipe = recipe,
                 Angle = angle, Remaining = delay, Step = step, Kind = kind, Epoch = patternEpoch });
-            if (source != null) source.Tell = Mathf.Max(source.Tell, Mathf.Min(delay, .35f));
+            if (source != null && source.AttackVisualTime <= 0) source.Tell = Mathf.Max(source.Tell, Mathf.Min(delay, .35f));
         }
 
         void UpdateBulletPatterns(float dt)
@@ -97,10 +97,12 @@ namespace Ecos.Haunt
         void EmitPattern(PendingPattern pattern)
         {
             Vector2 origin = pattern.Source != null ? pattern.Source.Position : pattern.Origin;
+            if (pattern.Source != null) { pattern.Source.AttackVisualTime = .3f; pattern.Source.Tell = 0; }
             float angle = pattern.Angle;
             bool enraged = pattern.Source != null && pattern.Source.Health <= pattern.Source.MaxHealth / 2;
             if (pattern.Recipe == PatternRecipe.Mob)
             {
+                if (EmitHalloweenAttack(pattern.Kind, origin, angle, pattern.Step)) return;
                 switch (pattern.Kind)
                 {
                     case 6:
@@ -212,6 +214,7 @@ namespace Ecos.Haunt
 
         void OnEnemyDeathPattern(Enemy enemy)
         {
+            HalloweenDeath(enemy);
             if ((enemy.Kind != 9 && enemy.Kind != 13) || enemies.Count <= 1 || State.IsDead) return;
             RingEffect(enemy.Position, HostileAccent, .9f);
             SchedulePattern(null, enemy.Position, PatternRecipe.Death, enemy.Phase * 20, .18f);

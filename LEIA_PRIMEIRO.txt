@@ -32,6 +32,10 @@ por loja, paredes com profundidade por camadas e musica de fundo.
 Camera com antecipacao e trauma, flash de impacto, evasao espectral
 (60% protecao / 40% recuperacao), luzes com flicker e padroes de tiros.
 Veja Documentation/GAME_FEEL.md para o catalogo dos ataques.
+Salas L/T/H/octogonais/alcovas, pilares e barris de acido.
+E conversa; 1/2 escolhem respostas; NEGOCIAR abre o catalogo.
+Bosses tem intro obrigatoria de 3 s e musica exclusiva.
+Veja Documentation/SALAS_E_HISTORIAS.md para esta expansao.
 Morrer encerra a incursao; nao ha save entre sessoes ou multiplayer.
 
 O Editor nao esta instalado no ambiente desta revisao. Checks C#,

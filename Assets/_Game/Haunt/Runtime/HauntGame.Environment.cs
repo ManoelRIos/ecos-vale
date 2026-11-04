@@ -8,6 +8,7 @@ namespace Ecos.Haunt
         // Props use their own seeded stream, so decoration cannot change the waves.
         readonly List<RoomProp> roomProps = new List<RoomProp>();
         readonly List<WetPatch> wetPatches = new List<WetPatch>();
+        readonly List<DamageZone> damageZones = new List<DamageZone>();
         readonly HashSet<long> brokenRoomProps = new HashSet<long>();
         sealed class RoomProp
         {
@@ -15,9 +16,17 @@ namespace Ecos.Haunt
             public Vector2 Position;
             public Rect Bounds;
             public int Health;
-            public bool Explosive, Detonated;
+            public bool Explosive, Acid, Pillar, Detonated;
+            public float ParticleClock;
             public float Fuse, Flash;
             public long Key;
+        }
+        sealed class DamageZone
+        {
+            public SpriteRenderer Sprite;
+            public Vector2 Position;
+            public float Radius, Remaining, Tick = .75f;
+            public bool Acid;
         }
         sealed class WetPatch
         {
@@ -29,10 +38,11 @@ namespace Ecos.Haunt
         }
 
         void ResetRoomProps() { brokenRoomProps.Clear(); ClearRoomProps(); }
-        void ClearRoomProps() { roomProps.Clear(); wetPatches.Clear(); }
+        void ClearRoomProps() { roomProps.Clear(); wetPatches.Clear(); damageZones.Clear(); }
 
         void ClearCombatSlowZones()
         {
+            foreach (var zone in damageZones) if (!zone.Acid) { zone.Remaining = 0; if (zone.Sprite) zone.Sprite.enabled = false; }
             for (int i = wetPatches.Count - 1; i >= 0; i--)
                 if (wetPatches[i].CombatZone)
                 {
@@ -46,41 +56,39 @@ namespace Ecos.Haunt
             ClearRoomProps();
             if (State == null || InShop || CurrentRoom == null || CurrentRoom.Kind == RoomKind.Entrance) return;
             var random = new System.Random(unchecked(State.Seed ^ State.Floor * 27773 ^ CurrentRoom.Id * 86467));
-            var brokenReservations = new List<Rect>();
-            int count = CurrentRoom.Kind == RoomKind.Boss ? 4 : 6 + CurrentRoom.Id % 3;
-            for (int i = 0; i < count; i++)
+            var candidates = new List<Vector2>();
+            for (int y = -6; y <= 6; y++) for (int x = -12; x <= 12; x++)
             {
-                float x = (i % 2 == 0 ? -1 : 1) * (i < 4 ? 3.6f : 10.2f);
-                float y = ((i / 2) % 2 == 0 ? -1 : 1) * (i < 4 ? 4.8f : 3.3f);
-                // A few rooms place a second prop beside the inner barrels, inviting
-                // deliberate chain reactions while keeping the cardinal routes free.
-                if (i >= 6) { x = -1.9f; y = i == 6 ? -4.8f : 4.8f; }
-                Vector2 position = new Vector2(x + (float)random.NextDouble() * .8f - .4f,
-                    y + (float)random.NextDouble() * .8f - .4f);
-                if (Blocked(position, .8f) || PitTouches(position, .75f)) continue;
-                long key = ((long)State.Floor << 32) | (uint)(CurrentRoom.Id * 16 + i);
-                var bounds = new Rect(position.x - .42f, position.y - .32f, .84f, .64f);
+                if (Mathf.Abs(x) < 2.5f || Mathf.Abs(y) < 2 || !RoomContains(new Vector2(x, y), .85f, false)) continue;
+                candidates.Add(new Vector2(x, y));
+            }
+            var brokenReservations = new List<Rect>();
+            int count = CurrentRoom.Kind == RoomKind.Boss ? 4 : 8;
+            for (int i = 0; i < count && candidates.Count > 0;)
+            {
+                int chosen = random.Next(candidates.Count);
+                Vector2 position = candidates[chosen]; candidates.RemoveAt(chosen);
+                if (Blocked(position, 1.05f) || PitTouches(position, .85f)) continue;
+                int slot = i++;
+                long key = ((long)State.Floor << 32) | (uint)(CurrentRoom.Id * 16 + slot);
+                bool explosive = slot % 4 == 0, acid = slot % 4 == 1, pillar = slot % 4 == 2;
+                var bounds = new Rect(position.x - (pillar ? .55f : .42f), position.y - .35f, pillar ? 1.1f : .84f, .7f);
+                // Reserve even destroyed footprints until all slots have been chosen.
+                // The candidate sequence and surviving objects remain stable on revisits.
+                obstacles.Add(bounds);
                 if (brokenRoomProps.Contains(key))
                 {
-                    // Reserve the original footprint while laying out later props.
-                    // A destroyed barrel must not make a formerly rejected prop spawn.
-                    obstacles.Add(bounds); brokenReservations.Add(bounds);
-                    var debris = MakeSprite("shattered-prop", position, roomRoot.transform, -130);
-                    debris.color = new Color(1, 1, 1, .7f);
+                    brokenReservations.Add(bounds);
+                    MakeSprite("shattered-prop", position, roomRoot.transform, -130).color = new Color(1,1,1,.7f);
                     continue;
                 }
-                bool explosive = i % 3 != 1;
-                var prop = new RoomProp
-                {
-                    Position = position, Key = key, Explosive = explosive, Health = explosive ? 3 : 2,
-                    Bounds = bounds,
-                    Sprite = MakeSprite(explosive ? "barrel-explosive" : "water-urn",
-                        position + Vector2.up * .42f, roomRoot.transform, Depth(position.y))
-                };
+                string id = explosive ? "barrel-explosive" : acid ? "barrel-acid" : pillar ? "destructible-pillar" : "water-urn";
+                var prop = new RoomProp { Position = position, Key = key, Bounds = bounds,
+                    Explosive = explosive, Acid = acid, Pillar = pillar, Health = pillar ? 7 : explosive ? 3 : 2,
+                    Sprite = MakeSprite(id, position + Vector2.up * (pillar ? .65f : .55f), roomRoot.transform, Depth(position.y)) };
                 var propShadow = MakeSprite("shadow", position + new Vector2(.2f, -.2f), roomRoot.transform, -70);
-                propShadow.transform.localScale = new Vector3(1.6f, .8f, 1);
-                propShadow.color = new Color(1, 1, 1, .72f);
-                obstacles.Add(prop.Bounds);
+                propShadow.transform.localScale = new Vector3(pillar ? 2 : 1.6f, .8f, 1);
+                propShadow.color = new Color(1,1,1,.72f);
                 roomProps.Add(prop);
             }
             foreach (Rect reservation in brokenReservations) obstacles.Remove(reservation);
@@ -127,8 +135,10 @@ namespace Ecos.Haunt
             {
                 prop.Detonated = true;
                 BreakPropArt(prop);
-                AddWetPatch(prop.Position);
-                PlaySound(SoundCue.Splash, .7f);
+                if (prop.Acid) AddDamageZone(prop.Position, 1.85f, 8, true);
+                else if (!prop.Pillar) AddWetPatch(prop.Position);
+                PlaySound(prop.Pillar ? SoundCue.Impact : SoundCue.Splash, .7f);
+                if (prop.Pillar) Burst(prop.Position + Vector2.up * .6f, new Color(.65f,.65f,.7f), 8);
             }
         }
 
@@ -157,11 +167,25 @@ namespace Ecos.Haunt
                 if (enemy.SpawnRemaining > 0 || Vector2.Distance(prop.Position, enemy.Position) > 2.4f + EnemyHitRadius(enemy)
                     || CoverBetween(prop.Position, enemy.Position)) continue;
                 int index = enemies.IndexOf(enemy);
-                if (index >= 0) DamageEnemy(index, 7 + Mathf.Min(8, State.Floor),
-                    (prop.Position - enemy.Position).normalized, orange, true);
+                if (index >= 0 && IsEnemyDamageable(enemy))
+                {
+                    Vector2 away = (enemy.Position - prop.Position).normalized;
+                    enemy.Position = MoveEnemy(enemy, away * (enemy.Kind == 4 ? .18f : .8f), EnemyHitRadius(enemy));
+                    DamageEnemyWithFeedback(index, 7 + Mathf.Min(8, State.Floor),
+                    (prop.Position - enemy.Position).normalized, orange, true, false);
+                }
             }
             if (Vector2.Distance(prop.Position, playerPosition) < 2.4f + PlayerRadius
-                && !CoverBetween(prop.Position, playerPosition)) HurtPlayer();
+                && !CoverBetween(prop.Position, playerPosition))
+            {
+                int health = State.Health;
+                HurtPlayer();
+                if (State.Health < health)
+                {
+                    Vector2 pushed = Move(playerPosition, (playerPosition - prop.Position).normalized * .65f, PlayerRadius);
+                    if (!PitTouches(pushed, PlayerRadius)) playerPosition = pushed;
+                }
+            }
             // No list removals: projectiles and the prop update can safely keep iterating.
             for (int i = 0; i < roomProps.Count; i++)
                 if (roomProps[i].Health > 0 && Vector2.Distance(roomProps[i].Position, prop.Position) < 2.8f
@@ -223,14 +247,78 @@ namespace Ecos.Haunt
             return 1;
         }
 
+        void AddEmberZone(Vector2 position, float radius, float duration) => AddDamageZone(position, radius, duration, false);
+
+        void AddDamageZone(Vector2 position, float radius, float duration, bool acid)
+        {
+            if (!Playing || InShop || State == null || State.IsDead || !roomRoot || !RoomContains(position, .1f, false)) return;
+            if (damageZones.Count >= 16)
+            {
+                if (!acid) return;
+                int oldestEmber = damageZones.FindIndex(zone => !zone.Acid);
+                if (oldestEmber < 0) return;
+                Destroy(damageZones[oldestEmber].Sprite.gameObject); damageZones.RemoveAt(oldestEmber);
+            }
+            radius = Mathf.Clamp(radius, .25f, 2.8f); duration = Mathf.Clamp(duration, .5f, 12);
+            var sprite = MakeSprite("wet-puddle", position, roomRoot.transform, -135);
+            sprite.transform.localScale = new Vector3(radius * .75f, radius * .99f, 1);
+            var color = acid ? new Color(.35f,1,.12f,.9f) : new Color(1,.38f,.08f,.8f);
+            sprite.color = color;
+            damageZones.Add(new DamageZone { Position = position, Radius = radius, Remaining = duration, Acid = acid, Sprite = sprite });
+            AttachFlickerLight(sprite.transform, color, radius * 2.5f, acid ? .25f : .15f, .15f, -105);
+        }
+
+        bool InDamageZone(Vector2 position, DamageZone zone, float actorRadius = 0)
+        {
+            Vector2 offset = position - zone.Position;
+            float rx = zone.Radius + actorRadius, ry = zone.Radius * .65f + actorRadius;
+            return offset.x * offset.x / (rx * rx) + offset.y * offset.y / (ry * ry) < 1
+                && !CoverBetween(zone.Position, position);
+        }
+
+        void UpdateDamageZones(float dt)
+        {
+            for (int i = damageZones.Count - 1; i >= 0; i--)
+            {
+                var zone = damageZones[i]; zone.Remaining -= dt; zone.Tick -= dt;
+                Color color = zone.Acid ? new Color(.35f,1,.12f) : new Color(1,.38f,.08f);
+                zone.Sprite.color = new Color(color.r,color.g,color.b,Mathf.Clamp01(zone.Remaining)*.85f);
+                if (zone.Remaining <= 0) { Destroy(zone.Sprite.gameObject); damageZones.RemoveAt(i); continue; }
+                if (zone.Tick > 0) continue;
+                zone.Tick = .75f;
+                if (rollRemaining <= 0 && InDamageZone(playerPosition, zone, PlayerRadius)) HurtPlayer();
+                if (!zone.Acid) continue;
+                Enemy[] victims = enemies.ToArray();
+                foreach (var enemy in victims)
+                {
+                    if (!IsEnemyDamageable(enemy) || !InDamageZone(enemy.Position, zone, EnemyHitRadius(enemy))) continue;
+                    int index = enemies.IndexOf(enemy);
+                    if (index >= 0) DamageEnemyWithFeedback(index, 1, Vector2.zero, color, false, false);
+                }
+            }
+        }
+
         void UpdateRoomProps(float dt)
         {
+            UpdateDamageZones(dt);
             foreach (var prop in roomProps)
             {
                 prop.Flash = Mathf.Max(0, prop.Flash - dt);
                 if (prop.Health > 0)
                 {
                     prop.Sprite.color = prop.Flash > 0 ? new Color(1, .65f, .5f) : DungeonAmbientTint;
+                    int frame = prop.Pillar ? Mathf.Clamp((7 - prop.Health) / 2, 0, 3) : Mathf.FloorToInt(simulationTime * 7);
+                    if (prop.Explosive || prop.Acid || prop.Pillar)
+                        prop.Sprite.sprite = art.Frame(prop.Explosive ? "barrel-explosive" : prop.Acid ? "barrel-acid" : "destructible-pillar", frame);
+                    prop.ParticleClock -= dt;
+                    if (prop.ParticleClock <= 0 && (prop.Explosive || prop.Acid))
+                    {
+                        prop.ParticleClock = prop.Explosive ? .18f : .35f;
+                        Emit(prop.Explosive ? "spark" : "dust", prop.Position + Vector2.up * (prop.Explosive ? 1.5f : 1.1f),
+                            prop.Explosive ? new Vector2(.12f, .55f) : Vector2.down * .15f,
+                            prop.Explosive ? new Color(1,.65f,.2f,.8f) : new Color(.35f,1,.12f,.8f),
+                            .35f, prop.Explosive ? .15f : .12f, prop.Explosive ? 1.2f : .4f);
+                    }
                     continue;
                 }
                 if (!prop.Explosive || prop.Detonated) continue;

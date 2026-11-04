@@ -6,7 +6,7 @@ namespace Ecos.Haunt
 {
     public sealed partial class HauntGame
     {
-        static readonly string[] EnemyArt = { "pumpkin", "ghost", "cultist", "bat", "boss", "larva", "sentinel", "acolyte", "skeleton", "slime", "spider", "miniboss", "lantern-wisp", "mushroom-brute", "clockwork-imp" };
+        static readonly string[] EnemyArt = { "pumpkin", "ghost", "cultist", "bat", "boss", "larva", "sentinel", "acolyte", "skeleton", "slime", "spider", "miniboss", "lantern-wisp", "mushroom-brute", "clockwork-imp", "scarecrow", "gargoyle", "stalker-shadow", "fire-bat" };
         static readonly Color PlayerAccent = new Color(.32f, 1f, .85f);
         static readonly Color HostileAccent = new Color(1f, .31f, .43f);
         readonly List<RoomAnimation> roomAnimations = new List<RoomAnimation>();
@@ -99,21 +99,22 @@ namespace Ecos.Haunt
             roomTheme = shop ? 0 : ThemeVariant;
             Color floorTint = shop ? new Color(.95f, .89f, .78f) : Color.white * Mathf.Lerp(1, .88f, Mathf.Clamp01((State.Floor - 1) / 12f));
             floorTint.a = 1;
-            int wallX = Mathf.CeilToInt(HalfWidth), wallY = Mathf.CeilToInt(HalfHeight);
-            for (int y = -wallY; y <= wallY; y++)
-                for (int x = -wallX; x <= wallX; x++)
+            InitializeRoomLayout(shop);
+            for (int y = -RoomLayout.MaxY; y <= RoomLayout.MaxY; y++)
+                for (int x = -RoomLayout.MaxX; x <= RoomLayout.MaxX; x++)
                 {
-                    bool wall = Mathf.Abs(x) == wallX || Mathf.Abs(y) == wallY;
+                    if (!RoomTileInside(x, y) || roomLayout != null && roomLayout.IsPit(x, y)) continue;
                     uint tileHash = unchecked((uint)(x * 73856093 ^ y * 19349663 ^ seed));
                     tileHash ^= tileHash >> 13; tileHash *= 0x85ebca6bu; tileHash ^= tileHash >> 16;
-                    string id = wall ? "wall-theme" + roomTheme : "floor-theme" + roomTheme + "-v" + (tileHash % 4);
-                    var tile = MakeSprite(id, new Vector2(x, y), roomRoot.transform, wall ? 300 : -200);
+                    var tile = MakeSprite("floor-theme" + roomTheme + "-v" + (tileHash % 4), new Vector2(x, y), roomRoot.transform, -200);
                     tile.flipX = (tileHash & 8) != 0;
-                    tile.flipY = !wall && (tileHash & 16) != 0;
-                    if (!wall) tile.transform.rotation = Quaternion.Euler(0, 0, 90 * ((tileHash >> 5) % 4));
-                    tile.color = wall ? Color.white : Color.Lerp(floorTint, floorTint * .9f, (tileHash % 7) / 7f);
-                    if (!wall && (Mathf.Abs(x) == wallX - 1 || Mathf.Abs(y) == wallY - 1)) tile.color = floorTint * .85f;
+                    tile.flipY = (tileHash & 16) != 0;
+                    tile.transform.rotation = Quaternion.Euler(0, 0, 90 * ((tileHash >> 5) % 4));
+                    tile.color = Color.Lerp(floorTint, floorTint * .9f, (tileHash % 7) / 7f);
+                    if (!RoomTileInside(x - 1, y) || !RoomTileInside(x + 1, y)
+                        || !RoomTileInside(x, y - 1) || !RoomTileInside(x, y + 1)) tile.color *= .85f;
                 }
+            RenderRoomPits();
             if (shop)
             {
                 var rug = MakeSprite("rug", new Vector2(0, 1), roomRoot.transform, -180);
@@ -160,6 +161,7 @@ namespace Ecos.Haunt
                             x += ((CurrentRoom.Id + State.Floor) % 3 - 1) * .65f;
                             y += (CurrentRoom.Id % 2 == 0 ? -.3f : .3f);
                             Vector2 point = new Vector2(side * x, row * y);
+                            if (!CanPlaceRoomDetail(point, .95f, true)) continue;
                             obstacles.Add(new Rect(point.x - .65f, point.y - .48f, 1.3f, .96f));
                             var prop = MakeSprite("decor-theme" + roomTheme, point + Vector2.up * .5f, roomRoot.transform, Depth(point.y));
                             prop.transform.localScale = Vector3.one * .85f;
@@ -185,6 +187,7 @@ namespace Ecos.Haunt
                     for (int row = -1; row <= 1; row += 2)
                     {
                         Vector2 point = new Vector2(side * 13, row * 6.8f);
+                        if (!CanPlaceRoomDetail(point, .7f, true)) continue;
                         var prop = MakeSprite("decor-theme" + roomTheme, point, roomRoot.transform, Depth(point.y));
                         prop.transform.localScale = Vector3.one * 1.1f;
                         if (roomTheme == 1 || roomTheme == 4) AttachFlickerLight(prop.transform, new Color(.6f, .3f, 1), 3, .18f, .13f, -110);
@@ -193,24 +196,17 @@ namespace Ecos.Haunt
                 for (int i = 0; i < 9 + Mathf.Min(State.Floor, 12); i++)
                 {
                     Vector2 point = new Vector2((float)roomRandom.NextDouble() * 26 - 13, (float)roomRandom.NextDouble() * 14 - 7);
+                    if (!RoomContains(point, .2f)) continue;
                     var stain = MakeSprite(roomTheme >= 3 ? "rune" : "dust", point, roomRoot.transform, -190);
                     stain.color = new Color(accent.r, accent.g, accent.b, .13f);
                     stain.transform.localScale = Vector3.one * (roomTheme >= 3 ? .6f : 1.5f);
-                }
-            }
-            if (!shop && CurrentRoom.Kind == RoomKind.Combat && State.Floor >= 2 && CurrentRoom.Id % 3 == 0)
-            {
-                foreach (Vector2 point in new[] { new Vector2(-2.8f, -2.8f), new Vector2(2.8f, 2.8f) })
-                {
-                    pits.Add(new Rect(point.x - 1, point.y - .6f, 2, 1.2f));
-                    MakeSprite("pit", point, roomRoot.transform, -165);
-                    AddGroundGlow(point + Vector2.down * .8f, new Color(.4f, .8f, 1), 1.8f, .2f);
                 }
             }
             if (!shop && CurrentRoom.Kind != RoomKind.Entrance && (roomTheme == 1 || roomTheme >= 3 || CurrentRoom.Id % 4 == 0))
                 for (int i = 0; i < 8; i++)
                 {
                     Vector2 point = new Vector2(-12 + i * 3.4f, i % 2 == 0 ? -4.2f : 4.2f);
+                    if (!RoomContains(point, 1.35f)) continue;
                     var fog = MakeSprite("fog", point, roomRoot.transform, -75);
                     fog.transform.localScale = new Vector3(2.8f, 1.7f, 1);
                     fog.color = new Color(.6f, .75f, .8f, .33f);
@@ -220,64 +216,25 @@ namespace Ecos.Haunt
                 for (int row = -1; row <= 1; row += 2)
                 {
                     Vector2 point = new Vector2(side * 11, row * 7.2f);
+                    if (!CanPlaceRoomDetail(point, .4f)) continue;
                     AnimatedProp("candle", point, Depth(point.y));
                     AddGroundGlow(point, new Color(1, .45f, .15f), 3.8f, .24f);
                 }
             for (int side = -1; side <= 1; side += 2)
             {
-                foreach (float x in new[] { -10f, -4f, 4f, 10f })
-                {
-                    Vector2 point = new Vector2(x, side * (HalfHeight - .35f));
-                    var relief = MakeSprite("wall-relief" + roomTheme, point + Vector2.up * .75f, roomRoot.transform, Depth(point.y));
-                    relief.color = Color.white;
-                    var castShadow = MakeSprite("shadow", point + new Vector2(.35f, -.4f), roomRoot.transform, -175);
-                    castShadow.transform.localScale = new Vector3(2.4f, 1.3f, 1);
-                }
-                // Elevated hanging object plus offset ground shadow reads as volume.
                 Vector2 anchor = new Vector2(side * 9.8f, 3.8f);
+                if (!RoomContains(anchor, 1.1f)) continue;
                 var chandelier = AnimatedProp("chandelier", anchor + Vector2.up * 1.25f, Depth(anchor.y));
                 chandelier.transform.localScale = Vector3.one * .85f;
-                MakeSprite("shadow", anchor + new Vector2(.4f, -.4f), roomRoot.transform, -175).transform.localScale = new Vector3(3.6f, 1.7f, 1);
+                MakeSprite("shadow", anchor + new Vector2(.4f, -.4f), roomRoot.transform, -175)
+                    .transform.localScale = new Vector3(3.6f, 1.7f, 1);
                 AddGroundGlow(anchor, new Color(1, .6f, .24f), 4.2f, .3f);
             }
-            BuildRaisedWalls(shop);
+            BuildContourWalls();
+            if (!shop) AddBorderDetails();
             if (!shop) InitializeRoomProps();
             if (!shop) TintDungeonRoom();
             UpdateRoomAmbience(0);
-        }
-
-        // Layered wall faces and crowns establish height without changing XY combat.
-        // Ground sorting permits actors to pass behind props; foreground walls fade.
-        void BuildRaisedWalls(bool shop)
-        {
-            for (int side = -1; side <= 1; side += 2)
-            {
-                for (int x = -14; x <= 14; x++)
-                {
-                    if (!shop && Mathf.Abs(x) < 2 && HasDoorDirection(0, side)) continue;
-                    Vector2 ground = new Vector2(x, side * 9);
-                    var face = MakeSprite("wall-side" + roomTheme, ground + Vector2.up * .45f,
-                        roomRoot.transform, Depth(ground.y));
-                    face.transform.localScale = new Vector3(.5f, side < 0 ? .36f : .62f, 1);
-                    var crown = MakeSprite("wall-crown" + roomTheme, ground + Vector2.up * (side < 0 ? .85f : 1.15f),
-                        roomRoot.transform, Depth(ground.y) + 1);
-                    crown.transform.localScale = new Vector3(.5f, .23f, 1);
-                    raisedWalls.Add(face); raisedWalls.Add(crown);
-                }
-                for (int y = -8; y <= 8; y++)
-                {
-                    if (!shop && Mathf.Abs(y) < 2 && HasDoorDirection(side, 0)) continue;
-                    Vector2 ground = new Vector2(side * 15, y);
-                    var face = MakeSprite("wall-side" + roomTheme, ground + Vector2.up * .42f,
-                        roomRoot.transform, Depth(ground.y));
-                    face.transform.localScale = new Vector3(.4f, .55f, 1);
-                    face.flipX = side > 0;
-                    var crown = MakeSprite("wall-crown" + roomTheme, ground + Vector2.up,
-                        roomRoot.transform, Depth(ground.y) + 1);
-                    crown.transform.localScale = new Vector3(.4f, .2f, 1);
-                    raisedWalls.Add(face); raisedWalls.Add(crown);
-                }
-            }
         }
 
         bool HasDoorDirection(int dx, int dy)
@@ -336,7 +293,8 @@ namespace Ecos.Haunt
             foreach (var fog in fogPatches)
                 if (fog.Sprite)
                 {
-                    fog.Sprite.transform.position = Snap(fog.Anchor + new Vector2(Mathf.Sin(simulationTime * .18f + fog.Phase) * 1.3f, Mathf.Cos(simulationTime * .12f + fog.Phase) * .4f));
+                    Vector2 drift = fog.Anchor + new Vector2(Mathf.Sin(simulationTime * .18f + fog.Phase) * 1.3f, Mathf.Cos(simulationTime * .12f + fog.Phase) * .4f);
+                    fog.Sprite.transform.position = Snap(RoomContains(drift, 1.1f) ? drift : fog.Anchor);
                     Color tint = FloorColors[roomTheme];
                     fog.Sprite.color = new Color(tint.r * .65f, tint.g * .7f, tint.b, .16f + .07f * Mathf.PerlinNoise(fog.Phase + 2, simulationTime * .2f));
                 }
@@ -346,7 +304,7 @@ namespace Ecos.Haunt
                 float t = simulationTime;
                 Vector2 p = new Vector2(Mathf.Sin(t * 5.13f) * 13, Mathf.Cos(t * 3.71f) * 7);
                 Color c = FloorColors[ThemeVariant]; c.a = .32f;
-                Emit("spark", p, Vector2.up * .25f, c, 1.3f, .16f, 0);
+                if (RoomContains(p, .1f)) Emit("spark", p, Vector2.up * .25f, c, 1.3f, .16f, 0);
             }
             foreach (var prop in roomAnimations)
                 if (prop.Sprite) prop.Sprite.sprite = art.Frame(prop.Id, Mathf.FloorToInt(simulationTime * 6 + prop.Offset));
@@ -418,9 +376,19 @@ namespace Ecos.Haunt
 
         void PresentEnemy(Enemy enemy, Vector2 direction)
         {
-            int frame = enemy.Kind == 4 && enemy.Cooldown < .5f ? 2 : Mathf.FloorToInt(enemy.Phase * (enemy.Kind == 4 ? 4 : enemy.Kind == 3 ? 10 : 6));
-            enemy.Sprite.sprite = art.Frame(EnemySprite(enemy.Kind), frame);
-            float floatHeight = enemy.Kind == 1 || enemy.Kind == 3 || enemy.Kind == 12 ? Mathf.Sin(enemy.Phase * 4) * .12f : Mathf.Sin(enemy.Phase * 5) * .025f;
+            bool stone = enemy.Kind == 16 && GargoyleIsStone(enemy);
+            bool disguised = enemy.Kind == 15 && !enemy.Awakened;
+            int frame = stone || disguised ? 0 : Mathf.FloorToInt(enemy.Phase * (enemy.Kind == 4 ? 6 : enemy.Kind == 3 || enemy.Kind == 18 ? 10 : 6));
+            if (enemy.Kind == 4)
+            {
+                BossAnimationState state = enemy.Tell > 0 ? BossAnimationState.Telegraph
+                    : enemy.AttackVisualTime > 0 ? BossAnimationState.Attack
+                    : enemy.Health < enemy.MaxHealth * .5f ? BossAnimationState.Enrage : BossAnimationState.Idle;
+                enemy.Sprite.sprite = art.BossFrame(EnemySprite(enemy.Kind), state, frame);
+            }
+            else enemy.Sprite.sprite = art.Frame(EnemySprite(enemy.Kind), frame);
+            float floatHeight = stone || disguised ? 0 : enemy.Kind == 1 || enemy.Kind == 3 || enemy.Kind == 12 || enemy.Kind == 18
+                ? Mathf.Sin(enemy.Phase * (enemy.Kind == 18 ? 8 : 4)) * .12f : Mathf.Sin(enemy.Phase * 5) * .025f;
             float emerged = Mathf.Clamp01(1 - enemy.SpawnRemaining / .9f);
             enemy.Sprite.transform.position = Snap(enemy.Position + Vector2.up * (.38f + floatHeight - (1 - emerged) * .65f));
             if (enemy.Rift)
@@ -433,21 +401,27 @@ namespace Ecos.Haunt
             enemy.Sprite.flipX = direction.x < 0;
             Color normal = enemy.Kind == 4 && BossVariant == 1 ? new Color(.72f, 1, .97f)
                 : enemy.Kind == 4 && BossVariant == 2 ? new Color(1, .74f, .91f) : Color.white;
-            enemy.Sprite.color = enemy.HurtFlash > 0 ? new Color(1, .75f, .7f)
+            if (stone) normal = new Color(.58f, .6f, .68f);
+            enemy.Sprite.color = enemy.HurtFlash > 0 ? Color.white
                 : enemy.Tell > 0 ? Color.Lerp(normal, new Color(1, .65f, .65f), .45f + .2f * Mathf.Sin(simulationTime * 25)) : normal;
             enemy.Sprite.sortingOrder = Depth(enemy.Position.y);
-            float stretch = enemy.Tell > 0 ? -.1f : Mathf.Sin(enemy.Phase * 8) * .035f;
+            float stretch = stone || disguised ? 0 : enemy.Tell > 0 ? -.1f : Mathf.Sin(enemy.Phase * 8) * .035f;
             if (enemy.Aura)
             {
                 enemy.Aura.transform.position = Snap(enemy.Position);
-                enemy.Aura.transform.localScale = Vector3.one * (4 + Mathf.Sin(enemy.Phase * 3) * .35f + enemy.Tell);
+                bool enragedAura = enemy.Health < enemy.MaxHealth * .5f;
+                enemy.Aura.transform.localScale = Vector3.one * ((enragedAura ? 5.2f : 4) + Mathf.Sin(enemy.Phase * 3) * .35f + enemy.Tell);
+                enemy.Aura.sharedMaterial = GlowMaterial;
+                enemy.Aura.color = new Color(BossAccent.r, BossAccent.g, BossAccent.b, enragedAura ? .25f : .16f);
             }
-            Color emergingColor = enemy.Sprite.color; emergingColor.a = emerged; enemy.Sprite.color = emergingColor;
+            Color emergingColor = enemy.Sprite.color; emergingColor.a = emerged * (enemy.Kind == 17 ? .6f : 1); enemy.Sprite.color = emergingColor;
             float scale = enemy.Kind == 4 ? 1.15f : enemy.Kind == 11 ? 1.1f : enemy.Kind == 13 ? 1.15f : 1;
             enemy.Sprite.transform.localScale = new Vector3(scale * (1 - stretch), scale * (1 + stretch) * (.2f + .8f * emerged), 1);
             enemy.Shadow.transform.position = Snap(enemy.Position + Vector2.down * .25f);
+            enemy.Shadow.color = new Color(1, 1, 1, enemy.Kind == 17 ? .28f : .65f);
+            enemy.Ring.enabled = !disguised;
             enemy.Ring.transform.position = Snap(enemy.Position + Vector2.down * .2f);
-            enemy.Ring.color = new Color(HostileAccent.r, HostileAccent.g, HostileAccent.b, enemy.Tell > 0 ? .9f : .4f);
+            enemy.Ring.color = new Color(HostileAccent.r, HostileAccent.g, HostileAccent.b, enemy.Tell > 0 ? .9f : enemy.Kind == 17 ? .24f : .4f);
             enemy.Telegraph.enabled = enemy.Tell > 0;
             enemy.Telegraph.transform.position = Snap(enemy.Position + direction * .9f + Vector2.up * .15f);
             enemy.Telegraph.transform.rotation = Quaternion.Euler(0, 0, Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg);

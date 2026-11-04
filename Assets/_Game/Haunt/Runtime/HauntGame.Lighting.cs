@@ -67,7 +67,7 @@ namespace Ecos.Haunt
 
         void AttachEnemyLighting(Enemy enemy)
         {
-            if (enemy.Kind == 0 || enemy.Kind == 12 || enemy.Kind == 4 && BossVariant == 0)
+            if (enemy.Kind == 0 || enemy.Kind == 12 || enemy.Kind == 15 || enemy.Kind == 18 || enemy.Kind == 4 && BossVariant == 0)
                 AttachFlickerLight(enemy.Sprite.transform, new Color(1, .46f, .14f), enemy.Kind == 4 ? 4 : 2.7f, .22f);
         }
 

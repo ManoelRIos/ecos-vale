@@ -60,7 +60,9 @@ namespace Ecos.Haunt
         sealed class Enemy
         {
             public SpriteRenderer Sprite, Shadow, Ring, Telegraph, Aura, Rift;
-            public Vector2 Position, Dash;
+            public Vector2 Position, Dash, NavStep;
+            public bool Awakened;
+            public float SpecialTimer, NavTimer, AttackVisualTime;
             public int Kind, Health, MaxHealth, Attack;
             public float Cooldown, Phase, Tell, HurtFlash, DashTime, SpawnRemaining;
         }
@@ -201,18 +203,29 @@ namespace Ecos.Haunt
                 Cursor.visible = !UsingController;
                 flash = Mathf.Max(0, flash - realDelta);
                 UpdateFeel(Mathf.Min(realDelta, .05f));
+                UpdateBossPresentation(Mathf.Min(realDelta, .05f));
                 UpdateShots(0);
                 UpdateSparks(Mathf.Min(realDelta, .05f));
                 return;
             }
             if (PausePressed())
             {
+                if (ConversationActive) { ClearConversations(); ConsumeControl(); return; }
                 if (shopMenuOpen) { CloseMerchant(); return; }
                 Paused = !Paused;
                 showMap = false;
             }
             if (Paused) { PauseAudio(true); StopBeam(); Cursor.visible = !UsingController; return; }
             PauseAudio(false);
+            bool capturedConversation = ConversationCapturesInput;
+            UpdateConversations(realDelta);
+            if (capturedConversation || ConversationCapturesInput)
+            {
+                StopBeam(); playerMoving = false; playerVelocity = Vector2.zero;
+                simulationTime += Mathf.Min(realDelta, .05f);
+                UpdateRoomAmbience(Mathf.Min(realDelta, .05f));
+                return;
+            }
             if (!InShop && MapPressed()) showMap = !showMap;
             // Clamp large frame gaps so a stalled frame cannot jump across an entire room.
             float dt = Mathf.Min(Time.deltaTime, .05f);
@@ -235,6 +248,7 @@ namespace Ecos.Haunt
             UpdateRoomProps(dt);
             UpdateSparks(dt);
             UpdateVisualMotion(dt);
+            UpdateBossPresentation(dt);
             if (State.IsDead)
             {
                 StopBeam();
@@ -253,7 +267,7 @@ namespace Ecos.Haunt
 
         void UpdatePlayer(Keyboard keyboard, float dt)
         {
-            if (shopMenuOpen) { StopBeam(); playerMoving = false; return; }
+            if (shopMenuOpen || ConversationCapturesInput) { StopBeam(); playerMoving = false; return; }
             Vector2 input = MovementInput(keyboard);
             Vector2 previousPosition = playerPosition;
             if (input.sqrMagnitude > 0) lastMove = input.normalized;
@@ -294,6 +308,7 @@ namespace Ecos.Haunt
                 return;
             }
             PlaySound(SoundCue.MagicShot, .75f);
+            EmitReaperSlash(AimDirection());
             if (State.Character == CharacterKind.Hunter)
             {
                 foreach (var shot in shots)
@@ -368,6 +383,7 @@ namespace Ecos.Haunt
         void EnterRoom(DungeonRoom room, Vector2 arrival)
         {
             ClearCombat();
+            ClearConversations();
             CurrentRoom = room;
             visited.Add(room.Id);
             playerPosition = safeGround = arrival;
@@ -392,6 +408,7 @@ namespace Ecos.Haunt
             UpdateCamera(0, true);
             UpdatePresentation();
             PlaySound(SoundCue.Door, .6f);
+            if (room.Kind == RoomKind.Boss && !room.Cleared && enemies.Count > 0) BeginBossIntro(enemies[0]);
         }
 
         void SpawnWave()
@@ -448,21 +465,21 @@ namespace Ecos.Haunt
 
         int EncounterEnemy(int index, int wave)
         {
-            int[] signature = { 0, 12, 14, 13, 7 };
+            int[] signature = { 15, 17, 16, 13, 18 };
             if (index == 0) return signature[ThemeVariant];
             switch (CurrentRoom.Encounter)
             {
                 case EncounterKind.Swarm:
-                    int[] swarm = { 0, 3, 5, 9 };
+                    int[] swarm = { 0, 3, 5, 9, 18 };
                     return index % 3 == 0 ? signature[ThemeVariant] : swarm[(index + wave) % swarm.Length];
                 case EncounterKind.Crossfire:
-                    int[] shooters = { 1, 2, 6, 8, 12, 14 };
+                    int[] shooters = { 1, 2, 6, 8, 12, 14, 16 };
                     return shooters[(index + wave + ThemeVariant) % shooters.Length];
                 case EncounterKind.Elite:
-                    int[] guards = { 13, 6, 10, 12, 14 };
+                    int[] guards = { 13, 6, 10, 12, 14, 15, 16 };
                     return guards[(index + wave) % guards.Length];
                 default:
-                    int[] ambushers = { 3, 10, 14, 5, 12 };
+                    int[] ambushers = { 3, 10, 14, 5, 12, 17, 18 };
                     return ambushers[(index + wave + ThemeVariant) % ambushers.Length];
             }
         }
@@ -499,7 +516,11 @@ namespace Ecos.Haunt
 
         Vector2 MoveEnemy(Enemy enemy, Vector2 delta, float radius)
         {
-            if (enemy.Kind == 1 || enemy.Kind == 3 || enemy.Kind == 12) return Move(enemy.Position, delta, radius);
+            if (enemy.Kind == 17)
+                return new Vector2(Mathf.Clamp(enemy.Position.x + delta.x, -HalfWidth + radius, HalfWidth - radius),
+                    Mathf.Clamp(enemy.Position.y + delta.y, -HalfHeight + radius, HalfHeight - radius));
+            if (enemy.Kind == 1 || enemy.Kind == 3 || enemy.Kind == 12 || enemy.Kind == 16 || enemy.Kind == 18)
+                return Move(enemy.Position, delta, radius);
             delta *= RoomMovementMultiplier(enemy.Position);
             Vector2 origin = enemy.Position;
             int count = Mathf.Max(1, Mathf.CeilToInt(delta.magnitude / .12f));
@@ -516,9 +537,10 @@ namespace Ecos.Haunt
 
         void SpawnEnemy(int kind, Vector2 position)
         {
+            position = SafeSpawnPosition(position, kind == 4 ? .85f : kind == 11 ? .65f : .45f);
             int depth = Mathf.Min(12, Mathf.Max(1, State.Floor));
             int health = kind == 11 ? 18 + depth * 5 : kind == 4 ? 50 + depth * 12
-                : (kind == 13 ? 8 : kind == 0 || kind == 6 ? 4 : kind == 3 || kind == 5 ? 2 : 3) + (depth - 1) / 3;
+                : (kind == 13 ? 8 : kind == 16 ? 7 : kind == 15 ? 5 : kind == 0 || kind == 6 ? 4 : kind == 3 || kind == 5 || kind == 18 ? 2 : 3) + (depth - 1) / 3;
             if (kind != 4 && kind != 11 && kind != 13 && CurrentRoom.Encounter == EncounterKind.Swarm)
                 health = Mathf.Max(2, health - 1);
             var enemy = new Enemy { Kind = kind, Position = position, Health = health, MaxHealth = health,
@@ -558,11 +580,14 @@ namespace Ecos.Haunt
                 }
                 enemy.Cooldown -= dt; enemy.Phase += dt;
                 enemy.HurtFlash = Mathf.Max(0, enemy.HurtFlash - dt);
+                enemy.AttackVisualTime = Mathf.Max(0, enemy.AttackVisualTime - dt);
                 enemy.Tell = Mathf.Max(0, enemy.Tell - dt);
                 Vector2 towards = playerPosition - enemy.Position;
                 float distance = towards.magnitude;
                 Vector2 direction = distance > .01f ? towards / distance : Vector2.down;
-                if (enemy.Kind == 4) UpdateBoss(enemy, direction, dt);
+                if (enemy.Kind != 4 && enemy.Kind != 17) direction = SeekEnemyDirection(enemy, direction, dt);
+                if (UpdateHalloweenEnemy(enemy, direction, distance, dt)) { }
+                else if (enemy.Kind == 4) UpdateBoss(enemy, direction, dt);
                 else
                 {
                     Vector2 motion = Vector2.zero;
@@ -600,7 +625,7 @@ namespace Ecos.Haunt
 
         void SeparateEnemy(Enemy enemy, float dt)
         {
-            if (enemy.Kind == 4 || enemy.DashTime > 0) return;
+            if (enemy.Kind == 4 || enemy.DashTime > 0 || enemy.Kind == 15 && !enemy.Awakened || enemy.Kind == 16 && !IsEnemyDamageable(enemy)) return;
             Vector2 separation = Vector2.zero;
             foreach (var other in enemies)
             {
@@ -628,7 +653,7 @@ namespace Ecos.Haunt
 
         void UpdateBoss(Enemy boss, Vector2 direction, float dt)
         {
-            boss.Position = MoveEnemy(boss, new Vector2(Mathf.Sin(boss.Phase * .7f), Mathf.Cos(boss.Phase)) * (dt * .7f), .85f);
+            boss.Position = MoveEnemy(boss, new Vector2(Mathf.Sin(boss.Phase * .7f), Mathf.Cos(boss.Phase)) * (dt * (boss.Health <= boss.MaxHealth / 2 ? 1.05f : .7f)), .85f);
             if (boss.Cooldown <= 0) PrepareBossPattern(boss, direction);
         }
 
@@ -637,6 +662,7 @@ namespace Ecos.Haunt
             if (warnings.Count >= 16) return;
             position.x = Mathf.Clamp(position.x, -HalfWidth + radius, HalfWidth - radius);
             position.y = Mathf.Clamp(position.y, -HalfHeight + radius, HalfHeight - radius);
+            position = SafeSpawnPosition(position, Mathf.Min(radius, .85f));
             var marker = MakeSprite("enemy-ring", position, actorsRoot.transform, 40);
             marker.transform.localScale = new Vector3(radius, radius * 2, 1);
             var color = new Color(1, .43f, .25f, .9f);
@@ -656,7 +682,8 @@ namespace Ecos.Haunt
                 {
                     Impact(warning.Position + Vector2.up * .2f, Vector2.up, warning.Color, true);
                     AddCameraTrauma(CurrentRoom.Kind == RoomKind.Boss ? .3f : .12f);
-                    if (Vector2.Distance(playerPosition, warning.Position) < warning.Radius + PlayerRadius) HurtPlayer();
+                    if (Vector2.Distance(playerPosition, warning.Position) < warning.Radius + PlayerRadius
+                        && !CoverBetween(warning.Position, playerPosition)) HurtPlayer();
                 }
                 Destroy(warning.Sprite.gameObject);
                 warnings.RemoveAt(i);
@@ -755,6 +782,7 @@ namespace Ecos.Haunt
 
         void Interact()
         {
+            if (ConversationCapturesInput) return;
             if (InShop)
             {
                 if (shopMenuOpen) { CloseMerchant(); return; }
@@ -769,6 +797,7 @@ namespace Ecos.Haunt
         void OpenShop()
         {
             ClearCombat();
+            ClearConversations();
             InShop = true;
             showMap = shopMenuOpen = shopWeapons = false;
             playerPosition = new Vector2(0, -3.5f);
@@ -783,13 +812,13 @@ namespace Ecos.Haunt
         {
             if (!InShop || shopMenuOpen || !new Rect(MerchantPosition.x - 1, MerchantPosition.y - .7f, 2, 2.3f).Contains(worldPoint)) return false;
             OpenMerchant();
-            return shopMenuOpen;
+            return ConversationActive || shopMenuOpen;
         }
 
         void OpenMerchant()
         {
             if (!Playing || !InShop || Paused || State.IsDead || Vector2.Distance(playerPosition, MerchantPosition) > 2.8f) return;
-            shopMenuOpen = true;
+            BeginMerchantConversation();
             playerMoving = false;
             RollEnd();
             noticeTime = 0;
@@ -805,7 +834,7 @@ namespace Ecos.Haunt
 
         void LeaveShop()
         {
-            if (!InShop || shopMenuOpen || Paused || State.IsDead) return;
+            if (!InShop || shopMenuOpen || ConversationCapturesInput || Paused || State.IsDead) return;
             int previous = State.Floor;
             State.NextFloor();
             if (previous == State.Floor) return;
@@ -847,6 +876,7 @@ namespace Ecos.Haunt
 
         void ClearCombat()
         {
+            ClearBossPresentation();
             ClearBulletPatterns();
             ClearCombatSlowZones();
             StopBeam();
@@ -868,6 +898,7 @@ namespace Ecos.Haunt
 
         void ClearActors()
         {
+            ClearConversations();
             ClearCombat();
             if (player) Destroy(player.gameObject);
             if (shadow) Destroy(shadow.gameObject);
@@ -898,6 +929,8 @@ namespace Ecos.Haunt
             DisposeAudio();
             DisposeGameFeel();
             DisposeLighting();
+            DisposeRoomLayoutCache();
+            ClearConversations();
             Cursor.visible = true;
             if (glowMaterial) Destroy(glowMaterial);
             if (projectileLightMaterial) Destroy(projectileLightMaterial);

@@ -90,7 +90,8 @@ namespace Ecos.Haunt
                 else if (Paused) DrawPause();
                 if (flash > 0) Fill(new Rect(0, 0, 1280, 720), new Color(.8f, .1f, .2f, flash * 1.4f));
             }
-            if (noticeTime > 0 && !Paused && (!InShop || !shopMenuOpen))
+            DrawConversations();
+            if (noticeTime > 0 && !ConversationCapturesInput && !Paused && (!InShop || !shopMenuOpen))
             {
                 Color tint = Mint;
                 tint.a = Mathf.Clamp01(noticeTime / .65f);
@@ -139,6 +140,7 @@ namespace Ecos.Haunt
 
         void DrawHud()
         {
+            if (BossIntroActive) return;
             // Compact corner information leaves the close camera's play area clear.
             for (int i = 0; i < State.MaxHealth; i++)
             {
@@ -270,7 +272,7 @@ namespace Ecos.Haunt
         }
 
         // Only modal screens capture input. HUD labels and both atlas sizes are passive.
-        bool PointerOverInterface() => !Playing || Paused || State.IsDead || (InShop && shopMenuOpen);
+        bool PointerOverInterface() => !Playing || Paused || State.IsDead || ConversationCapturesInput || (InShop && shopMenuOpen);
 
         static readonly ShopItem[] RelicItems = { ShopItem.GiantRounds, ShopItem.CharacterRelic, ShopItem.QuickBoots,
             ShopItem.Heal, ShopItem.Damage, ShopItem.FireRate, ShopItem.MaxHealth };
@@ -447,7 +449,10 @@ namespace Ecos.Haunt
                 Rect tile = new Rect(point.x - width * .5f, point.y - height * .5f, width, height);
                 bool known = visited.Contains(room.Id) || room.Kind == RoomKind.Boss;
                 Color tint = room == CurrentRoom ? Color.white : room.Cleared ? Mint : known ? theme : theme * .58f;
-                MapIcon(tile, "map-theme" + ThemeVariant, tint, opacity);
+                Color previousRoomTint = GUI.color;
+                GUI.color = new Color(tint.r, tint.g, tint.b, 1);
+                RoomMapShape(tile, room, opacity);
+                GUI.color = previousRoomTint;
                 if (room == CurrentRoom)
                 {
                     Color marker = Mint; marker.a = Mathf.Min(1, opacity + .10f);
