@@ -876,7 +876,9 @@ namespace Ecos.Haunt
             return renderer;
         }
 
-        static Vector3 Snap(Vector2 position) => new Vector3(Mathf.Round(position.x * 16) / 16f, Mathf.Round(position.y * 16) / 16f, 0);
+        static Vector3 Snap(Vector2 position) => new Vector3(
+            Mathf.Round(position.x * HauntPixelArt.ReferencePixelsPerUnit) / HauntPixelArt.ReferencePixelsPerUnit,
+            Mathf.Round(position.y * HauntPixelArt.ReferencePixelsPerUnit) / HauntPixelArt.ReferencePixelsPerUnit, 0);
 
         void ClearCombat()
         {

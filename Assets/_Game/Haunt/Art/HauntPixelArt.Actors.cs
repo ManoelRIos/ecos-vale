@@ -9,10 +9,11 @@ namespace Ecos.Haunt
     public sealed partial class HauntPixelArt
     {
         public const int ActorFrameCount = 4;
+        public const int ActorCellSize = 48;
         public static bool HasActorSheet(string id) => id == "player" || id == "medium" || id == "reaper" || id == "alchemist"
             || id == "scarecrow" || id == "gargoyle" || id == "stalker-shadow" || id == "fire-bat" || id == "skeleton" || id == "slime";
 
-        /// <summary>Reference-sheet poses: 24px, shared foot pivot, independent state/direction cache.</summary>
+        /// <summary>Detailed reference-sheet poses: 48px, shared foot pivot, independent state/direction cache.</summary>
         public Sprite ActorFrame(string id, ActorAnimationState state, int frame, ActorFacing facing = ActorFacing.Right, bool includeEquipment = true)
         {
             if (disposed) throw new ObjectDisposedException(nameof(HauntPixelArt));
@@ -23,13 +24,13 @@ namespace Ecos.Haunt
             string key = "actor-sheet/" + id + "/" + state + "/" + facing + "/" + frame + "/" + includeEquipment;
             if (sprites.TryGetValue(key, out var cached)) return cached;
             var loaded = TryLoadSheetSprite(key, "actors/" + id + (!includeEquipment && SheetHero(id) ? "-body" : ""),
-                frame, (int)state * 3 + (int)facing, 24, 2f / 24);
+                frame, (int)state * 3 + (int)facing, ActorCellSize, 2f / 24);
             if (loaded) return loaded;
             Canvas c = SheetActorPixels(id, state, frame, facing, includeEquipment);
-            var texture = new Texture2D(24, 24, TextureFormat.RGBA32, false)
+            var texture = new Texture2D(ActorCellSize, ActorCellSize, TextureFormat.RGBA32, false)
             { name = "Haunt / " + key, filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp, anisoLevel = 0 };
             texture.SetPixels32(c.Pixels); texture.Apply(false, useReferenceSheets);
-            var sprite = Sprite.Create(texture, new Rect(0, 0, 24, 24), new Vector2(.5f, 2f / 24), 16, 0, SpriteMeshType.FullRect);
+            var sprite = Sprite.Create(texture, new Rect(0, 0, ActorCellSize, ActorCellSize), new Vector2(.5f, 2f / 24), ReferencePixelsPerUnit, 0, SpriteMeshType.FullRect);
             sprite.name = "Haunt / " + key; textures.Add(texture); sprites.Add(key, sprite); return sprite;
         }
 
@@ -39,7 +40,408 @@ namespace Ecos.Haunt
             SheetRedLight = Hex(0xc34839), SheetSteel = Hex(0x8b969d), SheetSteelLight = Hex(0xd4d8cd);
 
         static bool SheetHero(string id) => id == "player" || id == "medium" || id == "reaper" || id == "alchemist";
+        // The old pose blockout determines timing and silhouette. Every pose is
+        // then authored on a 48px grid: faces, fabric, joints and material edges
+        // contain single-pixel structures that cannot exist in the 24px blockout.
         static Canvas SheetActorPixels(string id, ActorAnimationState state, int frame, ActorFacing facing, bool equipment)
+        {
+            if (state == ActorAnimationState.Death) return DetailedActorDeath(id, frame, facing, equipment);
+            ActorAnimationState drawState = state == ActorAnimationState.Spawn ? ActorAnimationState.Idle : state;
+            var c = ExpandActorBlockout(SheetActorBasePixels(id, drawState, frame, facing, equipment));
+            if (SheetHero(id)) DetailHero(c, id, drawState, frame, facing, equipment);
+            else DetailCreature(c, id, drawState, frame);
+            if (SheetHero(id) && state == ActorAnimationState.Idle) c = DetailedActorBreathing(c, frame);
+            if (state == ActorAnimationState.Spawn) c = DetailedActorEmergence(c, id, frame);
+            return c;
+        }
+
+        static Canvas ExpandActorBlockout(Canvas source)
+        {
+            var c = new Canvas(ActorCellSize, ActorCellSize);
+            for (int y = 0; y < 24; y++) for (int x = 0; x < 24; x++)
+            {
+                var p = source.Pixels[(23 - y) * 24 + x];
+                if (p.a > 0) c.Rect(x * 2, y * 2, 2, 2, p);
+            }
+            return c;
+        }
+
+        static void ActorDetailPixel(Canvas c, int x, int y, Color32 color)
+        {
+            // Surface detail stays on the pose's material, never on transparent
+            // space, the contour or the ghostly VFX surrounding it.
+            if (x < 0 || y < 0 || x >= 48 || y >= 48) return;
+            var surface = c.Pixels[(47 - y) * 48 + x];
+            if (surface.a > 160 && !(surface.r == Ink.r && surface.g == Ink.g && surface.b == Ink.b))
+                c.Set(x, y, Alpha(color, surface.a));
+        }
+
+        static void ActorDetailLine(Canvas c, int x0, int y0, int x1, int y1, Color32 color)
+        {
+            int dx = Math.Abs(x1 - x0), sx = x0 < x1 ? 1 : -1, dy = -Math.Abs(y1 - y0), sy = y0 < y1 ? 1 : -1, error = dx + dy;
+            while (true)
+            {
+                ActorDetailPixel(c, x0, y0, color); if (x0 == x1 && y0 == y1) break;
+                int twice = error * 2; if (twice >= dy) { error += dy; x0 += sx; } if (twice <= dx) { error += dx; y0 += sy; }
+            }
+        }
+
+        static void DetailHero(Canvas c, string id, ActorAnimationState state, int frame, ActorFacing facing, bool equipment)
+        {
+            if (state == ActorAnimationState.Dodge)
+            {
+                if (id == "medium")
+                {
+                    for (int ray = 0; ray < 6; ray++)
+                    {
+                        int x = 7 + ray * 6, y = 36 - (ray * 3 + frame * 4) % 17;
+                        ActorDetailLine(c, x, y, x + 4, y - 5, Hex(0xe8c4ff));
+                    }
+                }
+                else
+                {
+                    ActorDetailLine(c, 11, 34, 29, 38, id == "player" ? Hex(0x9aaa80) : Hex(0xdc8171));
+                    ActorDetailLine(c, 15, 32, 26, 36, Hex(0x303447));
+                    for (int i = 0; i < 6; i++) ActorDetailPixel(c, 12 + i * 3, 39 - (frame & 1), Hex(0xb59a74));
+                    int head = frame == 1 ? 32 : frame == 2 ? 10 : frame == 0 ? 22 : 26;
+                    ActorDetailLine(c, head, 27, head + 5, 25, id == "reaper" ? Hex(0xe27058) : Hex(0xd87b3b));
+                    ActorDetailPixel(c, head + 6, 33, Hex(0xffe6af));
+                    ActorDetailPixel(c, head + 7, 34, Ink);
+                }
+                return;
+            }
+            int bob = state == ActorAnimationState.Walk && (frame == 1 || frame == 3) ? 2 : 0;
+            if (state == ActorAnimationState.Cast && (frame == 1 || frame == 2)) bob = -2;
+            Color32 clothLight = id == "player" ? Hex(0x8c9874) : id == "reaper" ? Hex(0xdd6953) : Hex(0xb68cca);
+            Color32 clothDark = id == "player" ? Hex(0x2d403c) : id == "reaper" ? Hex(0x461e2b) : Hex(0x30263f);
+            // Lapels, seams, hems and buckles follow the moving torso blockout.
+            ActorDetailLine(c, 18, 26 + bob, 22, 31 + bob, clothLight);
+            ActorDetailLine(c, 29, 25 + bob, 26, 32 + bob, clothDark);
+            ActorDetailLine(c, 19, 31 + bob, 18, 36 + bob, clothDark);
+            ActorDetailLine(c, 28, 32 + bob, 30, 38 + bob, clothLight);
+            ActorDetailLine(c, 22, 34 + bob, 22, 38 + bob, clothLight);
+            ActorDetailLine(c, 16, 38, 23, 39, clothDark);
+            ActorDetailLine(c, 26, 39, 32, 37, clothLight);
+            ActorDetailLine(c, 17, 43, 21, 43, Hex(0x819295));
+            ActorDetailLine(c, 28, 43, 32, 43, Hex(0x819295));
+            ActorDetailPixel(c, 23 + frame, 32 + (frame >> 1), clothLight);
+            if (id == "player")
+            {
+                ActorDetailLine(c, 18, 27 + bob, 28, 35 + bob, Hex(0xd2aa6e));
+                ActorDetailLine(c, 18, 28 + bob, 28, 36 + bob, Hex(0x694b38));
+                c.Rect(24, 35 + bob, 4, 3, Hex(0x443c31)); c.Rect(25, 35 + bob, 2, 2, Hex(0xe0bd6c));
+                c.Set(25, 36 + bob, Hex(0x604b35));
+                ActorDetailLine(c, 11, 31 + bob, 15, 34 + bob, Hex(0x638f88));
+                ActorDetailLine(c, 10, 34 + bob, 13, 35 + bob, Hex(0x223c40));
+                DetailHumanHead(c, id, frame, facing, bob);
+            }
+            else if (id == "medium")
+            {
+                ActorDetailLine(c, 24, 27 + bob, 24, 37 + bob, Hex(0xe7c6e8));
+                ActorDetailLine(c, 25, 27 + bob, 25, 35 + bob, Hex(0x76517f));
+                c.Rect(23, 26 + bob, 4, 4, Hex(0x4b3157)); c.Set(24, 26 + bob, Gold); c.Set(25, 27 + bob, Pale); c.Set(24, 28 + bob, Violet);
+                ActorDetailLine(c, 11, 34 + bob, 14, 38 + bob, Hex(0xc49acb));
+                DetailHumanHead(c, id, frame, facing, bob);
+            }
+            else if (id == "reaper")
+            {
+                ActorDetailLine(c, 15, 25 + bob, 12, 34 + bob, Hex(0xd27562));
+                ActorDetailLine(c, 13, 30 + bob, 11, 37 + bob, Hex(0x501e2c));
+                ActorDetailLine(c, 15, 37 + bob, 18, 36 + bob, Hex(0xba5144));
+                ActorDetailLine(c, 18, 13 + bob, 23, 10 + bob, Hex(0xde7259));
+                ActorDetailLine(c, 29, 12 + bob, 33, 18 + bob, Hex(0x56212d));
+                if (facing != ActorFacing.Up)
+                {
+                    c.Polygon(new[] { 19,15+bob,24,13+bob,30,15+bob,32,20+bob,29,24+bob,22,24+bob,18,20+bob },Hex(0xdac195));
+                    c.Line(20,16+bob,22,15+bob,Hex(0xffe4b1)); c.Line(21,21+bob,28,22+bob,Hex(0x9d7559));
+                    if(frame==3){c.Line(21,18+bob,23,18+bob,Ink);c.Line(28,18+bob,30,18+bob,Ink);}
+                    else {c.Rect(21,17+bob,3,3,Ink); c.Rect(28,17+bob,3,3,Ink); c.Set(23,18+bob,Hex(0x8d3834)); c.Set(29,18+bob,Hex(0x8d3834));}
+                    c.Line(24,23+bob,28,23+bob,Hex(0x684637)); c.Set(26,21+bob,Ink); c.Set(22,16+bob,Hex(0xffe4b1));
+                }
+            }
+            else
+            {
+                ActorDetailLine(c, 20, 5 + bob, 23, 12 + bob, Hex(0x82919b));
+                ActorDetailLine(c, 18, 13 + bob, 31, 14 + bob, Hex(0xc3a4cb));
+                c.Rect(22, 13 + bob, 4, 3, Hex(0x9d803f)); c.Rect(23, 14 + bob, 2, 1, Gold);
+                if (facing != ActorFacing.Up)
+                {
+                    c.Line(20,19+bob,23,18+bob,Hex(0xffe0ae));
+                    if(frame==3){c.Line(21,21+bob,23,21+bob,Ink);c.Line(29,21+bob,31,21+bob,Ink);}
+                    else {c.Rect(21,20+bob,2,2,Ink); c.Rect(29,20+bob,2,2,Ink);c.Set(22,20+bob,Hex(0x78c0aa)); c.Set(30,20+bob,Hex(0x78c0aa));}
+                    c.Line(23,24+bob,28,24+bob,Hex(0x8c4f36));
+                }
+                ActorDetailLine(c, 20, 27 + bob, 20, 32 + bob, Hex(0x94a17b));
+                ActorDetailLine(c, 23, 29 + bob, 25, 30 + bob, Hex(0xf2ce82));
+                ActorDetailLine(c, 20, 35 + bob, 29, 35 + bob, Hex(0xa17c50));
+                for (int vial = 0; vial < 3; vial++)
+                {
+                    int x = 21 + vial * 4; ActorDetailLine(c, x, 36 + bob, x, 39 + bob, Hex(0xa9d4bf));
+                    ActorDetailPixel(c, x + 1, 38 + bob, vial == 1 ? Hex(0xce8abb) : Hex(0x9bdd68));
+                }
+            }
+            // Arms and equipment are in front of the head in attack/reload
+            // poses. Recompose that original layer after the new face, including
+            // body-only variants, so a raised hand or the moving scythe survives.
+            int armY = state == ActorAnimationState.Reload ? 17 - (frame == 2 ? 3 : frame == 3 ? 1 : 0)
+                : state == ActorAnimationState.Attack ? (frame == 0 ? 13 : frame == 1 ? 12 : frame == 2 ? 14 : 15)
+                : 14 + bob / 2 + (state == ActorAnimationState.Walk && frame == 3 ? 1 : 0);
+            int handX = state == ActorAnimationState.Attack ? 16 - (frame == 1 ? 2 : 0) : 16;
+            Color32 sleeve = id == "player" ? Hex(0x77816a) : id == "reaper" ? SheetRedLight : SheetPurpleLight;
+            var layer = new Canvas(24,24);
+            layer.Rect(7,armY,3,2,sleeve); layer.Set(7,armY+2,SheetSkinShade);
+            layer.Rect(handX,armY,3,2,SheetSkin); layer.Set(handX+1,armY+1,SheetSkinShade);
+            if(equipment)SheetHeroEquipment(layer,id,state,frame,facing,armY,handX);
+            if(state==ActorAnimationState.Attack&&id=="reaper")SheetScytheArc(layer,frame);
+            for(int y=0;y<24;y++)for(int x=0;x<24;x++)
+            {
+                var p=layer.Pixels[(23-y)*24+x];if(p.a>0)c.Rect(x*2,y*2,2,2,p);
+            }
+            ActorDetailLine(c,15,armY*2+1,18,armY*2+1,clothLight);
+            ActorDetailLine(c,handX*2+1,armY*2+3,handX*2+4,armY*2+3,Hex(0xd89b6a));
+            if(equipment&&id=="player"&&facing==ActorFacing.Up&&state!=ActorAnimationState.Reload)
+                c.Line(33,13,33,23,Hex(0xe7ece0));
+            if (equipment) DetailHeroEquipment(c, id, state, frame, bob);
+            if (state == ActorAnimationState.Petrified)
+            {
+                for (int y = 0; y < 48; y++) for (int x = 0; x < 48; x++)
+                {
+                    var p = c.Pixels[(47-y)*48+x]; if (p.a == 0) continue;
+                    byte gray = (byte)((p.r * 3 + p.g * 6 + p.b) / 10); c.Set(x,y,new Color32(gray,gray,(byte)Math.Min(255,gray+5),p.a));
+                }
+            }
+        }
+
+        static void DetailHumanHead(Canvas c, string id, int frame, ActorFacing facing, int bob)
+        {
+            bool medium = id == "medium"; Color32 hair = medium ? Hex(0x44304f) : Hex(0x713529), hairLight = medium ? Hex(0xb38bc6) : Hex(0xd17b43);
+            // Replace the coarse face entirely with a new asymmetric contour,
+            // cheek plane, ear, iris, upper lid and separate hair locks.
+            c.Rect(14, 5+bob, 21, 20, new Color32(0,0,0,0));
+            c.Polygon(new[] { 15,12+bob,18,8+bob,25,6+bob,31,9+bob,34,13+bob,33,21+bob,30,25+bob,21,25+bob,16,21+bob },hair);
+            c.Polygon(new[] { 19,12+bob,27,10+bob,33,13+bob,33,20+bob,30,24+bob,22,24+bob,18,20+bob },Hex(0xd99b68));
+            c.Polygon(new[] { 21,12+bob,29,12+bob,33,15+bob,32,20+bob,29,22+bob,22,21+bob,19,18+bob },Hex(0xf6d39a));
+            c.Line(22,13+bob,28,13+bob,Hex(0xffe4af)); c.Set(31,14+bob,Hex(0xffe4af));
+            c.Polygon(new[] { 15,12+bob,17,8+bob,20,8+bob,21,5+bob,26,5+bob,25,8+bob,30,8+bob,33,12+bob,27,11+bob,23,13+bob,18,13+bob,18,19+bob,15,18+bob },hair);
+            c.Line(19,9+bob,23,7+bob,hairLight); c.Line(24,9+bob,28,10+bob,hairLight); c.Set(17,12+bob,hairLight); c.Set(21,8+bob,medium?Hex(0xddb4e6):Hex(0xeeaa61));
+            c.Line(16,14+bob,17,18+bob,medium?Hex(0x88609a):Hex(0x9d4d30));
+            if (medium)
+            {
+                c.Line(15,14+bob,13,23+bob,hair); c.Line(34,13+bob,34,26+bob,hair);
+                c.Line(14,19+bob,14,22+bob,hairLight); c.Set(33,23+bob,hairLight);
+                c.Set(32,11+bob,Hex(0xd7b2e0)); c.Set(33,12+bob,Gold);
+            }
+            if (facing == ActorFacing.Up)
+            {
+                c.Polygon(new[] { 17,12+bob,22,10+bob,30,11+bob,33,15+bob,32,23+bob,28,25+bob,20,24+bob,16,20+bob },hair);
+                c.Line(20,12+bob,19,20+bob,hairLight); c.Line(24,13+bob,24,22+bob,medium?Hex(0x785286):Hex(0x9c4f31));
+                c.Line(28,13+bob,30,19+bob,hairLight); c.Set(28,23+bob,hairLight); c.Set(23+frame,18+bob,hairLight);
+                return;
+            }
+            int firstEye = facing == ActorFacing.Down ? 21 : 22, secondEye = facing == ActorFacing.Down ? 29 : 30;
+            Color32 iris = medium ? Hex(0x8462b0) : Hex(0x4c736b);
+            foreach (int x in new[] { firstEye, secondEye })
+            {
+                c.Line(x-1,16+bob,x+2,16+bob,medium?Hex(0x684269):Hex(0x6c3526));
+                if(frame==3)c.Line(x,18+bob,x+2,18+bob,Ink);
+                else {c.Rect(x,17+bob,2,3,Ink);c.Set(x,17+bob,Hex(0xfff1d0));c.Set(x+1,18+bob,iris);c.Set(x+1,19+bob,Ink);}
+            }
+            c.Set(27,20+bob,Hex(0xc88e61)); c.Set(28,20+bob,Hex(0xffe4af));
+            c.Line(25,23+bob,29,23+bob,Hex(0xa66448)); c.Set(24,22+bob,Hex(0xfbe0ad));
+            c.Set(34,18+bob,Hex(0xe6ae7a)); c.Set(34,19+bob,Hex(0xb87653));
+        }
+
+        static void DetailHeroEquipment(Canvas c, string id, ActorAnimationState state, int frame, int bob)
+        {
+            if (id == "player")
+            {
+                ActorDetailLine(c, 36, 25, 44, 25, Hex(0xf0f2de));
+                ActorDetailLine(c, 37, 28, 43, 28, Hex(0x4d5b67));
+                ActorDetailPixel(c, 38, 27, Hex(0x8296a0)); ActorDetailPixel(c, 42, 26, Hex(0xb6c9c5));
+                ActorDetailLine(c, 35, 29, 35, 32, Hex(0xc99a62));
+            }
+            else if (id == "medium")
+            {
+                ActorDetailLine(c, 38, 20, 36, 38, Hex(0xb68c9f));
+                ActorDetailLine(c, 40, 13, 42, 16, Hex(0xf1c8ed));
+                ActorDetailPixel(c, 39, 14, Pale); ActorDetailPixel(c, 40, 18, Hex(0x713b8f));
+                ActorDetailLine(c, 37, 29, 39, 29, Gold); ActorDetailLine(c, 37, 33, 38, 33, Gold);
+            }
+            else if (id == "reaper")
+            {
+                int shaft = state == ActorAnimationState.Attack ? (17-frame)*2 : 36;
+                ActorDetailLine(c, shaft+1, 10, shaft-3, 39, Hex(0xc79b69));
+                ActorDetailLine(c, shaft+3, 11, 44, 17+frame*2, Hex(0xf1ead6));
+                ActorDetailLine(c, shaft+3, 13, 43, 18+frame*2, Hex(0x617e8b));
+                ActorDetailPixel(c, shaft, 26, Gold); ActorDetailPixel(c, shaft-1, 32, Gold);
+            }
+            else
+            {
+                for (int hand = 0; hand < 2; hand++)
+                {
+                    int x = hand == 0 ? 10 : 38, y = 29+bob;
+                    ActorDetailLine(c, x-1,y-3,x+1,y-3,Hex(0xe0e8d9));
+                    ActorDetailLine(c,x-2,y+1,x-2,y+4,Hex(0xe2ffe3));
+                    ActorDetailLine(c,x,y+4,x+2,y+4,hand==0?Hex(0xc3fa73):Hex(0xe5b1f5));
+                    ActorDetailPixel(c,x+2,y,Hex(0x375857));
+                }
+            }
+        }
+
+        static void DetailCreature(Canvas c, string id, ActorAnimationState state, int frame)
+        {
+            if (id == "scarecrow")
+            {
+                int sway=state==ActorAnimationState.Walk?(frame==0?-2:frame==2?2:0):0;
+                int head=state==ActorAnimationState.Attack?(frame%2)*2:frame==1?2:0;
+                ActorDetailLine(c,20+sway,12+head,18+sway,20+head,Hex(0x985021));
+                ActorDetailLine(c,26+sway,11+head,27+sway,22+head,Hex(0xffc46d));
+                ActorDetailLine(c,30+sway,14+head,31+sway,20+head,Hex(0xa95522));
+                c.Set(18+sway,17+head,Hex(0xffd788)); c.Set(28+sway,17+head,Hex(0xffe39b));
+                ActorDetailLine(c,21+sway,21+head,27+sway,21+head,Hex(0x351f25));
+                c.Set(22+sway,20+head,Hex(0x512625)); c.Set(25+sway,22+head,Hex(0xffcd63));
+                ActorDetailLine(c,18,27,26,30,Hex(0xb9ac79)); ActorDetailLine(c,22,25,22,34,Hex(0x384c43));
+                for(int seam=0;seam<4;seam++) { ActorDetailPixel(c,20+seam*2,31,Hex(0xd5be82)); ActorDetailPixel(c,18+seam*3,34,Hex(0x6d4e3a)); }
+                ActorDetailLine(c,17,35,16+sway,40,Hex(0xe2c98a)); ActorDetailLine(c,27,36,29-sway,41,Hex(0xe2c98a));
+                ActorDetailLine(c,38,14,35,40,Hex(0xc9b385)); ActorDetailLine(c,40,11,44,15,Hex(0xe1e1c8));
+            }
+            else if (id == "gargoyle")
+            {
+                int bob=state==ActorAnimationState.Petrified||state==ActorAnimationState.Idle?2:(frame==1||frame==3?-2:0);
+                Color32 highlight=Hex(0xc0c4b7), crack=Hex(0x353e47), edge=Hex(0x7d8d8f);
+                ActorDetailLine(c,19,12+bob,25,12+bob,highlight); ActorDetailLine(c,25,12+bob,29,15+bob,edge);
+                ActorDetailLine(c,26,12+bob,25,16+bob,crack); ActorDetailLine(c,25,16+bob,28,18+bob,crack);
+                ActorDetailLine(c,20,22+bob,24,25+bob,highlight); ActorDetailLine(c,24,25+bob,30,22+bob,highlight);
+                ActorDetailLine(c,24,26+bob,24,34+bob,crack); ActorDetailLine(c,18,29+bob,22,30+bob,edge);
+                ActorDetailLine(c,27,32+bob,31,31+bob,highlight); ActorDetailLine(c,21,35+bob,27,35+bob,highlight);
+                ActorDetailLine(c,14,38,18,38,highlight); ActorDetailLine(c,30,39,34,39,highlight);
+                for(int claw=0;claw<3;claw++){ActorDetailPixel(c,14+claw*2,42,highlight);ActorDetailPixel(c,30+claw*2,42,highlight);}
+                for(int wing=0;wing<2;wing++)
+                {
+                    int x=wing==0?5:41; ActorDetailLine(c,x,16,x+2,29,edge); ActorDetailLine(c,x+2,21,x+5,28,highlight);
+                }
+                ActorDetailPixel(c,18+frame,28+bob,highlight);
+            }
+            else if (id == "stalker-shadow")
+            {
+                int bob=(frame==1||frame==3)?2:0;
+                ActorDetailLine(c,18,16+bob,24,11+bob,Hex(0xbb73d0));
+                ActorDetailLine(c,17,20+bob,19,17+bob,Hex(0xe3a4e9));
+                ActorDetailLine(c,23,25+bob,29,27+bob,Hex(0x261b36));
+                ActorDetailLine(c,19,33+bob,15,39,Hex(0x9e5ac1)); ActorDetailLine(c,23,39,29,37,Hex(0xd493e2));
+                ActorDetailPixel(c,25,20+bob,Hex(0xffd9fa)); ActorDetailPixel(c,31,20+bob,Hex(0xffd9fa));
+                ActorDetailLine(c,21,30+bob,23,31+bob,Hex(0x9952ba));
+                if(state==ActorAnimationState.Attack||state==ActorAnimationState.Cast)
+                {ActorDetailLine(c,40,23,43,25,Hex(0xe5c5ff));ActorDetailPixel(c,42,24,Pale);}
+            }
+            else if (id == "fire-bat")
+            {
+                int wing=frame==0?6:frame==1?0:frame==2?14:24;
+                for(int side=0;side<2;side++)
+                {
+                    int shoulder=side==0?18:30, tip=side==0?4:42;
+                    ActorDetailLine(c,shoulder,25,tip,wing+8,Hex(0xeb783b));
+                    ActorDetailLine(c,shoulder,27,side==0?10:37,30,Hex(0x381d2b));
+                    ActorDetailLine(c,side==0?8:40,wing+14,side==0?13:34,31,Hex(0xa4422e));
+                    ActorDetailPixel(c,tip,wing+5,Hex(0xffd46c));
+                }
+                ActorDetailLine(c,20,18,22,22,Hex(0x965241));ActorDetailLine(c,27,18,29,22,Hex(0x965241));
+                ActorDetailPixel(c,21,24,Hex(0xfff1af));ActorDetailPixel(c,29,24,Hex(0xfff1af));
+                ActorDetailLine(c,23,28,27,28,Ink);ActorDetailPixel(c,23,30,Pale);ActorDetailPixel(c,27,30,Pale);
+                ActorDetailLine(c,21,33,25,35,Hex(0xea6d30));
+            }
+            else if (id == "skeleton")
+            {
+                int bob=(frame==1||frame==3)?2:0;
+                Color32 light=Hex(0xfff1ce), bone=Hex(0xd0bd94), crevice=Hex(0x726655);
+                ActorDetailLine(c,18,8+bob,24,7+bob,light);ActorDetailLine(c,26,8+bob,30,10+bob,light);
+                ActorDetailLine(c,25,7+bob,24,10+bob,crevice);ActorDetailPixel(c,23,12+bob,crevice);
+                ActorDetailLine(c,18,16+bob,19,17+bob,bone);ActorDetailLine(c,29,16+bob,31,17+bob,bone);
+                c.Line(21,19+bob,28,19+bob,crevice);for(int tooth=0;tooth<4;tooth++)ActorDetailPixel(c,21+tooth*2,19+bob,light);
+                ActorDetailLine(c,20,24+bob,19,28+bob,light);ActorDetailLine(c,27,24+bob,29,28+bob,light);
+                ActorDetailLine(c,21,27+bob,26,28+bob,crevice);ActorDetailLine(c,21,30+bob,27,31+bob,light);
+                ActorDetailLine(c,23,23+bob,23,32+bob,crevice);ActorDetailPixel(c,24,25+bob,light);ActorDetailPixel(c,24,29+bob,light);
+                ActorDetailLine(c,21,34+bob,26,34+bob,bone);
+                for(int joint=0;joint<3;joint++){ActorDetailPixel(c,17+joint*7,38,light);ActorDetailPixel(c,18+joint*5,40,crevice);}
+                ActorDetailPixel(c,22+frame,26+bob,light);
+            }
+            else
+            {
+                // Bubble membranes, submerged inclusions and the meniscus are
+                // placed relative to the actual jumping/squashing silhouette.
+                int left=48,right=0,top=48,bottom=0;
+                for(int y=0;y<48;y++)for(int x=0;x<48;x++){var p=c.Pixels[(47-y)*48+x];if(p.a>180&&p.g>p.r+12&&p.g>p.b+12){left=Math.Min(left,x);right=Math.Max(right,x);top=Math.Min(top,y);bottom=Math.Max(bottom,y);}}
+                if(left<right)
+                {
+                    int width=right-left,height=bottom-top;
+                    ActorDetailLine(c,left+3,top+height/3,left+6,top+2,Hex(0xe9f8b1));
+                    ActorDetailLine(c,left+4,top+height/3+1,left+7,top+height/3+1,Hex(0xe9f8b1));
+                    ActorDetailLine(c,left+width/3,bottom-2,right-4,bottom-2,Hex(0x8ac557));
+                    ActorDetailPixel(c,left+width/2,top+height/2,Hex(0x56893d));
+                    ActorDetailPixel(c,left+width/2+2,top+height/2,Hex(0xa7d76d));
+                    ActorDetailPixel(c,right-6,bottom-4,Hex(0x315f36));
+                    ActorDetailPixel(c,left+5+frame,bottom-3,Hex(0xb8e079));
+                }
+            }
+        }
+
+        static Canvas DetailedActorBreathing(Canvas source, int frame)
+        {
+            int lift=frame==0?0:frame==2?2:1;
+            if(lift==0)return source;
+            var c=new Canvas(48,48);
+            for(int y=0;y<48;y++)for(int x=0;x<48;x++)
+            {
+                // Head and shoulders rise on inhale; the chest expands toward
+                // the fixed belt while the boots retain the same ground anchor.
+                int fromY=y<28-lift?y+lift:y<40?28+(y-(28-lift))*12/(12+lift):y;
+                var p=source.Pixels[(47-fromY)*48+x];if(p.a>0)c.Set(x,y,p);
+            }
+            return c;
+        }
+
+        static Canvas DetailedActorEmergence(Canvas source, string id, int frame)
+        {
+            var c=new Canvas(48,48);int rise=(3-frame)*10;
+            for(int y=0;y<48-rise;y++)for(int x=0;x<48;x++){var p=source.Pixels[(47-y)*48+x];if(p.a>0)c.Set(x,y+rise,p);}
+            Color32 tint=id=="slime"?Hex(0x8bd454):id=="fire-bat"?Orange:Violet;
+            c.Ellipse(10,41,28,4,Alpha(tint,(byte)(125-frame*22)));
+            for(int i=0;i<7;i++){int x=7+i*5,y=40-(i+frame)%3;c.Set(x,y,Alpha(tint,175));if(frame<2)c.Set(x+1,y-1,Alpha(Pale,95));}
+            return c;
+        }
+
+        static Canvas DetailedActorDeath(string id, int frame, ActorFacing facing, bool equipment)
+        {
+            if(id=="slime"||id=="stalker-shadow")
+            {
+                var c=ExpandActorBlockout(SheetActorDeath(id,frame,facing,equipment));
+                for(int i=0;i<8;i++)
+                {
+                    int x=5+(i*7+frame*3)%37,y=43-(i*5+frame*2)%(16-frame*3);
+                    c.Set(x,y,Alpha(id=="slime"?Hex(0xc9ec8c):Hex(0xe2a6ef),(byte)(205-frame*30)));
+                    if(frame<2)c.Set(x+1,y+1,Alpha(id=="slime"?Hex(0x72b543):Violet,170));
+                }
+                return c;
+            }
+            var source=ExpandActorBlockout(SheetActorBasePixels(id,ActorAnimationState.Idle,0,facing,equipment));
+            if(SheetHero(id))DetailHero(source,id,ActorAnimationState.Idle,0,facing,equipment);else DetailCreature(source,id,ActorAnimationState.Idle,0);
+            var result=new Canvas(48,48);int crop=frame*10;
+            for(int y=crop;y<46;y++)for(int x=0;x<48;x++)
+            {
+                var p=source.Pixels[(47-y)*48+x];
+                int tile=(x/3+y/4+frame)%5;
+                if(p.a>0&&tile>=frame){int ox=frame*(tile-2);result.Set(x+ox,Math.Min(45,y+frame*3),Alpha(p,(byte)(255-frame*52)));}
+            }
+            Color32 fragment=id=="scarecrow"||id=="fire-bat"?Orange:SheetHero(id)?SheetPurpleLight:SheetSteelLight;
+            for(int i=0;i<10;i++)
+            {
+                int x=3+(i*7+frame*3)%42,y=44-(i*5+frame)%(17-frame*3);
+                result.Set(x,y,Alpha(fragment,(byte)(225-frame*35)));if(frame<2)result.Set(x+1,y,Alpha(Pale,160));
+            }
+            return result;
+        }
+
+        static Canvas SheetActorBasePixels(string id, ActorAnimationState state, int frame, ActorFacing facing, bool equipment)
         {
             if (state == ActorAnimationState.Death) return SheetActorDeath(id, frame, facing, equipment);
             Canvas c;

@@ -30,19 +30,31 @@ static class Program
         public int rows { get; set; }
         public int width => columns * cellSize;
         public int height => rows * cellSize;
-        public float pixelsPerUnit { get; set; } = 16;
+        public float pixelsPerUnit { get; set; } = 32;
         public List<Cell> cells { get; set; } = new List<Cell>();
+        public string rgba { get; set; }
+    }
+    sealed class EquipmentImage
+    {
+        public string id { get; set; }
+        public int width { get; set; }
+        public int height { get; set; }
+        public float pixelsPerUnit { get; set; }
         public string rgba { get; set; }
     }
     static readonly string[] Actors = { "player", "medium", "reaper", "alchemist", "scarecrow", "gargoyle", "stalker-shadow", "fire-bat", "skeleton", "slime" };
     static readonly string[] Bosses = { "boss", "widow", "bishop", "matriarch", "bell", "iron-executioner", "bog-oracle" };
     static readonly string[] Props = { "barrel-explosive", "barrel-acid", "decrepit-chest" };
+    static readonly string[] Equipment = { "weapon", "scattergun", "repeater", "cannon", "stapler", "banana-gun",
+        "spinning-top", "hunter-carbine", "veil-wand", "bone-caster", "arc-coil", "mirror-disc", "ray-lantern",
+        "bone-flute", "umbrella-gun", "hive-launcher", "boxing-glove", "water-urn", "ammo-cache", "giant-rounds",
+        "character-relic", "quick-boots" };
     static int count;
 
     static void AddCell(Sheet sheet, byte[] pixels, Sprite sprite, string state, string facing, int frame, int row)
     {
         int size = sheet.cellSize;
-        if (sprite.rect.width != size || sprite.rect.height != size || sprite.pixelsPerUnit != 16)
+        if (sprite.rect.width != size || sprite.rect.height != size || sprite.pixelsPerUnit != 32)
             throw new InvalidOperationException("Unexpected sprite dimensions or PPU: " + sprite.name);
         if (sprite.texture.filterMode != FilterMode.Point) throw new InvalidOperationException("Non-pixel filter: " + sprite.name);
         Color32[] source = sprite.texture.GetPixels32();
@@ -70,12 +82,13 @@ static class Program
     {
         if (args.Length != 1) throw new ArgumentException("Pass an output exchange JSON path");
         var sheets = new List<Sheet>();
+        var equipmentImages = new List<EquipmentImage>();
         using (var art = new HauntPixelArt(false))
         {
             for (int actor = 0; actor < Actors.Length; actor++) for (int body = 0; body < (actor < 4 ? 2 : 1); body++)
             {
                 string id = Actors[actor]; bool equipment = body == 0;
-                var sheet = NewSheet("actors/" + id + (equipment ? "" : "-body"), "actor", id, 24, 27, equipment);
+                var sheet = NewSheet("actors/" + id + (equipment ? "" : "-body"), "actor", id, 48, 27, equipment);
                 byte[] pixels = Buffer(sheet);
                 foreach (ActorAnimationState state in Enum.GetValues<ActorAnimationState>())
                     foreach (ActorFacing facing in Enum.GetValues<ActorFacing>()) for (int frame = 0; frame < 4; frame++)
@@ -84,7 +97,7 @@ static class Program
             }
             for (int boss = 0; boss < Bosses.Length; boss++)
             {
-                var sheet = NewSheet("bosses/" + Bosses[boss], "boss", Bosses[boss], 48, 5, true);
+                var sheet = NewSheet("bosses/" + Bosses[boss], "boss", Bosses[boss], 96, 5, true);
                 byte[] pixels = Buffer(sheet);
                 foreach (BossAnimationState state in Enum.GetValues<BossAnimationState>()) for (int frame = 0; frame < 4; frame++)
                     AddCell(sheet, pixels, art.ReferenceBossFrame(boss, state, frame), state.ToString(), "Right", frame, (int)state);
@@ -92,15 +105,32 @@ static class Program
             }
             foreach (string prop in Props)
             {
-                var sheet = NewSheet("props/" + prop, "prop", prop, 16, 4, true);
+                var sheet = NewSheet("props/" + prop, "prop", prop, 32, 4, true);
                 byte[] pixels = Buffer(sheet);
                 for (int stage = 0; stage < 4; stage++) for (int frame = 0; frame < 4; frame++)
                     AddCell(sheet, pixels, art.PropFrame(prop, stage, frame), "Stage" + stage, "Right", frame, stage);
                 sheet.rgba = Convert.ToBase64String(pixels); sheets.Add(sheet);
             }
+            foreach (string id in Equipment)
+            {
+                Sprite sprite = art.Get(id);
+                if (sprite.pixelsPerUnit != 32 || sprite.texture.filterMode != FilterMode.Point)
+                    throw new InvalidOperationException("Equipment must use detailed 32PPU pixel art: " + id);
+                int width = (int)sprite.rect.width, height = (int)sprite.rect.height;
+                Color32[] source = sprite.texture.GetPixels32();
+                byte[] pixels = new byte[width * height * 4];
+                for (int y = 0; y < height; y++) for (int x = 0; x < width; x++)
+                {
+                    Color32 pixel = source[((int)sprite.rect.y + height - y - 1) * sprite.texture.width + (int)sprite.rect.x + x];
+                    int to = (y * width + x) * 4;
+                    pixels[to] = pixel.r; pixels[to + 1] = pixel.g; pixels[to + 2] = pixel.b; pixels[to + 3] = pixel.a;
+                }
+                equipmentImages.Add(new EquipmentImage { id = id, width = width, height = height,
+                    pixelsPerUnit = sprite.pixelsPerUnit, rgba = Convert.ToBase64String(pixels) });
+            }
         }
-        var output = new { version = 1, coordinateOrigin = "top-left", frameOrder = "left-to-right", framesPerState = 4,
-            pixelsPerUnit = 16, cellCount = count, sheets };
+        var output = new { version = 2, coordinateOrigin = "top-left", frameOrder = "left-to-right", framesPerState = 4,
+            pixelsPerUnit = 32, cellCount = count, sheets, equipment = equipmentImages };
         File.WriteAllText(args[0], JsonSerializer.Serialize(output), new System.Text.UTF8Encoding(false));
         Console.WriteLine($"Exported {sheets.Count} sheets / {count} poses from production C# pixels. No Unity rendering.");
     }

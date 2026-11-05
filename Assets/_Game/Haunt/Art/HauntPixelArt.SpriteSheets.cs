@@ -6,6 +6,7 @@ namespace Ecos.Haunt
 {
     public sealed partial class HauntPixelArt
     {
+        public const int ReferencePixelsPerUnit = 32;
         readonly bool useReferenceSheets;
         readonly Dictionary<string, Texture2D> referenceTextures = new Dictionary<string, Texture2D>();
 
@@ -29,12 +30,13 @@ namespace Ecos.Haunt
                 texture = Resources.Load<Texture2D>("ReferenceSheets/" + sheet);
                 referenceTextures.Add(sheet, texture);
             }
-            int rows = cellSize == 24 ? 27 : cellSize == 48 ? 5 : 4;
+            int rows = sheet.StartsWith("actors/", StringComparison.Ordinal) ? 27
+                : sheet.StartsWith("bosses/", StringComparison.Ordinal) ? 5 : 4;
             if (!texture || texture.width != cellSize * 4 || texture.height != cellSize * rows
                 || column < 0 || column >= 4 || row < 0 || row >= rows) return null;
             var sprite = Sprite.Create(texture,
                 new Rect(column * cellSize, texture.height - (row + 1) * cellSize, cellSize, cellSize),
-                new Vector2(.5f, pivotY), 16, 0, SpriteMeshType.FullRect);
+                new Vector2(.5f, pivotY), ReferencePixelsPerUnit, 0, SpriteMeshType.FullRect);
             sprite.name = "Haunt / " + key;
             // Resource textures belong to Unity. Only the sliced Sprite belongs to
             // this library and is released by the normal sprite-cache teardown.

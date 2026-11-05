@@ -1,6 +1,6 @@
 # Pesadelos e munição
 
-O visual usa as proporções compactas, silhuetas distintas e contorno de um pixel das referências fornecidas. Os desenhos são originais, gerados em C#, com paleta reduzida e filtro Point. A prévia [REFERENCE_SPRITESHEETS.png](REFERENCE_SPRITESHEETS.png) foi extraída dos pixels do gerador, sem renderização no Unity.
+O visual usa proporções compactas, silhuetas distintas e contornos contrastantes das referências fornecidas. Os desenhos são originais, gerados em C#, com paleta reduzida e filtro Point. Jogadores e seis mobs usam células de 48×48, os sete bosses usam 96×96 e barris/baú usam 32×32. Com 32 pixels por unidade, mantêm o tamanho no cenário e recebem mais detalhes de rosto, tecido, osso, metal, madeira e líquido. A prévia [REFERENCE_SPRITESHEETS.png](REFERENCE_SPRITESHEETS.png) foi extraída dos pixels do gerador, sem renderização no Unity.
 
 ## Personagens e cenário
 
@@ -10,6 +10,8 @@ O visual usa as proporções compactas, silhuetas distintas e contorno de um pix
 - Alquimista: chapéu pontudo, roupa roxa e frascos verdes luminosos.
 - O catálogo preserva dezessete criaturas e miniboss. Seis mobs da nova prancha possuem folhas de estados; os sete bosses usam cinco estados e quatro quadros por estado.
 - Barris, urnas, pilares, lápides e cenários temáticos: topo iluminado, lateral escura e base para volume aparente. O cenário permanece em 2D com ordenação pela posição dos pés, sombras e camadas; não há malhas 3D nesta revisão.
+
+Armas, relíquias, caixa de munição e decoração têm desenhos procedurais com resolução dobrada e materiais mais definidos. Essa melhoria de apresentação preserva as regras abaixo, os tamanhos físicos e os padrões dos projéteis. Veja [SPRITESHEETS.md](SPRITESHEETS.md) para os formatos da arte.
 
 ## Regras de munição
 
@@ -49,6 +51,6 @@ A prioridade é a arma equipada. Se ela usa reserva infinita ou está cheia, out
 
 ## Organização
 
-`Core/WeaponAmmo.cs` define carregadores, reservas e durações. `RunState` controla consumo, transferência atômica, cancelamento e inventário. `Runtime/HauntGame.Ammunition.cs` trata R/Triângulo, chance de drop, sprites, coleta e persistência por sala. `HauntGame.Weapons.cs` cobra o disparo aceito antes de emitir a salva, reservando espaço para todos os seus projéteis. Sons curtos de início/fim, gatilho vazio e coleta são sintetizados no módulo de áudio. O gerador de arte mantém o sprite `ammo-cache` e os desenhos macabros.
+`Core/WeaponAmmo.cs` define carregadores, reservas e durações. `RunState` controla consumo, transferência atômica, cancelamento e inventário. `Runtime/HauntGame.Ammunition.cs` trata R/Triângulo, chance de drop, sprites, coleta e persistência por sala. `HauntGame.Weapons.cs` cobra o disparo aceito antes de emitir a salva, reservando espaço para todos os seus projéteis. Sons curtos de início/fim, gatilho vazio e coleta são sintetizados no módulo de áudio. `HauntPixelArt.Equipment.cs` detalha as armas, os itens e o sprite `ammo-cache` em 32 pixels por unidade, mantendo seus tamanhos no mundo.
 
 As verificações do núcleo e os helpers externos conferem lógica, conservação da munição e contratos de código. A aparência em movimento, mixagem de áudio, importação, testes Editor e controle físico exigem Unity; veja [VALIDATION.md](VALIDATION.md).

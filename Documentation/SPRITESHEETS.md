@@ -6,13 +6,15 @@ A prancha enviada orienta a aparência atual: heróis compactos com rosto visív
 
 ## Arquivos entregues
 
-Há **24 PNGs RGBA transparentes** em [Assets/_Game/Resources/ReferenceSheets](../Assets/_Game/Resources/ReferenceSheets), com **1.700 células**, filtro Point, sem mipmaps, sem compressão e sem redimensionamento NPOT. A escala é 16 pixels por unidade. As texturas são compartilhadas pelos sprites de cada folha.
+Há **24 PNGs RGBA transparentes** em [Assets/_Game/Resources/ReferenceSheets](../Assets/_Game/Resources/ReferenceSheets), com **1.700 células**, filtro Point, sem mipmaps, sem compressão e sem redimensionamento NPOT. A escala é **32 pixels por unidade**. As texturas são compartilhadas pelos sprites de cada folha.
 
 | Pasta | Folhas | Célula | Grade | Uso |
 | --- | ---: | --- | --- | --- |
-| actors | 14 | 24×24 | 4 colunas × 27 linhas | Quatro heróis com equipamento e apenas corpo, mais seis mobs |
-| bosses | 7 | 48×48 | 4 × 5 | Repouso, preparação, ataque, fúria e morte |
-| props | 3 | 16×16 | 4 × 4 | Barril explosivo, barril de ácido e baú decrépito |
+| actors | 14 | 48×48 | 4 colunas × 27 linhas | Quatro heróis com equipamento e apenas corpo, mais seis mobs |
+| bosses | 7 | 96×96 | 4 × 5 | Repouso, preparação, ataque, fúria e morte |
+| props | 3 | 32×32 | 4 × 4 | Barril explosivo, barril de ácido e baú decrépito |
+
+A largura e a altura de cada célula dobraram, oferecendo quatro vezes a área para desenhar. Faces, cabelo, costuras, dobras, fivelas, juntas, dentes, rebites, lâminas e superfícies receberam detalhes novos nessa grade. Aumentar também os pixels por unidade preserva as dimensões da célula no mundo: 1,5 unidade para atores, 3 para bosses e 1 para esses objetos. Os pivôs continuam alinhados ao chão e as colisões usam a mesma geometria do combate.
 
 `manifest.json` identifica os frames, estados, direções, pivôs, retângulos e hash de cada PNG. `rect` usa origem superior esquerda, para edição de imagens; `unityRect` usa origem inferior esquerda, para o Unity. A prévia acima é uma montagem dos pixels, sem renderização do motor.
 
@@ -30,7 +32,7 @@ As quatro colunas são os frames 0–3. Cada estado ocupa três linhas: lateral 
 8. Death
 9. Petrified
 
-A lateral esquerda usa espelhamento. O pivô de todas as poses é `(0,5; 2/24)`, nos pés; a posição de apresentação acompanha o chão, o salto ou a flutuação correspondente.
+A lateral esquerda usa espelhamento. O pivô de todas as poses é `(24, 4)` pixels, ou `(0,5; 4/48)` normalizado, nos pés; a posição de apresentação acompanha o chão, o salto ou a flutuação correspondente. A grade de posicionamento visual usa 32 passos por unidade, como a câmera, para acompanhar os detalhes menores.
 
 As folhas `player`, `medium`, `reaper` e `alchemist` incluem o equipamento da prancha. As variantes `-body` deixam espaço para a arma equipada do inventário. O jogo usa essas variantes para permitir a troca de armas sem desenhar duas armas sobrepostas. O Ceifador conserva o arco de foice nas poses de ataque.
 
@@ -49,6 +51,12 @@ Os objetos têm quatro linhas de estágios, cada uma com quatro quadros:
 - Baú: fechado, abrindo, aberto, vazio.
 
 Barris usam esses estágios durante dano, fusível e destruição. A folha do baú fica preparada para uma futura interação; não altera as recompensas das salas.
+
+## Armas, relíquias e decoração
+
+As 17 armas também recebem resolução dobrada e detalhes próprios de metal, madeira, empunhaduras, canos, mecanismos e partes luminosas. O mesmo tratamento alcança relíquias, urna de água, caixa de munição, lápides, grades, velas ossuárias, decoração dos cinco temas e atendente. Seus desenhos são gerados por `HauntPixelArt.Equipment.cs`, com 32 pixels por unidade e tamanho visual preservado. Eles são recursos procedurais separados das 24 folhas PNG listadas acima.
+
+Projéteis mantêm a escala original de 16 pixels por unidade para conservar a leitura dos núcleos, rastros e halos no combate. Recarregamento, dano, cadência, padrões inimigos e colisões continuam definidos pelos mesmos sistemas de jogo.
 
 ## Reproduzir e verificar
 

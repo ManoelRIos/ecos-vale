@@ -54,7 +54,7 @@ def folder_meta(path):
 
 def texture_meta(path):
     # Default texture + Sprite.Create rects at runtime avoids ambiguous auto-slicing.
-    # Point, lossless RGBA and NPOT preservation keep 24px cell boundaries exact.
+    # Point, lossless RGBA and NPOT preservation keep the authored high-resolution cell boundaries exact.
     return f'''fileFormatVersion: 2
 guid: {guid_for(path)}
 TextureImporter:
@@ -99,7 +99,7 @@ TextureImporter:
   spriteMeshType: 1
   alignment: 0
   spritePivot: {{x: 0.5, y: 0.5}}
-  spritePixelsToUnits: 16
+  spritePixelsToUnits: 32
   spriteBorder: {{x: 0, y: 0, z: 0, w: 0}}
   spriteGenerateFallbackPhysicsShape: 0
   alphaUsage: 1
@@ -173,7 +173,7 @@ def export_exchange():
 
 def preview_bytes(exchange):
     """Compose original exported pixels and in-game glyphs, without resampling."""
-    width, height = 1280, 2100
+    width, height = 1920, 3600
     background = (19, 21, 28, 255)
     pixels = bytearray(bytes(background) * (width * height))
     glyph_source = (ROOT / 'Assets/_Game/Haunt/Runtime/HauntPixelText.cs').read_text()
@@ -221,67 +221,134 @@ def preview_bytes(exchange):
 
     gold = (232, 206, 95)
     green = (157, 194, 179)
-    text('ECOS DA MEIA-NOITE / FOLHAS DE ANIMACAO', 20, 18, 3, gold)
-    text('PIXELS REAIS DO CODIGO / PNGS TRANSPARENTES / SEM RENDERIZACAO UNITY', 20, 51, 2)
-    text('JOGADORES / 24X24', 20, 84, 2, gold)
+    text('ECOS DA MEIA-NOITE / FOLHAS DE ANIMACAO DETALHADAS', 24, 20, 4, gold)
+    text('PIXELS AUTORADOS EM C# / PNGS TRANSPARENTES / SEM RENDERIZACAO UNITY', 24, 62, 3)
+    text('JOGADORES / 48X48 / 32 PIXELS POR UNIDADE', 24, 108, 3, gold)
     heroes = [('player', 'CACADOR', ['Walk', 'Attack', 'Dodge']),
               ('medium', 'MEDIUM', ['Walk', 'Cast', 'Dodge']),
               ('reaper', 'CEIFADOR', ['Walk', 'Attack', 'Dodge']),
               ('alchemist', 'ALQUIMISTA', ['Walk', 'Cast', 'Reload'])]
     for col, (actor, label, states) in enumerate(heroes):
-        x = 20 + col * 315
-        text(label, x, 117, 2, green)
+        x = 24 + col * 474
+        text(label, x, 150, 3, green)
         for row, state in enumerate(states):
-            top = 145 + row * 81
-            text(state, x, top, 1)
+            top = 190 + row * 130
+            text(state, x, top, 2)
             for frame in range(4):
-                pose('actors/' + actor, state, frame, x + frame * 72, top + 9, 3)
-    text('MOBS / 24X24 / EMERGENCIA - ATAQUE - MORTE', 20, 411, 2, gold)
+                pose('actors/' + actor, state, frame, x + frame * 112, top + 18, 2)
+    text('MOBS / 48X48 / EMERGENCIA - ATAQUE - MORTE', 24, 600, 3, gold)
     mobs = [('scarecrow', 'ESPANTALHO', 'Spawn'), ('gargoyle', 'GARGULA', 'Petrified'),
             ('stalker-shadow', 'SOMBRA', 'Spawn'), ('fire-bat', 'MORCEGO DE FOGO', 'Walk'),
             ('skeleton', 'ESQUELETO', 'Walk'), ('slime', 'SLIME', 'Walk')]
     for index, (actor, label, first) in enumerate(mobs):
-        x, y = 20 + index % 3 * 420, 448 + index // 3 * 202
-        text(label, x, y, 2, green)
+        x, y = 24 + index % 3 * 632, 645 + index // 3 * 350
+        text(label, x, y, 3, green)
         for row, state in enumerate([first, 'Attack', 'Death']):
-            top = y + 26 + row * 53
-            text(state, x, top + 18, 1)
+            top = y + 30 + row * 100
+            text(state, x, top + 40, 2)
             for frame in range(4):
-                pose('actors/' + actor, state, frame, x + 90 + frame * 49, top, 2)
-    text('BOSSES / 48X48 / REPOUSO - PREPARO - ATAQUE - FURIA - MORTE', 20, 868, 2, gold)
+                pose('actors/' + actor, state, frame, x + 120 + frame * 112, top, 2)
+    text('BOSSES / 96X96 / REPOUSO - PREPARO - ATAQUE - FURIA - MORTE', 24, 1400, 3, gold)
     states = ['Idle', 'Telegraph', 'Attack', 'Enrage', 'Death']
     for col, label in enumerate(states):
-        text(label, 300 + col * 190, 904, 1, green)
+        text(label, 360 + col * 280, 1440, 2, green)
     bosses = [('iron-executioner', 'CARRASCO DE FERRO'), ('boss', 'MESTRE ABOBORA'),
               ('widow', 'VIUVA DO VEU'), ('bishop', 'BISPO DAS CINZAS'), ('matriarch', 'MATRIARCA'),
               ('bell', 'SINO DO ABISMO'), ('bog-oracle', 'ORACULO DO BREJO')]
     for row, (actor, label) in enumerate(bosses):
-        top = 926 + row * 110
-        text(label, 20, top + 38, 2)
+        top = 1480 + row * 210
+        text(label, 24, top + 84, 2)
         for col, state in enumerate(states):
-            pose('bosses/' + actor, state, 2 if state != 'Death' else 3, 300 + col * 190, top, 2)
-    text('OBJETOS / 16X16 / QUATRO ESTAGIOS E QUATRO QUADROS POR ESTAGIO', 20, 1720, 2, gold)
+            pose('bosses/' + actor, state, 2 if state != 'Death' else 3, 360 + col * 280, top, 2)
+    text('OBJETOS / 32X32 / QUATRO ESTAGIOS E QUATRO QUADROS POR ESTAGIO', 24, 2990, 3, gold)
     for row, (actor, label) in enumerate([('barrel-explosive', 'BARRIL EXPLOSIVO'),
                                         ('barrel-acid', 'BARRIL DE ACIDO'), ('decrepit-chest', 'BAU DECREPITO')]):
-        top = 1760 + row * 91
-        text(label, 20, top + 22, 2, green)
+        top = 3040 + row * 140
+        text(label, 24, top + 40, 2, green)
         for stage in range(4):
             for frame in range(4):
                 pose('props/' + actor, 'Stage' + str(stage), frame,
-                     300 + stage * 224 + frame * 48, top, 3)
-    text('24 PNGS / 1700 CELULAS / CONTORNO PIXEL / POINT / 16 PIXELS POR UNIDADE', 20, 2061, 2)
+                     300 + stage * 392 + frame * 96, top, 3)
+    text('24 PNGS / 1700 CELULAS / POINT / 32 PIXELS POR UNIDADE / ESCALA NO MUNDO PRESERVADA', 24, 3550, 3)
+    return png_bytes(width, height, pixels)
+
+
+def equipment_preview_bytes(exchange):
+    """Show full authored item pixels; these preview buffers are not runtime data."""
+    width, height = 1920, 1750
+    background = (19, 21, 28, 255)
+    pixels = bytearray(bytes(background) * (width * height))
+    glyph_source = (ROOT / 'Assets/_Game/Haunt/Runtime/HauntPixelText.cs').read_text()
+    glyphs = dict(re.findall(r"\{ '([A-Z0-9 .:/+\-])', \"([01/]+)\" \}", glyph_source))
+
+    def rect(x, y, w, h, color):
+        rgba = bytes((*color[:3], color[3] if len(color) > 3 else 255))
+        for py in range(max(0, y), min(height, y + h)):
+            start, end = max(0, x), min(width, x + w)
+            if end > start:
+                at = (py * width + start) * 4
+                pixels[at:at + (end - start) * 4] = rgba * (end - start)
+
+    def text(value, x, y, scale=2, color=(212, 218, 209)):
+        for character in value.upper():
+            pattern = glyphs.get(character)
+            if pattern:
+                for row, line in enumerate(pattern.split('/')):
+                    for col, bit in enumerate(line):
+                        if bit == '1':
+                            rect(x + col * scale, y + row * scale, scale, scale, color)
+            x += 6 * scale
+
+    labels = {'weapon': 'REVOLVER', 'scattergun': 'BACAMARTE', 'repeater': 'REPETIDORA',
+              'cannon': 'CANHAO DAS ALMAS', 'stapler': 'GRAMPEADOR', 'banana-gun': 'BANANA',
+              'spinning-top': 'PIAO DO CAOS', 'hunter-carbine': 'CARABINA DA AURORA',
+              'veil-wand': 'VARINHA DO VEU', 'bone-caster': 'CEIFADOR DE OSSOS',
+              'arc-coil': 'BOBINA VOLTAICA', 'mirror-disc': 'DISCO ESPELHO',
+              'ray-lantern': 'LANTERNA DE RAIOS', 'bone-flute': 'FLAUTA DE OSSOS',
+              'umbrella-gun': 'GUARDA-CHUVA', 'hive-launcher': 'COLMEIA DE BOLSO',
+              'boxing-glove': 'LUVA DE BOXE', 'water-urn': 'URNA', 'ammo-cache': 'MUNICAO',
+              'giant-rounds': 'BALAS GIGANTES', 'character-relic': 'RELIQUIA DE ALMA',
+              'quick-boots': 'BOTAS'}
+    text('ECOS DA MEIA-NOITE / ARMAS E ITENS DETALHADOS', 24, 22, 4, (232, 206, 95))
+    text('PIXELS REAIS DO GERADOR / 32 PPU / TAMANHO NO MUNDO PRESERVADO / SEM RENDERIZACAO UNITY',
+         24, 66, 3)
+    images = exchange.get('equipment', [])
+    if len(images) != 22 or len({image['id'] for image in images}) != 22:
+        raise ValueError('Expected 17 detailed weapons and five item previews')
+    for index, image in enumerate(images):
+        x, y = 24 + index % 4 * 474, 124 + index // 4 * 260
+        w, h = image['width'], image['height']
+        if image['pixelsPerUnit'] != 32 or w <= 0 or h <= 0:
+            raise ValueError('Invalid detailed item preview dimensions or PPU')
+        raw = base64.b64decode(image['rgba'], validate=True)
+        if len(raw) != w * h * 4:
+            raise ValueError('Invalid detailed item RGBA buffer')
+        scale = max(1, min(3, 430 // w, 190 // h))
+        px, py = x + (430 - w * scale) // 2, y + 36 + (190 - h * scale) // 2
+        text(labels.get(image['id'], image['id']), x, y, 2, (157, 194, 179))
+        text(str(w) + 'X' + str(h), x, y + 236, 2)
+        for sy in range(h):
+            for sx in range(w):
+                at = (sy * w + sx) * 4
+                r, g, b, a = raw[at:at + 4]
+                if not a:
+                    continue
+                color = tuple((value * a + background[i] * (255 - a)) // 255
+                              for i, value in enumerate((r, g, b)))
+                rect(px + sx * scale, py + sy * scale, scale, scale, color)
+    text('17 ARMAS / 5 ITENS / DETALHES AUTORADOS NO NOVO GRID / FILTRO POINT', 24, 1702, 3)
     return png_bytes(width, height, pixels)
 
 
 def build_outputs(exchange):
-    if exchange['version'] != 1 or exchange['framesPerState'] != 4:
+    if exchange['version'] != 2 or exchange['framesPerState'] != 4:
         raise ValueError('Unsupported sheet layout protocol')
     if len(exchange['sheets']) != 24 or exchange['cellCount'] != 1700:
         raise ValueError('Expected 24 sheets and 1700 cells')
     outputs = {}
     for folder in [RESOURCE_ROOT, RESOURCE_ROOT / 'actors', RESOURCE_ROOT / 'bosses', RESOURCE_ROOT / 'props']:
         outputs[Path(str(folder) + '.meta')] = folder_meta(folder)
-    manifest = {key: value for key, value in exchange.items() if key != 'sheets'}
+    manifest = {key: value for key, value in exchange.items() if key not in ('sheets', 'equipment')}
     manifest['source'] = 'Production HauntPixelArt C#; export-only pixel APIs; no Unity rendering'
     manifest['filterMode'] = 'Point'
     manifest['mipmaps'] = False
@@ -298,6 +365,9 @@ def build_outputs(exchange):
             raise ValueError('Duplicate sheet resource path')
         names.add(str(name))
         width, height, cell = sheet['width'], sheet['height'], sheet['cellSize']
+        expected_cell = {'actor': 48, 'boss': 96, 'prop': 32}.get(sheet['category'])
+        if cell != expected_cell or sheet['pixelsPerUnit'] != 32:
+            raise ValueError('Unexpected authored resolution or world scale')
         if width != 4 * cell or height != sheet['rows'] * cell:
             raise ValueError('Invalid sheet grid dimensions')
         rgba = base64.b64decode(sheet.pop('rgba'), validate=True)
@@ -328,6 +398,7 @@ def build_outputs(exchange):
     outputs[path] = (json.dumps(manifest, ensure_ascii=False, indent=2) + '\n').encode('utf-8')
     outputs[Path(str(path) + '.meta')] = json_meta(path)
     outputs[ROOT / 'Documentation/REFERENCE_SPRITESHEETS.png'] = preview_bytes(exchange)
+    outputs[ROOT / 'Documentation/EQUIPMENT_DETAIL.png'] = equipment_preview_bytes(exchange)
     return outputs
 
 

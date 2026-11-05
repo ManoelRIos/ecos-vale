@@ -47,6 +47,7 @@ REQUIRED_FILES = {
     'Assets/_Game/Haunt/Runtime/HauntFlickerLight.cs', 'Assets/_Game/Haunt/Runtime/HauntFlickerLight.cs.meta',
     'Assets/_Game/Haunt/Art/HauntPixelArt.cs', 'Assets/_Game/Haunt/Art/HauntPixelArt.cs.meta',
     'Assets/_Game/Haunt/Art/HauntPixelArt.Actors.cs', 'Assets/_Game/Haunt/Art/HauntPixelArt.Actors.cs.meta',
+    'Assets/_Game/Haunt/Art/HauntPixelArt.Equipment.cs', 'Assets/_Game/Haunt/Art/HauntPixelArt.Equipment.cs.meta',
     'Assets/_Game/Haunt/Art/HauntPixelArt.ReferenceBosses.cs', 'Assets/_Game/Haunt/Art/HauntPixelArt.ReferenceBosses.cs.meta',
     'Assets/_Game/Haunt/Art/HauntPixelArt.SpriteSheets.cs', 'Assets/_Game/Haunt/Art/HauntPixelArt.SpriteSheets.cs.meta',
     'Assets/_Game/Haunt/Core/DungeonFloor.cs', 'Assets/_Game/Haunt/Core/DungeonFloor.cs.meta',

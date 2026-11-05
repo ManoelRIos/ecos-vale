@@ -85,7 +85,7 @@ namespace Ecos.Haunt.Tests
                         Assert.IsNotNull(sprite, id);
                         Assert.AreSame(sprite, art.Get(id), "Repeated themed lookups must reuse textures: " + id);
                         Assert.AreEqual(FilterMode.Point, sprite.texture.filterMode, id);
-                        Assert.AreEqual(16, sprite.pixelsPerUnit, id);
+                        Assert.AreEqual(prefix == "decor-theme" ? 32 : 16, sprite.pixelsPerUnit, id);
                         if (prefix == "floor-theme" || prefix == "wall-theme")
                         {
                             Assert.AreEqual(16, sprite.rect.width, "The one-unit room grid needs 16px tiles: " + id);
@@ -183,7 +183,8 @@ namespace Ecos.Haunt.Tests
                     Assert.IsNotNull(sprite, id);
                     Assert.AreSame(sprite, art.Get(id), "Repeated lookup must reuse the sprite: " + id);
                     Assert.AreEqual(FilterMode.Point, sprite.texture.filterMode, id);
-                    Assert.AreEqual(16, sprite.pixelsPerUnit, id);
+                    int expectedPpu = id == "player" || id == "boss" || id == "merchant" || id == "grave" ? 32 : 16;
+                    Assert.AreEqual(expectedPpu, sprite.pixelsPerUnit, id);
                     Assert.Greater(sprite.rect.width, 0, id);
                     Assert.Greater(sprite.rect.height, 0, id);
                 }

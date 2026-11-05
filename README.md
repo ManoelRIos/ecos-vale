@@ -15,11 +15,13 @@ O atalho opcional `ABRIR_ECOS_DA_MEIA_NOITE.cmd` continua disponível para insta
 
 Para atualizar por ZIP, use uma extração nova: sobrepor pastas não remove arquivos antigos. Um clone Git atualizado também aplica as remoções rastreadas. Ainda não há um executável Windows validado desta revisão.
 
-## Spritesheets da referência, carregadores e munição
+## Pixel art com mais detalhes, carregadores e munição
 
 A nova prancha orienta os desenhos atuais: Caçador de cabelo castanho e roupa verde, Médium roxa com rosto visível e magia, Ceifador de capuz vermelho e foice, Alquimista com chapéu pontudo e frascos verdes. Espantalho, Gárgula, Sombra, Morcego de Fogo, Esqueleto e Slime receberam folhas de combate próprias. O Carrasco usa armadura azul e machado; o Mestre Abóbora tem capa roxa, foice e morcegos. Os demais cinco bosses mantêm o mesmo formato de animação.
 
-Há **24 PNGs transparentes, com 1.700 células**, carregados pelo jogo: jogadores/mobs em **24×24**, bosses em **48×48** e objetos em **16×16**. Caminhada, tiro, conjuração, recarga, evasão e morte são selecionados pelas ações reais. A orientação inclui frente, costas e lateral; a lateral esquerda usa espelhamento. Spritesheets, pivôs e manifesto estão em [ReferenceSheets](Assets/_Game/Resources/ReferenceSheets). O gerador C# continua disponível para reproduzir as folhas e como fallback. Veja [SPRITESHEETS.md](Documentation/SPRITESHEETS.md) para formatos e exportação.
+Há **24 PNGs transparentes, com 1.700 células**, carregados pelo jogo: jogadores/mobs em **48×48**, bosses em **96×96** e barris/baú em **32×32**. A escala passou para **32 pixels por unidade**, preservando o tamanho no cenário. O espaço adicional recebe olhos e cabelo mais definidos, dobras e costuras nas roupas, rebites nas armaduras, bordas de lâminas, veios de madeira e líquido nos frascos. As 17 armas, relíquias e objetos de cenário também ganharam desenhos procedurais mais detalhados.
+
+Caminhada, tiro, conjuração, recarga, evasão e morte são selecionados pelas ações reais. A orientação inclui frente, costas e lateral; a lateral esquerda usa espelhamento. Spritesheets, pivôs e manifesto estão em [ReferenceSheets](Assets/_Game/Resources/ReferenceSheets). O gerador C# continua disponível para reproduzir as folhas e como fallback. Veja [SPRITESHEETS.md](Documentation/SPRITESHEETS.md) para formatos e exportação.
 
 **R recarrega a arma; no controle, Triângulo.** Cada arma mantém seu próprio carregador e reserva. A arma inicial de cada alma e o revólver têm reserva infinita, mas exigem recarga manual. Armas compradas têm reserva limitada e podem esgotar. Uma carga paga o disparo completo dos leques; feixes consomem por pulso de dano. A recarga bloqueia tiros, movimenta a arma e tem efeitos sonoros próprios. Trocar de arma cancela a recarga sem perder munição; pausa e conversas congelam seu tempo.
 
@@ -28,6 +30,8 @@ Após adquirir uma arma com reserva finita, inimigos têm **12% de chance** de d
 Prévia dos pixels reais gerados pelo código, **sem renderização no Unity**:
 
 ![Folhas de jogadores, mobs, bosses e objetos](Documentation/REFERENCE_SPRITESHEETS.png)
+
+[Prévia dos detalhes das armas, relíquias e objetos](Documentation/EQUIPMENT_DETAIL.png), também produzida pelos pixels do gerador C#.
 
 ## Salas irregulares e expansão de Halloween
 

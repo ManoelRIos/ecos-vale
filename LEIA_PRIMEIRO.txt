@@ -27,7 +27,10 @@ A compatibilidade do seu controle/driver ainda precisa ser testada no PC.
 
 NOVIDADES
 Folhas de animacao como na nova prancha: 24 PNGs transparentes,
-1700 quadros, jogadores/mobs de 24px, bosses de 48px e objetos de 16px.
+1700 quadros, jogadores/mobs de 48px, bosses de 96px e barris/bau de 32px.
+32 pixels por unidade preservam o tamanho dos personagens e objetos.
+Rostos, roupas, armaduras, madeira e liquidos recebem detalhes novos.
+As 17 armas, reliquias e decoracao tambem tem resolucao dobrada.
 Assets/_Game/Resources/ReferenceSheets contem PNGs e manifesto.
 Veja Documentation/SPRITESHEETS.md e REFERENCE_SPRITESHEETS.png.
 Desenhos macabros dos quatro herois, 17 criaturas, miniboss e sete bosses.

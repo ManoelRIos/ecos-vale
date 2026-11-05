@@ -48,6 +48,7 @@ class PackageProjectTests(unittest.TestCase):
                          'Assets/_Game/Haunt/Runtime/HauntFlickerLight.cs',
                          'Assets/_Game/Haunt/Art/HauntPixelArt.cs',
                          'Assets/_Game/Haunt/Art/HauntPixelArt.Actors.cs',
+                         'Assets/_Game/Haunt/Art/HauntPixelArt.Equipment.cs',
                          'Assets/_Game/Haunt/Art/HauntPixelArt.ReferenceBosses.cs',
                          'Assets/_Game/Haunt/Art/HauntPixelArt.SpriteSheets.cs',
                          'Assets/_Game/Haunt/Core/DungeonFloor.cs',

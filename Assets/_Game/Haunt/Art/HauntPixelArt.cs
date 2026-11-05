@@ -240,6 +240,7 @@ namespace Ecos.Haunt
             }
             pixels = NightmareCreature(id, pixels, frame);
             pixels = IsGuardian(id) ? NightmareGuardian(id, pixels, frame) : VolumeProp(id, pixels);
+            if (HasDetailedEquipment(id)) return CacheSprite(key, RefineEquipment(id, pixels), ReferencePixelsPerUnit);
             return CacheSprite(key, pixels);
         }
 
@@ -257,7 +258,7 @@ namespace Ecos.Haunt
             return CacheSprite(key, BossPose(id, state, frame));
         }
 
-        Sprite CacheSprite(string key, Canvas pixels)
+        Sprite CacheSprite(string key, Canvas pixels, float pixelsPerUnit = 16)
         {
             var texture = new Texture2D(pixels.Width, pixels.Height, TextureFormat.RGBA32, false)
             {
@@ -267,7 +268,7 @@ namespace Ecos.Haunt
             texture.SetPixels32(pixels.Pixels);
             texture.Apply(false, useReferenceSheets);
             var sprite = Sprite.Create(texture, new Rect(0, 0, pixels.Width, pixels.Height),
-                new Vector2(.5f, .5f), 16, 0, SpriteMeshType.FullRect);
+                new Vector2(.5f, .5f), pixelsPerUnit, 0, SpriteMeshType.FullRect);
             sprite.name = "Haunt / " + key;
             textures.Add(texture); sprites.Add(key, sprite);
             return sprite;

@@ -36,6 +36,7 @@ namespace Ecos.Haunt.Tests
             Assert.AreEqual(TextureImporterCompression.Uncompressed, importer.textureCompression, "Compression must not alter pixel clusters");
             Assert.AreEqual(TextureImporterNPOTScale.None, importer.npotScale, "Non-square sheets must keep their source pixel grid");
             Assert.IsTrue(importer.alphaIsTransparency, path);
+            Assert.AreEqual(32, importer.spritePixelsPerUnit, "Importer metadata must match the authored PPU");
             Assert.IsFalse(importer.isReadable, "Play Mode only needs GPU atlas slices, not a permanent CPU duplicate");
             return texture;
         }
@@ -46,16 +47,17 @@ namespace Ecos.Haunt.Tests
             Assert.AreSame(texture, sprite.texture, "Animation frames must share the shipped sheet instead of allocating per-pose textures");
             Assert.AreEqual(new Rect(column * cellSize, texture.height - (row + 1) * cellSize, cellSize, cellSize), sprite.rect);
             Assert.AreEqual(new Vector2(cellSize * .5f, pivotY), sprite.pivot);
-            Assert.AreEqual(16, sprite.pixelsPerUnit);
+            Assert.AreEqual(32, sprite.pixelsPerUnit);
+            Assert.AreEqual(cellSize / 32f, sprite.bounds.size.x, .0001f, "Higher resolution must retain the original world-space size");
         }
 
         [Test]
         public void ReferenceSheetsKeepTheUnscaledTransparentPointFilteredPixelGrid()
         {
-            foreach (string id in Heroes.Concat(Creatures)) AssertSheet("actors/" + id, 24, 27);
-            foreach (string id in Heroes) AssertSheet("actors/" + id + "-body", 24, 27);
-            foreach (string id in Bosses) AssertSheet("bosses/" + id, 48, 5);
-            foreach (string id in Props) AssertSheet("props/" + id, 16, 4);
+            foreach (string id in Heroes.Concat(Creatures)) AssertSheet("actors/" + id, 48, 27);
+            foreach (string id in Heroes) AssertSheet("actors/" + id + "-body", 48, 27);
+            foreach (string id in Bosses) AssertSheet("bosses/" + id, 96, 5);
+            foreach (string id in Props) AssertSheet("props/" + id, 32, 4);
         }
 
         [Test]
@@ -72,7 +74,7 @@ namespace Ecos.Haunt.Tests
                     for (int frame = 0; frame < 4; frame++)
                     {
                         Sprite sprite = art.ActorFrame(id, state, frame, facing);
-                        AssertSlice(sprite, texture, 24, frame, (int)state * 3 + (int)facing, 2);
+                        AssertSlice(sprite, texture, 48, frame, (int)state * 3 + (int)facing, 4);
                         Assert.AreSame(sprite, art.ActorFrame(id, state, frame + 240, facing), "Repeated animation must reuse the Sprite cache");
                     }
                     Assert.AreSame(art.ActorFrame(id, ActorAnimationState.Attack, 3), art.ActorFrame(id, ActorAnimationState.Attack, -1));
@@ -81,7 +83,7 @@ namespace Ecos.Haunt.Tests
                 {
                     var texture = Resources.Load<Texture2D>("ReferenceSheets/actors/" + id + "-body");
                     Sprite body = art.ActorFrame(id, ActorAnimationState.Reload, 2, ActorFacing.Down, false);
-                    AssertSlice(body, texture, 24, 2, (int)ActorAnimationState.Reload * 3 + (int)ActorFacing.Down, 2);
+                    AssertSlice(body, texture, 48, 2, (int)ActorAnimationState.Reload * 3 + (int)ActorFacing.Down, 4);
                     Assert.AreNotSame(body, art.ActorFrame(id, ActorAnimationState.Reload, 2, ActorFacing.Down),
                         "Runtime bodies and exported equipment poses must not overwrite each other's cache entry");
                 }
@@ -100,7 +102,7 @@ namespace Ecos.Haunt.Tests
                     for (int frame = 0; frame < 4; frame++)
                     {
                         Sprite sprite = art.ReferenceBossFrame(variant, state, frame);
-                        AssertSlice(sprite, texture, 48, frame, (int)state, 24);
+                        AssertSlice(sprite, texture, 96, frame, (int)state, 48);
                         Assert.AreSame(sprite, art.ReferenceBossFrame(variant, state, frame + 4));
                     }
                     Assert.AreSame(art.ReferenceBossFrame(variant, BossAnimationState.Death, 3),
@@ -113,7 +115,7 @@ namespace Ecos.Haunt.Tests
                     for (int frame = 0; frame < 4; frame++)
                     {
                         Sprite sprite = art.PropFrame(id, stage, frame);
-                        AssertSlice(sprite, texture, 16, frame, stage, 8);
+                        AssertSlice(sprite, texture, 32, frame, stage, 16);
                         Assert.AreSame(sprite, art.PropFrame(id, stage, frame + 4));
                     }
                     Assert.AreNotSame(art.PropFrame(id, 0), art.PropFrame(id, 2), "Ignition/leak/open stages must not reuse the intact pose");
@@ -130,7 +132,7 @@ namespace Ecos.Haunt.Tests
                 {
                     var idle = art.ActorFrame(id, ActorAnimationState.Idle, 0);
                     var attack = art.ActorFrame(id, ActorAnimationState.Attack, 2);
-                    Assert.AreEqual(new Rect(0, 0, 24, 24), idle.rect);
+                    Assert.AreEqual(new Rect(0, 0, 48, 48), idle.rect);
                     Assert.IsTrue(idle.texture.isReadable, "The exporter needs the generated pixels without GPU readback");
                     Assert.AreNotSame(Resources.Load<Texture2D>("ReferenceSheets/actors/" + id), idle.texture);
                     Color32[] pixels = idle.texture.GetPixels32();
@@ -141,9 +143,47 @@ namespace Ecos.Haunt.Tests
                 foreach (string id in Props)
                 {
                     var sprite = art.PropFrame(id, 0);
-                    Assert.AreEqual(new Rect(0, 0, 16, 16), sprite.rect);
+                    Assert.AreEqual(new Rect(0, 0, 32, 32), sprite.rect);
                     Assert.IsTrue(sprite.texture.GetPixels32().Any(pixel => pixel.a > 0), id);
                 }
+            }
+        }
+
+        static bool SamePixel(Color32 a, Color32 b)
+            => a.r == b.r && a.g == b.g && a.b == b.b && a.a == b.a;
+
+        static void AssertNewPixelDetail(Sprite sprite, string id)
+        {
+            Color32[] pixels = sprite.texture.GetPixels32();
+            int width = sprite.texture.width, height = sprite.texture.height, fineBlocks = 0;
+            for (int y = 0; y + 1 < height; y += 2)
+            for (int x = 0; x + 1 < width; x += 2)
+            {
+                Color32 first = pixels[y * width + x];
+                if (!SamePixel(first, pixels[y * width + x + 1])
+                    || !SamePixel(first, pixels[(y + 1) * width + x])
+                    || !SamePixel(first, pixels[(y + 1) * width + x + 1])) fineBlocks++;
+            }
+            Assert.Greater(fineBlocks, 8,
+                "The higher-resolution drawing must include authored subpixel detail, not only repeated 2x2 blocks: " + id);
+            Assert.AreEqual(32, sprite.pixelsPerUnit, id);
+            Assert.AreEqual(FilterMode.Point, sprite.texture.filterMode, id);
+        }
+
+        [Test]
+        public void HigherResolutionArtContainsNewPixelDetailBeyondANearestNeighbourEnlargement()
+        {
+            using (var art = new HauntPixelArt(false))
+            {
+                foreach (string id in Heroes.Concat(Creatures))
+                    AssertNewPixelDetail(art.ActorFrame(id, ActorAnimationState.Idle, 0), id);
+                for (int boss = 0; boss < Bosses.Length; boss++)
+                    AssertNewPixelDetail(art.ReferenceBossFrame(boss, BossAnimationState.Idle, 0), Bosses[boss]);
+                foreach (string id in Props) AssertNewPixelDetail(art.PropFrame(id, 0), id);
+                foreach (string id in new[] { "weapon", "scattergun", "repeater", "cannon", "stapler", "banana-gun",
+                    "spinning-top", "hunter-carbine", "veil-wand", "bone-caster", "arc-coil", "mirror-disc",
+                    "ray-lantern", "bone-flute", "umbrella-gun", "hive-launcher", "boxing-glove" })
+                    AssertNewPixelDetail(art.Get(id), id);
             }
         }
 
