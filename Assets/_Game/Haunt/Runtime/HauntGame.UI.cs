@@ -14,7 +14,7 @@ namespace Ecos.Haunt
         bool stylesReady, shopWeapons;
         int shopWeaponPage;
         static readonly string[] CharacterIcons = { "player", "medium", "reaper", "alchemist" };
-        static readonly string[] CharacterNames = { "CAÇADOR DA AURORA", "MÉDIUM DO VÉU", "CEIFADOR ERRANTE", "ALQUIMISTA DE CINZAS" };
+        static readonly string[] CharacterNames = { "PILOTO", "MÉDIUM DO VÉU", "CEIFADOR ERRANTE", "ALQUIMISTA DE CINZAS" };
         static readonly string[] CharacterPowers = {
             "Q PULSO\nLIMPA BALAS\nPROTECAO\n9 S",
             "Q LAMENTO\nLEQUE X9\nDANO X3\n7 S",
@@ -129,7 +129,12 @@ namespace Ecos.Haunt
                 float y = 142 + (i / 2) * 231;
                 Panel(new Rect(x, y, 276, 218), chosen ? Mint : new Color(.27f, .23f, .35f));
                 Text(new Rect(x + 14, y + 10, 251, 26), CharacterNames[i], smallStyle, chosen ? Mint : Orange);
-                DrawIcon(new Rect(x + 14, y + 48, 65, 95), CharacterIcons[i]);
+                if (art.HasCharacterSheet(CharacterIcons[i]))
+                    DrawSpriteCell(new Rect(x + 14, y + 48, 65, 95),
+                        art.CharacterFrame(CharacterIcons[i], CharacterClip.SelectIdle,
+                            Mathf.FloorToInt(simulationTime * art.CharacterFrameRate(CharacterIcons[i], CharacterClip.SelectIdle, CharacterFacing.Front)),
+                            CharacterFacing.Front, CharacterWeaponPose.Empty));
+                else DrawIcon(new Rect(x + 14, y + 48, 65, 95), CharacterIcons[i]);
                 Text(new Rect(x + 93, y + 45, 169, 96), controllerActive ? CharacterPowers[i].Replace("Q ", "QUADRADO\n") : CharacterPowers[i], smallStyle, Color.white);
                 Text(new Rect(x + 14, y + 148, 248, 22),
                     RunState.WeaponName(RunState.StartingWeaponFor((CharacterKind)i)), smallStyle, Mint);

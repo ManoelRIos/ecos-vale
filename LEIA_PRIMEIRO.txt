@@ -26,15 +26,20 @@ Na loja: L1/R1 abas, Triangulo paginas, X comprar, Circulo fechar.
 A compatibilidade do seu controle/driver ainda precisa ser testada no PC.
 
 NOVIDADES
-Folhas de animacao como na nova prancha: 24 PNGs transparentes,
-1700 quadros, jogadores/mobs de 48px, bosses de 96px e barris/bau de 32px.
-32 pixels por unidade preservam o tamanho dos personagens e objetos.
-Rostos, roupas, armaduras, madeira e liquidos recebem detalhes novos.
+O primeiro personagem, PILOTO, usa a folha original enviada pelo usuario.
+O PNG fonte esta intacto em Assets/_Game/ArtSources/PilotOriginal.png.
+Medium, Ceifador e Alquimista seguem as mesmas poses e direcoes,
+com paletas e acessorios proprios. CharacterSheets contem as quatro
+folhas ativas e o catalogo de animacoes, em 16 pixels por unidade.
+Recortes nativos sem ampliacao; o numero de quadros varia por acao.
+Veja Documentation/CHARACTER_MODEL.md e CHARACTER_MODEL.png.
+Poses de mesa, bau, fantasma e reviver ficam disponiveis na biblioteca;
+essas poses nao adicionam mecanicas de interacao ou multiplayer.
+ReferenceSheets conserva 24 folhas/1700 celulas de arte procedural,
+com mobs de 48px, bosses de 96px e barris/bau de 32px, em 32 PPU.
+Os jogadores dessa pasta sao prototipos/fallback, nao as folhas ativas.
 As 17 armas, reliquias e decoracao tambem tem resolucao dobrada.
-Assets/_Game/Resources/ReferenceSheets contem PNGs e manifesto.
-Veja Documentation/SPRITESHEETS.md e REFERENCE_SPRITESHEETS.png.
-Desenhos macabros dos quatro herois, 17 criaturas, miniboss e sete bosses.
-Barris e objetos com topo/lateral/base para volume aparente.
+Veja Documentation/SPRITESHEETS.md e EQUIPMENT_DETAIL.png.
 R/Triangulo: recarga manual; arma inicial e revolver tem reserva infinita,
 mas carregador finito. Compradas tem reserva limitada. Mortes podem deixar
 caixas de municao (12%); aproxime-se para coletar. Cada arma guarda a sua

@@ -1,17 +1,17 @@
 # Pesadelos e munição
 
-O visual usa proporções compactas, silhuetas distintas e contornos contrastantes das referências fornecidas. Os desenhos são originais, gerados em C#, com paleta reduzida e filtro Point. Jogadores e seis mobs usam células de 48×48, os sete bosses usam 96×96 e barris/baú usam 32×32. Com 32 pixels por unidade, mantêm o tamanho no cenário e recebem mais detalhes de rosto, tecido, osso, metal, madeira e líquido. A prévia [REFERENCE_SPRITESHEETS.png](REFERENCE_SPRITESHEETS.png) foi extraída dos pixels do gerador, sem renderização no Unity.
+Os jogadores usam a folha original do Pilot enviada pelo usuário e três variantes no mesmo modelo. O arquivo fonte é preservado; os recortes do Pilot mantêm seus pixels RGB, sem ampliação ou redesenho. As folhas ativas usam 16 pixels por unidade e animações com quantidades variáveis de quadros. Veja [CHARACTER_MODEL.md](CHARACTER_MODEL.md) e a [prévia dos personagens](CHARACTER_MODEL.png).
 
 ## Personagens e cenário
 
-- Caçador: rosto visível, cabelo castanho e roupa verde, conforme a prancha atual.
-- Médium: cabelo/capuz roxo, rosto visível, cajado e orbes arcanos.
-- Ceifador: capuz vermelho, rosto pálido e foice com arco de ataque.
-- Alquimista: chapéu pontudo, roupa roxa e frascos verdes luminosos.
-- O catálogo preserva dezessete criaturas e miniboss. Seis mobs da nova prancha possuem folhas de estados; os sete bosses usam cinco estados e quatro quadros por estado.
-- Barris, urnas, pilares, lápides e cenários temáticos: topo iluminado, lateral escura e base para volume aparente. O cenário permanece em 2D com ordenação pela posição dos pés, sombras e camadas; não há malhas 3D nesta revisão.
+- Piloto: aparência da folha original, com poses sem arma, de uma mão e de duas mãos. Mantém a carabina e o pulso de proteção do primeiro slot.
+- Médium: variante com paleta roxa e acessórios arcanos, seguindo as mesmas poses.
+- Ceifador: variante de capuz vermelho e rosto pálido no mesmo modelo.
+- Alquimista: variante verde/roxa com acessórios de alquimia, conservando a estrutura de animação.
+- O catálogo preserva dezessete criaturas e miniboss. Seis mobs usam folhas de estados em 48×48; os sete bosses usam 96×96 e cinco estados de quatro quadros, com 32 pixels por unidade.
+- Barris, urnas, pilares, lápides e cenários temáticos têm topo, lateral sombreada e base para volume aparente. Barris/baú usam folhas de 32×32. O cenário permanece em 2D com ordenação pela posição dos pés e sombras.
 
-Armas, relíquias, caixa de munição e decoração têm desenhos procedurais com resolução dobrada e materiais mais definidos. Essa melhoria de apresentação preserva as regras abaixo, os tamanhos físicos e os padrões dos projéteis. Veja [SPRITESHEETS.md](SPRITESHEETS.md) para os formatos da arte.
+Armas, relíquias, caixa de munição e decoração têm desenhos procedurais com resolução dobrada e materiais mais definidos. As regras de munição e os padrões dos projéteis continuam descritos abaixo. Veja [SPRITESHEETS.md](SPRITESHEETS.md) para os dois conjuntos de arte.
 
 ## Regras de munição
 

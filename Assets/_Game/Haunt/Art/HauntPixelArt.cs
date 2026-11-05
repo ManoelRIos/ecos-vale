@@ -33,6 +33,8 @@ namespace Ecos.Haunt
         public Sprite Frame(string id, int frame)
         {
             if (disposed) throw new ObjectDisposedException(nameof(HauntPixelArt));
+            if (SheetHero(id) && HasCharacterSheet(id))
+                return CharacterFrame(id, CharacterClip.Idle, frame, CharacterFacing.Front, CharacterWeaponPose.Empty);
             if (HasActorSheet(id)) return ActorFrame(id, ActorAnimationState.Idle, frame);
             int referenceBoss = ReferenceBossIndex(id);
             if (referenceBoss >= 0) return ReferenceBossFrame(referenceBoss, BossAnimationState.Idle, frame);
@@ -2712,7 +2714,7 @@ namespace Ecos.Haunt
             foreach(var sprite in sprites.Values) DestroyOwned(sprite);
             foreach(var texture in textures) DestroyOwned(texture);
             if(material) DestroyOwned(material);
-            sprites.Clear(); textures.Clear(); referenceTextures.Clear(); material=null;
+            sprites.Clear(); textures.Clear(); referenceTextures.Clear(); ClearCharacterCatalog(); material=null;
         }
         static void DestroyOwned(UnityEngine.Object value)
         {

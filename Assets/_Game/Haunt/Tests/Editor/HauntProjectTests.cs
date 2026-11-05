@@ -53,8 +53,10 @@ namespace Ecos.Haunt.Tests
             {
                 foreach (string id in new[] { "player", "medium", "reaper", "alchemist", "widow", "bishop", "larva", "sentinel", "acolyte", "matriarch", "bell", "pumpkin", "ghost", "cultist", "bat", "boss", "merchant", "candle", "portal", "top-shot", "skeleton", "slime", "spider", "miniboss", "spawn-rift", "shot-disc", "lantern-wisp", "mushroom-brute", "clockwork-imp", "iron-executioner", "bog-oracle" })
                 {
-                    var frames = new Sprite[4];
-                    for (int i = 0; i < 4; i++)
+                    int count = art.HasCharacterSheet(id)
+                        ? art.CharacterFrameCount(id, CharacterClip.Idle, CharacterFacing.Front, CharacterWeaponPose.Empty) : 4;
+                    var frames = new Sprite[count];
+                    for (int i = 0; i < count; i++)
                     {
                         frames[i] = art.Frame(id, i);
                         Assert.AreEqual(frames[0].rect.size, frames[i].rect.size, "Animation bounds must not jitter when atlas origins change: " + id);
@@ -62,9 +64,9 @@ namespace Ecos.Haunt.Tests
                         Assert.AreEqual(FilterMode.Point, frames[i].texture.filterMode, id);
                     }
                     Assert.AreNotSame(frames[0], frames[1], "Poses need distinct cached sprites: " + id);
-                    Assert.AreSame(frames[3], art.Frame(id, -1), id);
+                    Assert.AreSame(frames[count - 1], art.Frame(id, -1), id);
                     for (int i = 0; i < 240; i++)
-                        Assert.AreSame(frames[i % 4], art.Frame(id, i), "Repeated animation must not allocate more textures: " + id);
+                        Assert.AreSame(frames[i % count], art.Frame(id, i), "Repeated animation must not allocate more textures: " + id);
                 }
                 foreach (string id in new[] { "chandelier", "exit-arrow", "floor3", "floor4", "floor5", "door-open", "door-locked", "door-boss", "shadow", "player-ring", "enemy-ring", "glow", "rune", "rug", "weapon", "scattergun", "repeater", "cannon", "slash", "dust", "spark", "effect-ring", "pit", "fog", "hunter-carbine", "veil-wand", "bone-caster", "arc-coil", "mirror-disc", "ray-lantern", "bone-flute", "shot-dot", "shot-bone", "shot-shock", "shot-ray" })
                     Assert.IsNotNull(art.Get(id), id);
@@ -183,7 +185,7 @@ namespace Ecos.Haunt.Tests
                     Assert.IsNotNull(sprite, id);
                     Assert.AreSame(sprite, art.Get(id), "Repeated lookup must reuse the sprite: " + id);
                     Assert.AreEqual(FilterMode.Point, sprite.texture.filterMode, id);
-                    int expectedPpu = id == "player" || id == "boss" || id == "merchant" || id == "grave" ? 32 : 16;
+                    int expectedPpu = id == "boss" || id == "merchant" || id == "grave" ? 32 : 16;
                     Assert.AreEqual(expectedPpu, sprite.pixelsPerUnit, id);
                     Assert.Greater(sprite.rect.width, 0, id);
                     Assert.Greater(sprite.rect.height, 0, id);

@@ -2,13 +2,16 @@
 
 ## O que foi executado nesta revisão
 
-- 24 testes Python de versões, atalho e empacotamento.
-- Análise de sintaxe dos 36 arquivos C#, referências e metadados: 67 assets e 81 GUIDs.
+- 30 testes Python de versões, atalho e empacotamento.
+- Análise de sintaxe dos 38 arquivos C#, referências e metadados: 75 assets e 91 GUIDs.
 - 2.506.552 asserções compilando o núcleo C# real, incluindo 2.436 andares, 645 arenas irregulares, estoque determinístico limitado, compras atômicas, relíquias, progressão, inventário, geometria varrida e 485 verificações novas de munição/recarga.
-- Passaram 13.097 verificações de integração em um helper temporário que compilou todos os módulos reais com tipos Unity/Input System simulados: avisos, ondas, sete chefes, i-frames/recuperação, divisão, cancelamento, colisões, feedback, controle, objetos e descarte. A expansão cobre carregadores dos quatro heróis e das doze armas compráveis, custo por salva/pulso, último disparo do feixe, limite de projéteis sem perda de munição, R/Triângulo, pausa, troca, poder sem custo, revólver de apoio, drop por morte e revisita/coleta sem duplicação.
+- Passaram 23.098 verificações de integração em um helper temporário que compilou todos os módulos reais com tipos Unity/Input System simulados: avisos, ondas, sete chefes, i-frames/recuperação, divisão, cancelamento, colisões, feedback, controle, objetos e descarte. A expansão cobre carregadores dos quatro heróis e das doze armas compráveis, custo por salva/pulso, último disparo do feixe, limite de projéteis sem perda de munição, R/Triângulo, pausa, troca, poder sem custo, revólver de apoio, drop por morte e revisita/coleta sem duplicação.
 - Áudio em helper externo: 19 efeitos, 12 loops musicais e 12 vozes curtas com PCM finito, determinístico e ganho limitado. Isso não substitui audição.
 - Folhas: 24 PNGs transparentes e 1.700 células em 48/96/32 px, com PPU 32 e metadados estáveis. `python3 Tools/export_sprite_sheets.py --check` passou sem diferenças. O helper integrado carregou os PNGs reais, conferiu retângulos/pivôs/cache e comparou os pixels de cada célula ao gerador C#, além de validar recorte dos ícones/retratos. A prévia atual `REFERENCE_SPRITESHEETS.png` usa esses pixels, sem renderização do motor.
-- A integração inclui os estados reais do herói, seis mobs, mortes e barris; confirma tamanhos no mundo, PPU 32, detalhes nativos além de blocos 2×2 e quatro poses distintas por estado/direção. O teste compara 31 itens ao tamanho anterior. Os sete testes Editor de folhas, escala, detalhe e descarte aguardam execução no Unity.
+- A integração inclui os estados reais do herói, seis mobs, mortes e barris; confirma tamanhos no mundo, PPU 32, detalhes nativos além de blocos 2×2 e quatro poses distintas por estado/direção. O teste compara 31 itens ao tamanho anterior. Os testes Editor de folhas, escala, detalhe e descarte aguardam execução no Unity.
+
+- Modelo nativo: 696 recortes em 135 clips, compartilhados por quatro personagens, com posturas, direções e traje alternativo. Os testes Python comparam cada pixel visível do Pilot com a fonte e confirmam que nenhum pixel fica fora do retângulo renderizado; também verificam a sombra e os fundos por clip, variantes, hash e reprodução dos arquivos. O PNG original preserva SHA256 `cd640095da82003f8f44902950382692518393bfa57e61bc9bba1f3abec8f469`.
+- O helper integrado carregou os quatro atlas reais e comparou todos os recortes, pivôs, contagens, FPS, loops, clamps e caches ao catálogo; conferiu renderização lógica sem squash e morte de 19 quadros. Sete testes Editor nativos foram adicionados, sem execução no motor.
 
 **O Editor Unity não está instalado neste ambiente.** Esses resultados não certificam importação, compilação no Unity, shaders, Play Mode, áudio reproduzido, hardware PS4 ou executável Windows. Não há build Windows validado desta revisão. Os testes Editor foram ampliados e precisam ser executados no motor.
 
@@ -20,6 +23,7 @@ python3 Tools/validate_project.py
 python3 -m unittest discover -s Tools -p 'test_*.py'
 dotnet run --project Tools/HauntChecks.csproj
 python3 Tools/export_sprite_sheets.py --check
+python3 Tools/import_pilot_sheet.py --check
 ```
 
 O ambiente configurado por `bash Tools/setup-cloud.sh` executa a instalação e esses checks. Para gerar o ZIP, rastreie arquivos novos e use `python3 Tools/package_project.py`. O pacote deve conter os parciais Input, Environment, Feel, Patterns e Lighting, o componente HauntFlickerLight, os geradores BulletPatternGenerator, WeaponAmmo e DodgeRules e o módulo HauntGame.Ammunition com `.meta`, além da cena, recursos, versões e demais fontes obrigatórias.

@@ -49,6 +49,7 @@ class PackageProjectTests(unittest.TestCase):
                          'Assets/_Game/Haunt/Art/HauntPixelArt.cs',
                          'Assets/_Game/Haunt/Art/HauntPixelArt.Actors.cs',
                          'Assets/_Game/Haunt/Art/HauntPixelArt.Equipment.cs',
+                         'Assets/_Game/Haunt/Art/HauntPixelArt.Characters.cs',
                          'Assets/_Game/Haunt/Art/HauntPixelArt.ReferenceBosses.cs',
                          'Assets/_Game/Haunt/Art/HauntPixelArt.SpriteSheets.cs',
                          'Assets/_Game/Haunt/Core/DungeonFloor.cs',
@@ -78,6 +79,14 @@ class PackageProjectTests(unittest.TestCase):
             self.write('Assets/_Game/Resources/ReferenceSheets/' + name + '.png.meta', 'texture fixture\n')
         self.write('Assets/_Game/Resources/ReferenceSheets/manifest.json', '{}\n')
         self.write('Assets/_Game/Resources/ReferenceSheets/manifest.json.meta', 'manifest metadata\n')
+        for name in ('pilot', 'medium', 'reaper', 'alchemist'):
+            self.write('Assets/_Game/Resources/CharacterSheets/' + name + '.png', 'native sheet fixture\n')
+            self.write('Assets/_Game/Resources/CharacterSheets/' + name + '.png.meta', 'native metadata\n')
+        for name in ('Assets/_Game/Resources/CharacterSheets/catalog.json',
+                     'Assets/_Game/Resources/CharacterSheets/catalog.json.meta',
+                     'Assets/_Game/ArtSources/PilotOriginal.png', 'Assets/_Game/ArtSources/PilotOriginal.png.meta',
+                     'Tools/Pilot/source-clips.json', 'Tools/import_pilot_sheet.py', 'Tools/requirements-sprite-import.txt'):
+            self.write(name, 'native source fixture\n')
         for name in ('Tools/export_sprite_sheets.py', 'Tools/SpriteSheetExport/Program.cs',
                      'Tools/SpriteSheetExport/UnityPixelStubs.cs', 'Tools/SpriteSheetExport/SpriteSheetExport.csproj'):
             self.write(name, 'exporter fixture\n')

@@ -16,6 +16,8 @@ namespace UnityEngine
         public Material(Material source) { }
     }
     public static class Resources { public static T Load<T>(string path) where T : class => null; }
+    public sealed class TextAsset : Object { public string text; }
+    public static class JsonUtility { public static T FromJson<T>(string value) => default; }
     public static class Application { public static bool isPlaying; }
     public struct Color32
     {

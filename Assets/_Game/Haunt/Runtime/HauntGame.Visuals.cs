@@ -332,19 +332,34 @@ namespace Ecos.Haunt
             Cursor.visible = !UsingController && (InShop || PointerOverInterface());
             Vector2 aim = AimDirection();
             bool rolling = rollRemaining > 0;
-            ActorAnimationState state = PlayerSpriteState(out int frame);
-            ActorFacing facing = SpriteFacing(rolling ? rollDirection : aim);
-            player.sprite = art.ActorFrame(PlayerArt, state, frame, facing, false);
+            bool native = art.HasCharacterSheet(PlayerArt);
+            bool flip;
+            ActorAnimationState legacyState = ActorAnimationState.Idle;
+            CharacterClip nativeClip = CharacterClip.Idle;
+            if (native)
+            {
+                nativeClip = PlayerCharacterClip(aim, out int frame, out CharacterFacing facing, out CharacterWeaponPose pose);
+                player.sprite = art.CharacterFrame(PlayerArt, nativeClip, frame, facing, pose);
+                flip = (rolling ? rollDirection.x : aim.x) < 0;
+            }
+            else
+            {
+                legacyState = PlayerSpriteState(out int frame);
+                ActorFacing facing = SpriteFacing(rolling ? rollDirection : aim);
+                player.sprite = art.ActorFrame(PlayerArt, legacyState, frame, facing, false);
+                flip = facing == ActorFacing.Right && (rolling ? rollDirection.x : aim.x) < 0;
+            }
             gun.sprite = art.Get(WeaponArt);
             float bob = rolling ? Mathf.Sin((1 - rollRemaining / RollTime) * Mathf.PI) * .65f : playerMoving ? Mathf.Sin(walkDistance * 14) * .045f : Mathf.Sin(simulationTime * 2) * .02f;
+            if (native && !rolling) bob = 0;
             player.transform.position = Snap(playerPosition + Vector2.up * bob);
             player.sortingOrder = Depth(playerPosition.y);
-            player.flipX = facing == ActorFacing.Right && (rolling ? rollDirection.x : aim.x) < 0;
+            player.flipX = flip;
             player.color = flash > 0 ? new Color(1, .6f, .65f) : invincible > 0 && Mathf.Sin(simulationTime * 30) > 0
                 ? new Color(.65f, 1, .9f, .72f) : Color.white;
-            float tilt = !rolling && playerMoving ? Mathf.Sin(walkDistance * 8) * 2 : 0;
+            float tilt = !native && !rolling && playerMoving ? Mathf.Sin(walkDistance * 8) * 2 : 0;
             player.transform.rotation = Quaternion.Euler(0, 0, tilt);
-            player.transform.localScale = rolling ? new Vector3(1.05f, .78f, 1) : new Vector3(1, 1 + Mathf.Sin(simulationTime * 2) * .015f, 1);
+            player.transform.localScale = native ? Vector3.one : rolling ? new Vector3(1.05f, .78f, 1) : new Vector3(1, 1 + Mathf.Sin(simulationTime * 2) * .015f, 1);
             shadow.transform.position = Snap(playerPosition + new Vector2(.07f, -.08f));
             shadow.transform.localScale = new Vector3(.65f - bob * .15f, .5f - bob * .1f, 1);
             shadow.color = new Color(1, 1, 1, .72f);
@@ -357,9 +372,9 @@ namespace Ecos.Haunt
             gun.transform.rotation = Quaternion.Euler(0, 0, Mathf.Atan2(aim.y, aim.x) * Mathf.Rad2Deg + reloadTilt);
             gun.flipY = aim.x < 0;
             gun.sortingOrder = player.sortingOrder + (aim.y > .3f ? -1 : 1);
-            gun.enabled = !rolling && state != ActorAnimationState.Cast;
+            gun.enabled = !rolling && (native ? nativeClip != CharacterClip.Draw && nativeClip != CharacterClip.Entrance && nativeClip != CharacterClip.Cast : legacyState != ActorAnimationState.Cast);
             muzzle.sortingOrder = gun.sortingOrder + 1;
-            muzzle.enabled = muzzleTime > 0 && !rolling && !State.IsReloading && state != ActorAnimationState.Cast;
+            muzzle.enabled = muzzleTime > 0 && !rolling && !State.IsReloading && (native ? nativeClip != CharacterClip.Cast : legacyState != ActorAnimationState.Cast);
             muzzle.transform.position = Snap(playerPosition + Vector2.up * .35f + aim * 1.05f);
             muzzle.transform.localScale = Vector3.one * (.48f + weaponKick * .18f);
             muzzle.transform.rotation = gun.transform.rotation;

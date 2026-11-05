@@ -1,6 +1,6 @@
 # Ecos da Meia-Noite
 
-Roguelike de ação em pixel art para **Unity 6.0 LTS 6000.0.85f1**, com combate 2D, salas procedurais, quatro personagens, poderes, arsenal, chefes e Mercado das Almas. A arte, os efeitos sonoros e a música são originais. As folhas PNG são exportadas pelo gerador C#, e o jogo não exige serviços externos.
+Roguelike de ação em pixel art para **Unity 6.0 LTS 6000.0.85f1**, com combate 2D, salas procedurais, quatro personagens, poderes, arsenal, chefes e Mercado das Almas. A arte combina a folha de personagem fornecida pelo usuário, suas variantes e desenhos procedurais. Efeitos sonoros e música são sintetizados localmente; o jogo não exige serviços externos.
 
 [**Projeto no GitHub**](https://github.com/ManoelRIos/ecos-vale/tree/codex/ecos-do-vale-vertical-slice) · [**Baixar projeto em ZIP**](https://github.com/ManoelRIos/ecos-vale/raw/refs/heads/codex/ecos-do-vale-vertical-slice/Distribution/EcosDaMeiaNoite.zip)
 
@@ -15,23 +15,29 @@ O atalho opcional `ABRIR_ECOS_DA_MEIA_NOITE.cmd` continua disponível para insta
 
 Para atualizar por ZIP, use uma extração nova: sobrepor pastas não remove arquivos antigos. Um clone Git atualizado também aplica as remoções rastreadas. Ainda não há um executável Windows validado desta revisão.
 
-## Pixel art com mais detalhes, carregadores e munição
+## Personagens no modelo da folha original
 
-A nova prancha orienta os desenhos atuais: Caçador de cabelo castanho e roupa verde, Médium roxa com rosto visível e magia, Ceifador de capuz vermelho e foice, Alquimista com chapéu pontudo e frascos verdes. Espantalho, Gárgula, Sombra, Morcego de Fogo, Esqueleto e Slime receberam folhas de combate próprias. O Carrasco usa armadura azul e machado; o Mestre Abóbora tem capa roxa, foice e morcegos. Os demais cinco bosses mantêm o mesmo formato de animação.
+O primeiro personagem aparece como **PILOTO** e usa os pixels da folha de *The Pilot*, de *Enter the Gungeon*, enviada pelo usuário. O PNG original permanece intacto em [PilotOriginal.png](Assets/_Game/ArtSources/PilotOriginal.png). O importador recorta as poses, conserva suas cores RGB e remove apenas as cores de fundo indicadas para cada recorte, sem ampliar ou redesenhar o personagem.
 
-Há **24 PNGs transparentes, com 1.700 células**, carregados pelo jogo: jogadores/mobs em **48×48**, bosses em **96×96** e barris/baú em **32×32**. A escala passou para **32 pixels por unidade**, preservando o tamanho no cenário. O espaço adicional recebe olhos e cabelo mais definidos, dobras e costuras nas roupas, rebites nas armaduras, bordas de lâminas, veios de madeira e líquido nos frascos. As 17 armas, relíquias e objetos de cenário também ganharam desenhos procedurais mais detalhados.
+**Médium, Ceifador e Alquimista** são variantes desse mesmo modelo, com paletas e acessórios próprios. Compartilham a organização, as direções e as sequências de poses da fonte. O catálogo distingue poses sem arma, com uma mão e com duas mãos, além do traje alternativo. Cada animação usa sua quantidade de quadros e seu tempo; o jogador deixou de depender do limite de quatro poses dos protótipos anteriores.
 
-Caminhada, tiro, conjuração, recarga, evasão e morte são selecionados pelas ações reais. A orientação inclui frente, costas e lateral; a lateral esquerda usa espelhamento. Spritesheets, pivôs e manifesto estão em [ReferenceSheets](Assets/_Game/Resources/ReferenceSheets). O gerador C# continua disponível para reproduzir as folhas e como fallback. Veja [SPRITESHEETS.md](Documentation/SPRITESHEETS.md) para formatos e exportação.
+Os personagens ativos ficam em [CharacterSheets](Assets/_Game/Resources/CharacterSheets), com filtro Point e **16 pixels por unidade**, preservando o desenho nativo. A célula interna de 48×48 inclui espaço transparente e não representa um redimensionamento da arte. A arma equipada continua em um renderer separado; tiros, recarga e poderes usam a pose original adequada e os efeitos do combate.
+
+![Pilot original e variantes no mesmo modelo](Documentation/CHARACTER_MODEL.png)
+
+Veja [CHARACTER_MODEL.md](Documentation/CHARACTER_MODEL.md) para a fonte, o catálogo completo e a importação. As poses de mesa, baú, voo, fantasma e reviver estão disponíveis na biblioteca; sua presença na folha não adiciona essas mecânicas nem multiplayer ao jogo.
+
+## Mobs, bosses, objetos e munição
+
+Espantalho, Gárgula, Sombra, Morcego de Fogo, Esqueleto e Slime mantêm folhas de combate próprias. O Carrasco usa armadura azul e machado; o Mestre Abóbora tem capa roxa, foice e morcegos. Os demais cinco bosses mantêm o mesmo formato de animação.
+
+As **24 folhas procedurais de referência, com 1.700 células**, continuam em [ReferenceSheets](Assets/_Game/Resources/ReferenceSheets): seis mobs em **48×48**, bosses em **96×96**, barris/baú em **32×32** e os protótipos de personagens usados como fallback. Elas trabalham em **32 pixels por unidade**. As 17 armas, relíquias e objetos de cenário também recebem detalhes procedurais de metal, madeira, empunhaduras, mecanismos e partes luminosas. Veja [SPRITESHEETS.md](Documentation/SPRITESHEETS.md) e a [prévia dos equipamentos](Documentation/EQUIPMENT_DETAIL.png).
 
 **R recarrega a arma; no controle, Triângulo.** Cada arma mantém seu próprio carregador e reserva. A arma inicial de cada alma e o revólver têm reserva infinita, mas exigem recarga manual. Armas compradas têm reserva limitada e podem esgotar. Uma carga paga o disparo completo dos leques; feixes consomem por pulso de dano. A recarga bloqueia tiros, movimenta a arma e tem efeitos sonoros próprios. Trocar de arma cancela a recarga sem perder munição; pausa e conversas congelam seu tempo.
 
 Após adquirir uma arma com reserva finita, inimigos têm **12% de chance** de deixar uma caixa de munição. Aproximar-se repõe uma quantidade equivalente a um carregador na reserva da arma equipada, ou de outra arma possuída que precise. Se todas estiverem cheias, a caixa fica no chão. Caixas não coletadas persistem nas revisitas ao mesmo andar. Veja os valores e padrões em [MUNICAO_E_TERROR.md](Documentation/MUNICAO_E_TERROR.md).
 
-Prévia dos pixels reais gerados pelo código, **sem renderização no Unity**:
-
-![Folhas de jogadores, mobs, bosses e objetos](Documentation/REFERENCE_SPRITESHEETS.png)
-
-[Prévia dos detalhes das armas, relíquias e objetos](Documentation/EQUIPMENT_DETAIL.png), também produzida pelos pixels do gerador C#.
+A [prévia das folhas procedurais](Documentation/REFERENCE_SPRITESHEETS.png) inclui os protótipos anteriores dos jogadores. Os personagens ativos aparecem na prévia do modelo original acima. As duas montagens usam os pixels dos arquivos, sem renderização no Unity.
 
 ## Salas irregulares e expansão de Halloween
 
@@ -39,7 +45,7 @@ As salas usam cinco formatos: **L, T, H, octógono e alcovas**, com recortes, co
 
 **Barris explosivos** têm madeira abaulada, cintas, caveira e pavio com faíscas. A explosão anunciada causa dano, empurrão e trauma. **Barris de ácido** têm metal amassado, transbordamento e gotas verdes; deixam uma poça luminosa que causa dano em pulsos por oito segundos. **Pilares destrutíveis** recebem rachaduras antes de perder a colisão. Urnas de água continuam disponíveis. Lápides, grades e velas ossuárias decoram as bordas sem fechar passagens.
 
-Os quatro heróis receberam silhuetas e animação: capa do Caçador, cajado e orbes da Médium, foice e arco do Ceifador, frascos e fumaça do Alquimista. Quatro criaturas ampliam o catálogo para **17 mobs comuns**: Espantalho Amaldiçoado, Gárgula de Pedra, Sombra Perseguidora e Morcego de Fogo. A gárgula alterna 1,5 s de pedra imune e 1,5 s de voo; a sombra cruza paredes; o morcego deixa brasas e dispara quatro tiros ao morrer enquanto o combate continua.
+Os quatro heróis usam o catálogo de poses do modelo original e mantêm seus poderes e equipamentos. Quatro criaturas ampliam o catálogo para **17 mobs comuns**: Espantalho Amaldiçoado, Gárgula de Pedra, Sombra Perseguidora e Morcego de Fogo. A gárgula alterna 1,5 s de pedra imune e 1,5 s de voo; a sombra cruza paredes; o morcego deixa brasas e dispara quatro tiros ao morrer enquanto o combate continua.
 
 Os sete bosses possuem **Idle, Telegraph, Attack, Enrage e Death**, com quatro poses em cada estado. A fúria aparece abaixo de 50% de vida e aumenta a mobilidade/cadência. Entrar em uma sala de chefe inicia uma **intro obrigatória de três segundos**, com pan de câmera, tarjas, título, subtítulo e provocação. É possível responder ao desafio dentro dessa janela com E ou 1/2; a resposta não encurta o tempo da apresentação.
 
@@ -83,7 +89,7 @@ A prévia abaixo mostra os pixels gerados pelos métodos C# com tipos auxiliares
 
 | Alma | Arma inicial | Poder |
 | --- | --- | --- |
-| Caçador da Aurora | Carabina da Aurora, cápsula turquesa | Limpa tiros próximos e concede proteção breve |
+| Piloto | Carabina da Aurora, cápsula turquesa | Limpa tiros próximos e concede proteção breve |
 | Médium do Véu | Varinha do Véu, pétalas em leque | Rajada espectral ampla |
 | Ceifador Errante | Ceifador de Ossos, dano duplo | Disparo radial e proteção breve |
 | Alquimista de Cinzas | Bobina Voltaica, raio contínuo | Recupera vida |
@@ -147,7 +153,7 @@ python3 -m unittest discover -s Tools -p 'test_*.py'
 dotnet run --project Tools/HauntChecks.csproj
 ```
 
-Passaram **24 testes Python** e **2.506.552 asserções do núcleo real C#**, incluindo 2.436 andares. A sintaxe e os metadados também foram conferidos. Helpers temporários com tipos Unity simulados verificaram contratos entre os parciais e lógica de combate, objetos, controle, arte e áudio; não são uma execução no motor.
+Passaram **30 testes Python** e **2.506.552 asserções do núcleo real C#**, incluindo 2.436 andares. A sintaxe e os metadados também foram conferidos. Helpers temporários com tipos Unity simulados verificaram contratos entre os parciais e lógica de combate, objetos, controle, arte e áudio; não são uma execução no motor.
 
 **O Editor Unity não está instalado neste ambiente.** Importação, compilação no Unity, aparência renderizada, reprodução sonora, build e controle PS4 físico ainda precisam ser validados no Editor/PC. O jogo continua solo e sem save entre sessões. Consulte [VALIDATION.md](Documentation/VALIDATION.md), [ARCHITECTURE.md](Documentation/ARCHITECTURE.md) e [UNITY_TROUBLESHOOTING.md](Documentation/UNITY_TROUBLESHOOTING.md).
 

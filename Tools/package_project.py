@@ -48,6 +48,7 @@ REQUIRED_FILES = {
     'Assets/_Game/Haunt/Art/HauntPixelArt.cs', 'Assets/_Game/Haunt/Art/HauntPixelArt.cs.meta',
     'Assets/_Game/Haunt/Art/HauntPixelArt.Actors.cs', 'Assets/_Game/Haunt/Art/HauntPixelArt.Actors.cs.meta',
     'Assets/_Game/Haunt/Art/HauntPixelArt.Equipment.cs', 'Assets/_Game/Haunt/Art/HauntPixelArt.Equipment.cs.meta',
+    'Assets/_Game/Haunt/Art/HauntPixelArt.Characters.cs', 'Assets/_Game/Haunt/Art/HauntPixelArt.Characters.cs.meta',
     'Assets/_Game/Haunt/Art/HauntPixelArt.ReferenceBosses.cs', 'Assets/_Game/Haunt/Art/HauntPixelArt.ReferenceBosses.cs.meta',
     'Assets/_Game/Haunt/Art/HauntPixelArt.SpriteSheets.cs', 'Assets/_Game/Haunt/Art/HauntPixelArt.SpriteSheets.cs.meta',
     'Assets/_Game/Haunt/Core/DungeonFloor.cs', 'Assets/_Game/Haunt/Core/DungeonFloor.cs.meta',
@@ -80,6 +81,12 @@ REQUIRED_FILES.update({'Assets/_Game/Resources/ReferenceSheets/manifest.json',
                        'Assets/_Game/Resources/ReferenceSheets/manifest.json.meta',
                        'Tools/export_sprite_sheets.py', 'Tools/SpriteSheetExport/SpriteSheetExport.csproj',
                        'Tools/SpriteSheetExport/Program.cs', 'Tools/SpriteSheetExport/UnityPixelStubs.cs'})
+REQUIRED_FILES.update('Assets/_Game/Resources/CharacterSheets/' + name + suffix
+                      for name in ('pilot', 'medium', 'reaper', 'alchemist') for suffix in ('.png', '.png.meta'))
+REQUIRED_FILES.update({'Assets/_Game/Resources/CharacterSheets/catalog.json',
+                       'Assets/_Game/Resources/CharacterSheets/catalog.json.meta',
+                       'Assets/_Game/ArtSources/PilotOriginal.png', 'Assets/_Game/ArtSources/PilotOriginal.png.meta',
+                       'Tools/Pilot/source-clips.json', 'Tools/import_pilot_sheet.py', 'Tools/requirements-sprite-import.txt'})
 
 
 class PackagingError(ValueError):
