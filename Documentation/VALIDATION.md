@@ -2,9 +2,17 @@
 
 ## O que foi executado nesta revisão
 
-- 30 testes Python de versões, atalho e empacotamento.
-- Análise de sintaxe dos 38 arquivos C#, referências e metadados: 75 assets e 91 GUIDs.
-- 2.506.552 asserções compilando o núcleo C# real, incluindo 2.436 andares, 645 arenas irregulares, estoque determinístico limitado, compras atômicas, relíquias, progressão, inventário, geometria varrida e 485 verificações novas de munição/recarga.
+- 31 testes Python de versões, atalho, importação de folhas e empacotamento. A entrega exige FPS primeiro, cena 2D preservada e ambas habilitadas; configurações inválidas não substituem o ZIP anterior.
+- O validador estático confere sintaxe C#, referências, metadados, fontes FPS, material, cenas e dependências. Ele não compila o código contra o motor.
+- 2.507.249 asserções compilando o núcleo C# real, incluindo regras FPS de três ondas, esquiva e dano radial; preserva os checks dos 2.436 andares, 645 arenas irregulares, estoque, compras, progressão, geometria e munição do roguelike 2D.
+- Um helper externo compilou todos os módulos FPS e o núcleo reais com tipos Unity/URP/Input System simulados. Passaram 52 verificações integradas de bootstrap, pipeline, tiro/cover, recarga, pausa, proteção da esquiva, três ondas, portal, explosão, limites de projéteis, morte, áudio de conclusão, reinício e descarte. Consultas de física foram programadas pelo helper; isso não executa a física do Unity.
+- Helpers isolados dos componentes passaram 114 verificações de jogador/arma, 28 de cenário e 27 de inimigos/barris. O áudio passou 847.897 verificações de PCM finito, determinismo, limites e ciclo de vida. Esses helpers temporários não substituem Play Mode, renderização, audição ou controle físico.
+- Foram adicionados testes Editor para física da sala/portal e integração de tiro, recarga, pausa, ondas e reinício. A execução desses testes no motor está pendente.
+
+## Verificações registradas do roguelike 2D
+
+Os resultados de helpers e folhas abaixo pertencem à implementação 2D preservada. Eles não executam os novos componentes FPS no Unity.
+
 - Passaram 23.098 verificações de integração em um helper temporário que compilou todos os módulos reais com tipos Unity/Input System simulados: avisos, ondas, sete chefes, i-frames/recuperação, divisão, cancelamento, colisões, feedback, controle, objetos e descarte. A expansão cobre carregadores dos quatro heróis e das doze armas compráveis, custo por salva/pulso, último disparo do feixe, limite de projéteis sem perda de munição, R/Triângulo, pausa, troca, poder sem custo, revólver de apoio, drop por morte e revisita/coleta sem duplicação.
 - Áudio em helper externo: 19 efeitos, 12 loops musicais e 12 vozes curtas com PCM finito, determinístico e ganho limitado. Isso não substitui audição.
 - Folhas: 24 PNGs transparentes e 1.700 células em 48/96/32 px, com PPU 32 e metadados estáveis. `python3 Tools/export_sprite_sheets.py --check` passou sem diferenças. O helper integrado carregou os PNGs reais, conferiu retângulos/pivôs/cache e comparou os pixels de cada célula ao gerador C#, além de validar recorte dos ícones/retratos. A prévia atual `REFERENCE_SPRITESHEETS.png` usa esses pixels, sem renderização do motor.
@@ -26,22 +34,36 @@ python3 Tools/export_sprite_sheets.py --check
 python3 Tools/import_pilot_sheet.py --check
 ```
 
-O ambiente configurado por `bash Tools/setup-cloud.sh` executa a instalação e esses checks. Para gerar o ZIP, rastreie arquivos novos e use `python3 Tools/package_project.py`. O pacote deve conter os parciais Input, Environment, Feel, Patterns e Lighting, o componente HauntFlickerLight, os geradores BulletPatternGenerator, WeaponAmmo e DodgeRules e o módulo HauntGame.Ammunition com `.meta`, além da cena, recursos, versões e demais fontes obrigatórias.
+O ambiente configurado por `bash Tools/setup-cloud.sh` executa a instalação e esses checks. Para gerar o ZIP, rastreie arquivos novos e use `python3 Tools/package_project.py`. O pacote exige as duas cenas, os módulos de `Haunt/Fps`, `Core/FpsPrototypeRules.cs`, o shader e `FpsPalette.mat`, com seus metadados, além dos arquivos obrigatórios do roguelike 2D, recursos e versões. Os pipelines são gerados pelo Editor na preparação.
 
 ## Verificação necessária no Unity
 
-Abra uma extração nova pelo Hub com Unity 6000.0.85f1. Aguarde os pacotes URP 17.0.4, Input System 1.11.2 e Test Framework 1.4.5. Com Play parado, use Ecos → Abrir roguelike. Execute os testes de Editor pelo Test Runner e procure erros de compilação, shader ou referências no Console.
+Abra uma extração nova pelo Hub com Unity 6000.0.85f1. Aguarde os pacotes URP 17.0.4, Input System 1.11.2, Test Framework 1.4.5 e o módulo Physics 1.0.0. Com Play parado, use **Ecos → Abrir protótipo FPS**. Execute os testes de Editor pelo Test Runner e procure erros de compilação, shader ou referências no Console. Abra também a cena 2D por **Ecos → Abrir roguelike**.
 
 Com Editor licenciado e `UNITY_EDITOR_PATH` definido, também é possível usar:
 
 ```bash
 bash Tools/unity-check.sh import
+bash Tools/unity-check.sh fps-smoke
 bash Tools/unity-check.sh smoke
 bash Tools/unity-check.sh tests
 bash Tools/unity-check.sh build
 ```
 
-O build solicitado fica em `Builds/Windows/EcosDaMeiaNoite.exe`. Teste a execução em Windows; o atalho opcional também precisa de validação nesse sistema.
+`fps-smoke` confere a importação da cena FPS, seu único bootstrap, material e renderer 3D; `smoke` acrescenta a cena 2D. Ambos verificam recursos sem entrar em Play Mode. O build solicitado fica em `Builds/Windows/EcosDaMeiaNoite.exe`, iniciando em `HauntFps` e incluindo `Haunt` em segundo lugar. Teste a execução em Windows; o atalho opcional também precisa de validação nesse sistema.
+
+## Roteiro pendente do protótipo FPS
+
+1. Abra o FPS, inicie e capture o mouse na janela Game. Confira mira horizontal/vertical, piso e paredes sólidos, pilares como cobertura, salto e esquiva. Esc/Options deve liberar o cursor e congelar a sessão; retomar exige soltar o gatilho antes de disparar.
+2. Dispare oito vezes e confirme que a arma vazia exige R/Triângulo. Confira recarga manual com reserva infinita, clarão, recuo, rastro, cápsulas no chão, colisão do primeiro alvo e som. Pause no meio da recarga e retome sem antecipar sua conclusão.
+3. Confira Esqueletos perseguindo e atacando de perto e Lanternas anunciando projéteis. Teste a proteção dos primeiros 60% da esquiva e a vulnerabilidade dos 40% finais; cobertura deve bloquear tiros hostis. Observe flash e reação ao dano.
+4. Acerte barris em espaço aberto e atrás de cobertura. Confira pavio, explosão, dano em inimigos/jogador, trauma, empurrão e reação em cadeia. A morte do último inimigo deve avançar uma única onda, preservando os recém-criados.
+5. Complete as três ondas e use E/Quadrado perto do portal aberto. Teste vitória, morte e Enter/X para reiniciar. Repita reinícios e encerre Play, conferindo limpeza de modelos, materiais, texturas, efeitos, clipes e restauração dos ajustes de ambiente/pipeline/cursor.
+6. Ouça música e efeitos, alterne M/som, pause e retire/devolva foco. Teste o controle PS4 físico e confira o acesso ao 2D pelo menu. Abra a cena 2D separadamente e verifique a sua apresentação.
+
+Essas etapas, incluindo renderização, física, reprodução de áudio e hardware, **ainda não foram executadas no Unity**. Detalhes do recorte estão em [PROTOTIPO_FPS.md](PROTOTIPO_FPS.md).
+
+Os roteiros seguintes referem-se ao roguelike **2D** preservado.
 
 ## Combate, arsenal e cenário
 

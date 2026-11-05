@@ -888,6 +888,80 @@ static class HauntChecks
         Console.WriteLine("Ammunition: all 17 weapon magazines, independent reserves, manual atomic reloads, cancellation, pickups, finite depletion, infinite starters, transitions and reset checked.");
     }
 
+    static void FpsPrototype()
+    {
+        var spacings = new HashSet<float>();
+        foreach (int seed in new[] { int.MinValue, -17, -1, 0, 1, 17, int.MaxValue })
+        {
+            int previousCount = 0;
+            float previousSpacing = float.MaxValue;
+            for (int wave = 0; wave < FpsPrototypeRules.WaveCount; wave++)
+            {
+                FpsWaveSpec spec = FpsPrototypeRules.Wave(wave, seed);
+                FpsWaveSpec replay = FpsPrototypeRules.Wave(wave, seed);
+                Check(spec.Skeletons == (wave == 0 ? 2 : 3) && spec.Lanterns == (wave == 2 ? 2 : 1),
+                    "FPS encounters retain their two enemy roles and intended wave rosters");
+                Check(spec.Total == spec.Skeletons + spec.Lanterns && spec.Total > previousCount,
+                    "Each FPS wave adds pressure without losing either enemy role");
+                Check(float.IsFinite(spec.SpawnInterval) && spec.SpawnInterval > 0 && spec.SpawnInterval < previousSpacing,
+                    "Later FPS waves spawn faster with finite, bounded timing");
+                Check(spec.SpawnInterval >= .2f && spec.SpawnInterval <= .5f,
+                    "FPS spawn spacing leaves a readable emergence window");
+                Check(spec.Skeletons == replay.Skeletons && spec.Lanterns == replay.Lanterns
+                    && spec.SpawnInterval == replay.SpawnInterval, "FPS wave replay must be deterministic for every integer seed");
+                spacings.Add(spec.SpawnInterval);
+                previousCount = spec.Total; previousSpacing = spec.SpawnInterval;
+            }
+        }
+        Check(spacings.Count > FpsPrototypeRules.WaveCount, "Seed variation changes FPS spacing without changing enemy types");
+        foreach (int wave in new[] { int.MinValue, -1, FpsPrototypeRules.WaveCount, int.MaxValue })
+        {
+            bool rejected = false;
+            try { FpsPrototypeRules.Wave(wave, 42); }
+            catch (ArgumentOutOfRangeException) { rejected = true; }
+            Check(rejected, "Invalid FPS wave indices cannot silently restart or skip encounters");
+        }
+
+        foreach (int damage in new[] { 1, 2, 7, 50, int.MaxValue })
+        foreach (float radius in new[] { float.Epsilon, .01f, 3.5f, 1000, float.MaxValue })
+        {
+            Check(FpsPrototypeRules.ExplosionDamage(0, radius, damage) == damage,
+                "FPS explosions deliver full center damage without overflow");
+            Check(FpsPrototypeRules.ExplosionDamage(radius, radius, damage) == 1,
+                "The exact FPS blast edge retains one damage rather than becoming a zero-damage hit");
+            int previous = damage;
+            for (int step = 0; step <= 20; step++)
+            {
+                float distance = (float)((double)radius * step / 20);
+                int actual = FpsPrototypeRules.ExplosionDamage(distance, radius, damage);
+                Check(actual >= 1 && actual <= previous && actual <= damage,
+                    "FPS radial falloff is bounded and monotonically decreases with distance");
+                previous = actual;
+            }
+        }
+        Check(FpsPrototypeRules.ExplosionDamage(2, 4, 10) == 5
+            && FpsPrototypeRules.ExplosionDamage(3, 4, 10) == 3,
+            "FPS explosion falloff rounds partial hit points up consistently");
+        Check(FpsPrototypeRules.ExplosionDamage(4.001f, 4, 10) == 0,
+            "Targets outside a blast cannot take edge damage");
+        foreach (float invalid in new[] { float.NaN, float.PositiveInfinity, float.NegativeInfinity, -1 })
+        {
+            Check(FpsPrototypeRules.ExplosionDamage(invalid, 4, 10) == 0,
+                "Invalid FPS blast distances do not grant damage");
+            Check(FpsPrototypeRules.ExplosionDamage(1, invalid, 10) == 0,
+                "Invalid FPS blast radii do not grant damage");
+        }
+        Check(FpsPrototypeRules.ExplosionDamage(0, 0, 10) == 0
+            && FpsPrototypeRules.ExplosionDamage(0, 4, 0) == 0
+            && FpsPrototypeRules.ExplosionDamage(0, 4, int.MinValue) == 0,
+            "Degenerate FPS blasts and nonpositive damage are rejected");
+        Check(DodgeRules.IsInvulnerable(FpsPrototypeRules.DodgeDuration, FpsPrototypeRules.DodgeDuration)
+            && DodgeRules.IsInvulnerable(FpsPrototypeRules.DodgeDuration * .401f, FpsPrototypeRules.DodgeDuration)
+            && !DodgeRules.IsInvulnerable(FpsPrototypeRules.DodgeDuration * .4f, FpsPrototypeRules.DodgeDuration),
+            "FPS dodge tuning uses the existing first-60-percent protection contract");
+        Console.WriteLine("FPS prototype: seeded escalating waves, finite spawn timing, radial damage boundaries/overflow and shared dodge protection checked.");
+    }
+
     public static void Main()
     {
         Maps();
@@ -900,6 +974,7 @@ static class HauntChecks
         BulletPatternsAndDodge();
         RoomLayouts();
         AmmunitionAndReloading();
+        FpsPrototype();
         Console.WriteLine($"PASS — {assertions} assertions against production dungeon and run-state code.");
     }
 }

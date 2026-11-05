@@ -1,4 +1,4 @@
-ECOS DA MEIA-NOITE - UNITY
+ECOS DA MEIA-NOITE - PROTOTIPO FPS / UNITY
 
 1. Instale Unity 6000.0.85f1 pelo Unity Hub.
 2. Extraia TODO o ZIP em uma pasta nova e curta, como C:\Dev\EcosDaMeiaNoite.
@@ -6,57 +6,53 @@ ECOS DA MEIA-NOITE - UNITY
 3. No Unity Hub, use Add / Add project from disk e selecione a pasta
    que contem Assets, Packages e ProjectSettings.
 4. Aguarde os pacotes e a compilacao. Com Play parado, use
-   Ecos > Abrir roguelike para abrir Assets/_Game/Scenes/Haunt.unity.
-5. Pressione Play, escolha personagem e inicie uma incursao.
+   Ecos > Abrir prototipo FPS para abrir Assets/_Game/Scenes/HauntFps.unity.
+5. Pressione Play, inicie e clique na janela Game para capturar o mouse.
+   Venca as tres ondas e use E perto do portal para concluir.
 
-O atalho ABRIR_ECOS_DA_MEIA_NOITE.cmd e opcional. A abertura pelo Hub
-nao precisa dele. Log do atalho: Logs/MeiaNoite-Editor.log.
+O atalho ABRIR_ECOS_DA_MEIA_NOITE.cmd e opcional e abre a cena FPS.
+A abertura pelo Hub nao precisa dele. Log: Logs/MeiaNoite-Editor.log.
 
-TECLADO/MOUSE
-WASD/setas mover; mouse mirar; esquerdo atirar; Espaco/direito esquivar;
-R recarregar; Q poder; E conversar/portal; M mapa; Esc fechar conversa/pausar.
-Tab/roda troca todas armas. Atalhos 1-0: inicial, grampeador, banana,
-piao, disco, lanterna, flauta, guarda-chuva, colmeia, luva.
+CONTROLES DO FPS
+WASD/setas mover; mouse olhar; esquerdo atirar; R recarregar;
+Alt esquerdo/Ctrl esquerdo/direito esquivar; Espaco saltar;
+E usar portal; Esc pausar/liberar cursor; M alternar som.
+Enter inicia e reinicia apos morte/vitoria. Menus tem botoes com cursor livre.
+Solte o gatilho depois de retomar para voltar a atirar.
 
-CONTROLE PS4 RECONHECIDO PELO INPUT SYSTEM (USB OU BLUETOOTH)
-Analogico esquerdo mover; direito mirar; R2 atirar; Circulo/L2 esquivar;
-Triangulo recarregar; Quadrado poder; X conversar/portal/confirmar; L1/R1 trocar armas;
-Options pausa; Share/clique touchpad mapa. Direcional navega menus.
-Na loja: L1/R1 abas, Triangulo paginas, X comprar, Circulo fechar.
-A compatibilidade do seu controle/driver ainda precisa ser testada no PC.
+CONTROLE PS4 RECONHECIDO PELO INPUT SYSTEM
+Analogico esquerdo mover; direito olhar; R2 atirar; Triangulo recarregar;
+Circulo esquivar; X saltar ou confirmar inicio/reinicio; Quadrado portal;
+Options pausa. Os menus tambem oferecem botoes de som e retorno ao 2D.
+A compatibilidade do seu controle/driver precisa ser testada no PC.
 
-NOVIDADES
-O primeiro personagem, PILOTO, usa a folha original enviada pelo usuario.
-O PNG fonte esta intacto em Assets/_Game/ArtSources/PilotOriginal.png.
-Medium, Ceifador e Alquimista seguem as mesmas poses e direcoes,
-com paletas e acessorios proprios. CharacterSheets contem as quatro
-folhas ativas e o catalogo de animacoes, em 16 pixels por unidade.
-Recortes nativos sem ampliacao; o numero de quadros varia por acao.
-Veja Documentation/CHARACTER_MODEL.md e CHARACTER_MODEL.png.
-Poses de mesa, bau, fantasma e reviver ficam disponiveis na biblioteca;
-essas poses nao adicionam mecanicas de interacao ou multiplayer.
-ReferenceSheets conserva 24 folhas/1700 celulas de arte procedural,
-com mobs de 48px, bosses de 96px e barris/bau de 32px, em 32 PPU.
-Os jogadores dessa pasta sao prototipos/fallback, nao as folhas ativas.
-As 17 armas, reliquias e decoracao tambem tem resolucao dobrada.
-Veja Documentation/SPRITESHEETS.md e EQUIPMENT_DETAIL.png.
-R/Triangulo: recarga manual; arma inicial e revolver tem reserva infinita,
-mas carregador finito. Compradas tem reserva limitada. Mortes podem deixar
-caixas de municao (12%); aproxime-se para coletar. Cada arma guarda a sua
-municao. Veja Documentation/MUNICAO_E_TERROR.md e REFERENCE_SPRITESHEETS.png.
-Salas com 4 perfis, novos mobs e chefes, tiros maiores/luminosos,
-barris explosivos, agua com lentidao, reliquias, 1-2 armas sorteadas
-por loja, paredes com profundidade por camadas e musica de fundo.
-Camera com antecipacao e trauma, flash de impacto, evasao espectral
-(60% protecao / 40% recuperacao), luzes com flicker e padroes de tiros.
-Veja Documentation/GAME_FEEL.md para o catalogo dos ataques.
-Salas L/T/H/octogonais/alcovas, pilares e barris de acido.
-E conversa; 1/2 escolhem respostas; NEGOCIAR abre o catalogo.
-Bosses tem intro obrigatoria de 3 s e musica exclusiva.
-Veja Documentation/SALAS_E_HISTORIAS.md para esta expansao.
-Morrer encerra a incursao; nao ha save entre sessoes ou multiplayer.
+CONTEUDO DO PROTOTIPO
+Arena 3D de 28 x 24 unidades, gerada em C#, com texturas pixeladas,
+pilares, lapides, grades, velas, aboboras, luzes oscilantes e neblina.
+Revolver com 8 tiros por carregador, reserva infinita e recarga manual.
+Camera com recuo, clarao do cano, capsulas e feedback nos impactos.
+Esquiva de 0,22 s: primeiros 60% protegidos, ultimos 40% vulneraveis.
+Esqueletos de ataque proximo e Lanternas com tiros anunciados.
+Tres ondas, barris explosivos com reacao em cadeia e portal de conclusao.
+Musica e efeitos originais sintetizados pelo jogo.
+Veja Documentation/PROTOTIPO_FPS.md para detalhes e roteiro de teste.
 
-O Editor nao esta instalado no ambiente desta revisao. Checks C#,
-Python e helpers com tipos Unity simulados nao substituem importacao,
-compilacao Unity, Play Mode, audicao real ou teste fisico com PS4.
-Nao ha executavel Windows validado. Veja README.md e Documentation/VALIDATION.md.
+ROGUELIKE 2D PRESERVADO
+Com Play parado: Ecos > Abrir roguelike abre Assets/_Game/Scenes/Haunt.unity.
+O menu do prototipo tambem permite abrir a versao 2D.
+O build inicia no FPS e inclui a cena 2D em segundo lugar.
+A versao 2D mantem quatro personagens, arsenal, loja, bosses, salas
+procedurais e as folhas de personagem fornecidas pelo usuario.
+Seus controles e recursos continuam descritos no README.md.
+Selecao de personagens, loja e bosses do 2D ainda dependem de expansao
+especifica para entrar no prototipo FPS. O jogo permanece solo.
+
+VALIDACAO
+O Editor Unity nao esta instalado no ambiente desta revisao.
+Checks C# e Python nao substituem importacao, compilacao no Unity,
+Play Mode, renderizacao, fisica, audicao ou teste com controle fisico.
+Nao ha executavel Windows validado desta revisao.
+Veja Documentation/VALIDATION.md e Documentation/UNITY_TROUBLESHOOTING.md.
+
+GitHub:
+https://github.com/ManoelRIos/ecos-vale/tree/codex/ecos-do-vale-vertical-slice

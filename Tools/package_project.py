@@ -26,6 +26,7 @@ REQUIRED_FILES = {
     'ProjectSettings/EditorBuildSettings.asset',
     'ABRIR_ECOS_DA_MEIA_NOITE.cmd',
     'Assets/_Game/Scenes/Haunt.unity', 'Assets/_Game/Scenes/Haunt.unity.meta',
+    'Assets/_Game/Scenes/HauntFps.unity', 'Assets/_Game/Scenes/HauntFps.unity.meta',
     'Assets/_Game/Haunt/Runtime/HauntGame.cs', 'Assets/_Game/Haunt/Runtime/HauntGame.cs.meta',
     'Assets/_Game/Haunt/Runtime/HauntGame.UI.cs', 'Assets/_Game/Haunt/Runtime/HauntGame.UI.cs.meta',
     'Assets/_Game/Haunt/Runtime/HauntGame.Visuals.cs', 'Assets/_Game/Haunt/Runtime/HauntGame.Visuals.cs.meta',
@@ -59,6 +60,7 @@ REQUIRED_FILES = {
     'Assets/_Game/Haunt/Core/DodgeRules.cs', 'Assets/_Game/Haunt/Core/DodgeRules.cs.meta',
     'Assets/_Game/Haunt/Core/RoomLayout.cs', 'Assets/_Game/Haunt/Core/RoomLayout.cs.meta',
     'Assets/_Game/Haunt/Editor/HauntProject.cs', 'Assets/_Game/Haunt/Editor/HauntProject.cs.meta',
+    'Assets/_Game/Haunt/Editor/HauntFpsProject.cs', 'Assets/_Game/Haunt/Editor/HauntFpsProject.cs.meta',
     'Assets/_Game/Haunt/Editor/HauntSetup.cs', 'Assets/_Game/Haunt/Editor/HauntSetup.cs.meta',
     'Assets/_Game/Haunt/Haunt.Runtime.asmdef', 'Assets/_Game/Haunt/Haunt.Runtime.asmdef.meta',
     'Assets/_Game/Haunt/Editor/Haunt.Editor.asmdef', 'Assets/_Game/Haunt/Editor/Haunt.Editor.asmdef.meta',
@@ -87,6 +89,13 @@ REQUIRED_FILES.update({'Assets/_Game/Resources/CharacterSheets/catalog.json',
                        'Assets/_Game/Resources/CharacterSheets/catalog.json.meta',
                        'Assets/_Game/ArtSources/PilotOriginal.png', 'Assets/_Game/ArtSources/PilotOriginal.png.meta',
                        'Tools/Pilot/source-clips.json', 'Tools/import_pilot_sheet.py', 'Tools/requirements-sprite-import.txt'})
+REQUIRED_FILES.update('Assets/_Game/Haunt/Fps/' + name + suffix
+                      for name in ('HauntFpsGame.cs', 'HauntFpsGame.UI.cs', 'HauntFpsPlayer.cs', 'HauntFpsWorld.cs',
+                                   'HauntFpsEnemy.cs', 'HauntFpsBarrel.cs', 'HauntFpsAudio.cs', 'HauntFpsLit.shader')
+                      for suffix in ('', '.meta'))
+REQUIRED_FILES.update({'Assets/_Game/Resources/FpsPalette.mat', 'Assets/_Game/Resources/FpsPalette.mat.meta'})
+REQUIRED_FILES.update({'Assets/_Game/Haunt/Core/FpsPrototypeRules.cs',
+                       'Assets/_Game/Haunt/Core/FpsPrototypeRules.cs.meta'})
 
 
 class PackagingError(ValueError):
@@ -181,13 +190,16 @@ def _validate_project(root):
         'com.unity.render-pipelines.universal': '17.0.4',
         'com.unity.inputsystem': '1.11.2',
         'com.unity.test-framework': '1.4.5',
+        'com.unity.modules.physics': '1.0.0',
     }.items():
         if dependencies.get(package) != version:
             raise PackagingError(f'The delivery must declare {package} {version}.')
     build = (root / 'ProjectSettings/EditorBuildSettings.asset').read_text()
     scenes = re.findall(r'^    path: (.+)$', build, re.M)
-    if scenes != ['Assets/_Game/Scenes/Haunt.unity']:
-        raise PackagingError('The delivery must contain only the Haunt build scene.')
+    if scenes != ['Assets/_Game/Scenes/HauntFps.unity', 'Assets/_Game/Scenes/Haunt.unity']:
+        raise PackagingError('The delivery must contain the FPS entry followed by the preserved Haunt scene.')
+    if re.findall(r'^  - enabled: (\d+)$', build, re.M) != ['1', '1']:
+        raise PackagingError('Both game scenes must be enabled in the delivery.')
     version = (root / 'ProjectSettings/ProjectVersion.txt').read_text()
     if not re.search(r'^m_EditorVersion: ' + re.escape(EDITOR_VERSION) + r'$', version, re.M):
         raise PackagingError(f'The delivery must pin Unity {EDITOR_VERSION}.')

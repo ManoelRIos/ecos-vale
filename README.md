@@ -1,6 +1,6 @@
 # Ecos da Meia-Noite
 
-Roguelike de ação em pixel art para **Unity 6.0 LTS 6000.0.85f1**, com combate 2D, salas procedurais, quatro personagens, poderes, arsenal, chefes e Mercado das Almas. A arte combina a folha de personagem fornecida pelo usuário, suas variantes e desenhos procedurais. Efeitos sonoros e música são sintetizados localmente; o jogo não exige serviços externos.
+Protótipo de ação em **3D e primeira pessoa**, com estética macabra de formas cartoon, texturas pixeladas e geração em C#, para **Unity 6.0 LTS 6000.0.85f1**. A nova cena FPS é a entrada padrão. O roguelike 2D com quatro personagens, arsenal, chefes e Mercado das Almas continua disponível em sua própria cena. Efeitos sonoros e música são sintetizados localmente; o jogo não exige serviços externos.
 
 [**Projeto no GitHub**](https://github.com/ManoelRIos/ecos-vale/tree/codex/ecos-do-vale-vertical-slice) · [**Baixar projeto em ZIP**](https://github.com/ManoelRIos/ecos-vale/raw/refs/heads/codex/ecos-do-vale-vertical-slice/Distribution/EcosDaMeiaNoite.zip)
 
@@ -8,14 +8,42 @@ Roguelike de ação em pixel art para **Unity 6.0 LTS 6000.0.85f1**, com combate
 
 1. Instale **Unity 6000.0.85f1** pelo Unity Hub; acrescente Windows Build Support para gerar um executável Windows.
 2. Extraia todo o ZIP em uma **pasta nova e curta**, por exemplo `C:\Dev\EcosDaMeiaNoite`. Preserve suas alterações da cópia anterior. A raiz deve conter `Assets`, `Packages` e `ProjectSettings`.
-3. No Hub, use **Add / Add project from disk** e selecione essa raiz. Abra o projeto, aguarde os pacotes e a compilação e use **Ecos → Abrir roguelike**, com Play parado, para abrir `Assets/_Game/Scenes/Haunt.unity`.
-4. Pressione **Play**, escolha uma das quatro almas e inicie. Uma semente numérica repete a planta, os perfis de encontro, o chefe e as ofertas daquela versão; vazia gera outra incursão.
+3. No Hub, use **Add / Add project from disk** e selecione essa raiz. Abra o projeto, aguarde os pacotes e a compilação e use **Ecos → Abrir protótipo FPS**, com Play parado, para abrir `Assets/_Game/Scenes/HauntFps.unity`.
+4. Pressione **Play**, inicie o protótipo e clique na janela Game para capturar o mouse. Sobreviva às três ondas e use o portal liberado ao final. **Esc** pausa e libera o cursor.
 
-O atalho opcional `ABRIR_ECOS_DA_MEIA_NOITE.cmd` continua disponível para instalações no caminho padrão do Hub; `/check` confere a pasta e o log fica em `Logs/MeiaNoite-Editor.log`. Abrir pelo Hub dispensa o atalho. O atalho não foi executado no Windows neste ambiente.
+O atalho opcional `ABRIR_ECOS_DA_MEIA_NOITE.cmd` abre a cena FPS e continua disponível para instalações no caminho padrão do Hub; `/check` confere a pasta e o log fica em `Logs/MeiaNoite-Editor.log`. Abrir pelo Hub dispensa o atalho. O atalho não foi executado no Windows neste ambiente.
 
 Para atualizar por ZIP, use uma extração nova: sobrepor pastas não remove arquivos antigos. Um clone Git atualizado também aplica as remoções rastreadas. Ainda não há um executável Windows validado desta revisão.
 
-## Personagens no modelo da folha original
+## Primeiro protótipo FPS
+
+A arena 3D de **28 × 24 unidades** é montada em C#: piso e paredes com textura pixelada, pilares de cobertura, lápides, grades, velas, abóboras, luzes oscilantes e neblina. A câmera tem mira livre, recuo, oscilação discreta ao caminhar e trauma por impacto. A arma e as mãos usam modelos de formas simples, com clarão no cano, rastro do tiro e cápsulas no chão.
+
+O revólver inicial tem **oito disparos por carregador e reserva infinita**; **R recarrega manualmente**. Esqueletos avançam para atacar de perto e Lanternas lançam projéteis anunciados. O encontro tem três ondas. Barris explosivos podem ferir criaturas e jogador e iniciar uma reação em cadeia. Após vencer a última onda, aproxime-se do portal e pressione **E** para concluir. Há música e efeitos originais para disparos, impacto, recarga, passos, esquiva, explosão e progressão.
+
+| Ação no FPS | Teclado / mouse | Controle PS4 reconhecido |
+| --- | --- | --- |
+| Mover / olhar | WASD ou setas / mouse | Analógicos esquerdo / direito |
+| Atirar | Botão esquerdo | R2 |
+| Recarregar | R | Triângulo |
+| Esquivar | Alt esquerdo, Ctrl esquerdo ou botão direito | Círculo |
+| Saltar | Espaço | X |
+| Usar portal | E | Quadrado |
+| Pausar / liberar cursor | Esc | Options |
+| Confirmar início / reiniciar após morte ou vitória | Enter | X |
+| Ligar / desligar som | M ou botão do menu | Botão do menu |
+
+Os menus têm cursor livre e botões; Enter/X confirmam o início ou reinício indicado. O suporte usa o Input System; o hardware PS4 ainda precisa ser testado no PC. A esquiva protege nos primeiros 60% e tem recuperação vulnerável nos 40% finais.
+
+Este é um recorte inicial para avaliar movimento, combate e atmosfera em primeira pessoa. Seleção de personagens, arsenal expandido, chefes, loja e geração de andares pertencem à cena 2D preservada. Para jogá-la, pare o Play e use **Ecos → Abrir roguelike**; o menu do protótipo também oferece acesso à versão 2D. O build começa em `HauntFps` e inclui `Haunt` como segunda cena.
+
+Veja [PROTOTIPO_FPS.md](Documentation/PROTOTIPO_FPS.md) para módulos, fluxo e roteiro de teste. **Ainda não houve execução no Editor Unity deste protótipo**; compilação no motor, renderização, física, áudio reproduzido e controle físico aguardam essa validação.
+
+## Roguelike 2D preservado
+
+As seções seguintes descrevem `Assets/_Game/Scenes/Haunt.unity`. Nessa cena, Play abre a seleção das quatro almas. Uma semente numérica repete a planta, os encontros, o chefe e as ofertas daquela versão; vazia gera outra incursão.
+
+### Personagens no modelo da folha original
 
 O primeiro personagem aparece como **PILOTO** e usa os pixels da folha de *The Pilot*, de *Enter the Gungeon*, enviada pelo usuário. O PNG original permanece intacto em [PilotOriginal.png](Assets/_Game/ArtSources/PilotOriginal.png). O importador recorta as poses, conserva suas cores RGB e remove apenas as cores de fundo indicadas para cada recorte, sem ampliar ou redesenhar o personagem.
 
@@ -27,7 +55,7 @@ Os personagens ativos ficam em [CharacterSheets](Assets/_Game/Resources/Characte
 
 Veja [CHARACTER_MODEL.md](Documentation/CHARACTER_MODEL.md) para a fonte, o catálogo completo e a importação. As poses de mesa, baú, voo, fantasma e reviver estão disponíveis na biblioteca; sua presença na folha não adiciona essas mecânicas nem multiplayer ao jogo.
 
-## Mobs, bosses, objetos e munição
+### Mobs, bosses, objetos e munição
 
 Espantalho, Gárgula, Sombra, Morcego de Fogo, Esqueleto e Slime mantêm folhas de combate próprias. O Carrasco usa armadura azul e machado; o Mestre Abóbora tem capa roxa, foice e morcegos. Os demais cinco bosses mantêm o mesmo formato de animação.
 
@@ -39,7 +67,7 @@ Após adquirir uma arma com reserva finita, inimigos têm **12% de chance** de d
 
 A [prévia das folhas procedurais](Documentation/REFERENCE_SPRITESHEETS.png) inclui os protótipos anteriores dos jogadores. Os personagens ativos aparecem na prévia do modelo original acima. As duas montagens usam os pixels dos arquivos, sem renderização no Unity.
 
-## Salas irregulares e expansão de Halloween
+### Salas irregulares e expansão de Halloween
 
 As salas usam cinco formatos: **L, T, H, octógono e alcovas**, com recortes, contornos elevados e abismos internos. Quatro acessos cardinais e um núcleo seguro preservam as portas; os formatos L/T recebem corredores de acesso quando necessário. A sala H liga duas áreas pela passagem central. O minimapa agora mostra a silhueta real de cada sala. A colisão dos recortes é compartilhada por movimento, tiros e raios, e a navegação dos inimigos contorna paredes e cobertura.
 
@@ -55,7 +83,7 @@ A prévia a seguir é produzida pelos desenhos C# reais, **sem renderização no
 
 A prévia anterior permanece em [IRREGULAR_HALLOWEEN.png](Documentation/IRREGULAR_HALLOWEEN.png); os desenhos atuais estão acima.
 
-## Câmera, impacto e evasão
+### Câmera, impacto e evasão
 
 A câmera antecipa a mira em **20%**, com limite de duas unidades, suavização e recuo oposto ao disparo. O screen shake usa **trauma e Perlin Noise**, com reações fortes a explosões e golpes de chefes. Acertos geram flash branco de **0,06 s**, deformação breve e recuo com colisão; chefes resistem mais ao empurrão. O cano recebe clarão luminoso e ejeta cápsulas que pousam e ficam no chão da sala, com limite de quantidade.
 
@@ -63,7 +91,7 @@ O rolamento concede proteção nos **primeiros 60%** e tem **40% de recuperaçã
 
 Os inimigos agora usam um **gerador modular de padrões**: cones, anéis que desaceleram, mira preditiva, projéteis guiados limitados, ondas intercaladas e ataques de morte. Chefes têm espirais, bombas em cruz, teias de lentidão, cruzes que viajam em formação, ondas com brecha rotativa, leques de 180° e orbes que se dividem em 12 tiros. As emissões são anunciadas antes de ocorrerem. Veja o catálogo e os módulos em [GAME_FEEL.md](Documentation/GAME_FEEL.md).
 
-## Combate com mais variedade
+### Combate com mais variedade
 
 Cada sala de combate mantém **três ondas**, mas recebe um perfil próprio: **enxame**, **emboscada**, **fogo cruzado** ou **elite**. Formações e combinações variam, os inimigos são mais ativos e a vida cresce de modo mais moderado. As criaturas emergem de fendas durante 0,9 s; nesse preparo não atacam nem recebem dano. A recompensa e as saídas são liberadas após a última onda. Minibosses aparecem junto aos grupos em salas determinadas pela semente.
 
@@ -73,11 +101,11 @@ As salas têm **barris explosivos** e **urnas de água** atingíveis por tiros d
 
 Andares começam com 7 salas, recebem duas a cada avanço e chegam ao limite de 27. O limite das arenas é 29 × 17 unidades, com área ocupada variando por formato, com câmera próxima que acompanha o personagem. Algumas salas têm abismos atravessáveis por esquiva/salto; cair custa uma vida e retorna ao último chão seguro. Uma seta aponta à saída mais próxima após a purificação e prioriza o portal após o chefe.
 
-## Pixel art, projéteis e profundidade
+### Pixel art, projéteis e profundidade
 
 Os tiros agora têm **corpo maior, contorno contrastante e núcleo claro**, com cápsulas, pétalas, ossos, discos e energia de formas distintas. Um halo curto acompanha todo projétil na mesma altura, acompanhado de clarão e rastro colorido; balas hostis também deixam um rastro curto. Os disparos hostis preservam borda rosa/vermelha. A relíquia de tamanho também aumenta o raio de colisão, mantendo a melhoria funcional.
 
-A apresentação reforça o aspecto **2.5D por camadas**: paredes têm faces elevadas e coroamentos, os objetos projetam sombras, atores e cobertura são ordenados pela posição dos pés e as paredes próximas ficam translúcidas quando cobririam o personagem. A posição elevada dos sprites não altera a colisão no chão. A câmera e a simulação continuam no plano 2D; esta revisão não converte o cenário para malhas 3D. Há neblina baixa animada em temas e salas específicos, sem passar sobre os projéteis.
+A apresentação dessa cena reforça o aspecto **2.5D por camadas**: paredes têm faces elevadas e coroamentos, os objetos projetam sombras, atores e cobertura são ordenados pela posição dos pés e as paredes próximas ficam translúcidas quando cobririam o personagem. A posição elevada dos sprites não altera a colisão no chão. A câmera e a simulação do roguelike preservado continuam no plano 2D. Há neblina baixa animada em temas e salas específicos, sem passar sobre os projéteis.
 
 Os cinco temas mantêm pisos e paredes próprios: Jardins da Colheita, Galeria dos Véus, Catedral das Cinzas, Ninho da Peste e Abismo dos Sinos. A atmosfera usa azul noturno e roxo profundo, com vinheta escura de centro transparente. Velas, candelabros, abóboras e lanternas têm luz quente com intensidade e raio modulados por Perlin Noise; cristais, magia e poças recebem luz verde/roxa. Sombras ovais e neblina baixa em movimento reforçam a profundidade. A interface usa letras bitmap 5 × 7; o HUD mantém corações e textos sem tarjas.
 
@@ -85,7 +113,7 @@ A prévia abaixo mostra os pixels gerados pelos métodos C# com tipos auxiliares
 
 [Prévia anterior do arsenal e dos encontros](Documentation/ARSENAL_AND_ENCOUNTERS.png).
 
-## Personagens, arsenal e relíquias
+### Personagens, arsenal e relíquias
 
 | Alma | Arma inicial | Poder |
 | --- | --- | --- |
@@ -104,7 +132,7 @@ As três novas armas são o **Guarda-Chuva**, com cinco pétalas e dois ricochet
 
 Caminhe até o atendente e use E/X ou clique nele a até 2,8 unidades para conversar; escolha NEGOCIAR para abrir o catálogo. Apenas a conversa bloqueia o movimento. Itens usam ícones, preço e uma característica curta, com três cartões por página. Feche a conversa e caminhe até o portal para descer. Compras recusadas não consomem almas; equipamentos e melhorias duram até o fim da incursão.
 
-## Sete chefes
+### Sete chefes
 
 Todos têm animação, ataques anunciados e barra de vida em pixel art na parte inferior. **Carrasco de Ferro** e **Oráculo do Brejo** juntam-se aos cinco guardiões anteriores, com três padrões próprios e mudança de intensidade quando feridos. O tema sorteia um destes três candidatos a cada andar:
 
@@ -116,7 +144,7 @@ Todos têm animação, ataques anunciados e barra de vida em pixel art na parte 
 | Ninho da Peste | Matriarca da Peste, Oráculo do Brejo, Rei das Abóboras |
 | Abismo dos Sinos | Sino do Abismo, Carrasco de Ferro, Oráculo do Brejo |
 
-## Teclado, mouse e controle
+### Teclado, mouse e controle
 
 O suporte inicial usa o **Unity Input System**. Um **DualShock 4 de PS4** reconhecido pelo sistema pode ser usado por USB ou Bluetooth; o funcionamento no hardware/driver específico ainda precisa ser testado. Mira mantém a última direção do analógico direito. Menus, seleção de personagem, loja, pausa e reinício podem ser operados sem mouse.
 
@@ -140,7 +168,7 @@ Atalhos: 1 arma inicial; 2 Grampeador; 3 Banana; 4 Pião; 5 Disco; 6 Lanterna; 7
 
 M abre um atlas de 1060 × 580 na referência 1280 × 720, com desenhos a 95% e fundo escuro a 78%. O minimapa mantém 45% de opacidade. Ambos são passivos: o combate continua.
 
-## Música e efeitos
+### Música e efeitos
 
 Cinco trilhas ambientes e uma faixa exclusiva de chefe, todas sintetizadas e originais, usam melodia, harmonia, baixo e percussão. O mercado recebe uma camada calma; o combate e os chefes aumentam a intensidade, com transições suaves. Disparos, impactos, recargas, gatilho vazio, coleta de munição, poderes, explosões, água, compras e mortes têm efeitos curtos. O áudio tem limite de vozes, pausa com o jogo, respeita perda de foco e pode ser desligado em **SOM** no menu de pausa. Não são necessários arquivos de áudio externos.
 
@@ -153,8 +181,8 @@ python3 -m unittest discover -s Tools -p 'test_*.py'
 dotnet run --project Tools/HauntChecks.csproj
 ```
 
-Passaram **30 testes Python** e **2.506.552 asserções do núcleo real C#**, incluindo 2.436 andares. A sintaxe e os metadados também foram conferidos. Helpers temporários com tipos Unity simulados verificaram contratos entre os parciais e lógica de combate, objetos, controle, arte e áudio; não são uma execução no motor.
+Passaram **31 testes Python** e **2.507.249 asserções do núcleo real C#**, incluindo as regras independentes do protótipo FPS e os 2.436 andares do roguelike 2D. As verificações de sintaxe e metadados podem ser reproduzidas com os comandos acima. Helpers anteriores com tipos Unity simulados verificaram lógica do roguelike 2D; esses resultados não certificam o runtime FPS.
 
 **O Editor Unity não está instalado neste ambiente.** Importação, compilação no Unity, aparência renderizada, reprodução sonora, build e controle PS4 físico ainda precisam ser validados no Editor/PC. O jogo continua solo e sem save entre sessões. Consulte [VALIDATION.md](Documentation/VALIDATION.md), [ARCHITECTURE.md](Documentation/ARCHITECTURE.md) e [UNITY_TROUBLESHOOTING.md](Documentation/UNITY_TROUBLESHOOTING.md).
 
-Com Editor licenciado, execute o Test Runner ou `bash Tools/unity-check.sh import`, `smoke`, `tests` e `build`, com `UNITY_EDITOR_PATH` definido. O build usa `Builds/Windows/EcosDaMeiaNoite.exe`. Para gerar o ZIP das fontes, inclua arquivos novos no índice Git e execute `python3 Tools/package_project.py`; o pacote tem raiz `EcosDaMeiaNoite/` e não inclui builds ou caches.
+Com Editor licenciado, execute o Test Runner ou `bash Tools/unity-check.sh import`, `fps-smoke`, `smoke`, `tests` e `build`, com `UNITY_EDITOR_PATH` definido. O build usa `Builds/Windows/EcosDaMeiaNoite.exe`, com FPS na primeira cena e o roguelike 2D na segunda. Para gerar o ZIP das fontes, inclua arquivos novos no índice Git e execute `python3 Tools/package_project.py`; o pacote tem raiz `EcosDaMeiaNoite/` e não inclui builds ou caches.

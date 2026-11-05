@@ -20,11 +20,15 @@ class PackageProjectTests(unittest.TestCase):
             'com.unity.render-pipelines.universal': '17.0.4',
             'com.unity.inputsystem': '1.11.2',
             'com.unity.test-framework': '1.4.5',
+            'com.unity.modules.physics': '1.0.0',
         }}))
         self.write('ProjectSettings/ProjectVersion.txt', 'm_EditorVersion: 6000.0.85f1\n')
         self.write('Assets/_Game/Scenes/Haunt.unity', 'entry scene\n')
         self.write('Assets/_Game/Scenes/Haunt.unity.meta', 'fileFormatVersion: 2\nguid: abc\n')
+        self.write('Assets/_Game/Scenes/HauntFps.unity', 'first person entry scene\n')
+        self.write('Assets/_Game/Scenes/HauntFps.unity.meta', 'fileFormatVersion: 2\nguid: fps-fixture\n')
         self.write('ProjectSettings/EditorBuildSettings.asset',
+                   '  - enabled: 1\n    path: Assets/_Game/Scenes/HauntFps.unity\n'
                    '  - enabled: 1\n    path: Assets/_Game/Scenes/Haunt.unity\n')
         self.write('ABRIR_ECOS_DA_MEIA_NOITE.cmd', '@echo off\n')
         for relative in ['Assets/_Game/Haunt/Runtime/HauntGame.cs',
@@ -59,7 +63,9 @@ class PackageProjectTests(unittest.TestCase):
                          'Assets/_Game/Haunt/Core/BulletPatternGenerator.cs',
                          'Assets/_Game/Haunt/Core/DodgeRules.cs',
                          'Assets/_Game/Haunt/Core/RoomLayout.cs',
+                         'Assets/_Game/Haunt/Core/FpsPrototypeRules.cs',
                          'Assets/_Game/Haunt/Editor/HauntProject.cs',
+                         'Assets/_Game/Haunt/Editor/HauntFpsProject.cs',
                          'Assets/_Game/Haunt/Editor/HauntSetup.cs',
                          'Assets/_Game/Haunt/Haunt.Runtime.asmdef',
                          'Assets/_Game/Haunt/Editor/Haunt.Editor.asmdef',
@@ -90,6 +96,12 @@ class PackageProjectTests(unittest.TestCase):
         for name in ('Tools/export_sprite_sheets.py', 'Tools/SpriteSheetExport/Program.cs',
                      'Tools/SpriteSheetExport/UnityPixelStubs.cs', 'Tools/SpriteSheetExport/SpriteSheetExport.csproj'):
             self.write(name, 'exporter fixture\n')
+        for name in ('HauntFpsGame.cs', 'HauntFpsGame.UI.cs', 'HauntFpsPlayer.cs', 'HauntFpsWorld.cs', 'HauntFpsEnemy.cs',
+                     'HauntFpsBarrel.cs', 'HauntFpsAudio.cs', 'HauntFpsLit.shader'):
+            self.write('Assets/_Game/Haunt/Fps/' + name, 'fps source fixture\n')
+            self.write('Assets/_Game/Haunt/Fps/' + name + '.meta', 'fps metadata fixture\n')
+        self.write('Assets/_Game/Resources/FpsPalette.mat', 'fps material fixture\n')
+        self.write('Assets/_Game/Resources/FpsPalette.mat.meta', 'fps material metadata\n')
         self.git('add', '--all')
 
     def git(self, *args):
@@ -112,6 +124,8 @@ class PackageProjectTests(unittest.TestCase):
             self.assertTrue(all(name.startswith('EcosDaMeiaNoite/') for name in names))
             self.assertIn('EcosDaMeiaNoite/Tools/HauntChecks.csproj', names)
             self.assertIn('EcosDaMeiaNoite/Tools/package_project.py', names)
+            self.assertIn('EcosDaMeiaNoite/Assets/_Game/Scenes/HauntFps.unity', names)
+            self.assertIn('EcosDaMeiaNoite/Assets/_Game/Haunt/Fps/HauntFpsGame.cs', names)
             self.assertEqual(b'working scene update\n', archive.read('EcosDaMeiaNoite/Assets/_Game/Scenes/Haunt.unity'))
             self.assertEqual(b'fileFormatVersion: 2\nguid: abc\n', archive.read('EcosDaMeiaNoite/Assets/_Game/Scenes/Haunt.unity.meta'))
             self.assertNotIn('EcosDaMeiaNoite/not-tracked.txt', names)
@@ -184,10 +198,28 @@ class PackageProjectTests(unittest.TestCase):
 
     def test_extra_build_scene_rejects_delivery(self):
         self.write('ProjectSettings/EditorBuildSettings.asset',
+                   '  - enabled: 1\n    path: Assets/_Game/Scenes/HauntFps.unity\n'
                    '  - enabled: 1\n    path: Assets/_Game/Scenes/Haunt.unity\n'
                    '  - enabled: 0\n    path: Assets/OtherScene.unity\n')
-        with self.assertRaisesRegex(PackagingError, 'only the Haunt'):
+        with self.assertRaisesRegex(PackagingError, 'FPS entry followed'):
             create_archive(self.root)
+
+    def test_fps_must_remain_the_enabled_entry_and_preserve_the_roguelike(self):
+        output = create_archive(self.root)
+        previous = output.read_bytes()
+        for paths, enabled, error in [
+            (['Haunt', 'HauntFps'], [1, 1], 'FPS entry followed'),
+            (['HauntFps'], [1], 'FPS entry followed'),
+            (['HauntFps', 'Haunt'], [0, 1], 'Both game scenes'),
+            (['HauntFps', 'Haunt'], [1, 0], 'Both game scenes'),
+        ]:
+            with self.subTest(paths=paths, enabled=enabled):
+                self.write('ProjectSettings/EditorBuildSettings.asset', ''.join(
+                    f'  - enabled: {flag}\n    path: Assets/_Game/Scenes/{name}.unity\n'
+                    for name, flag in zip(paths, enabled)))
+                with self.assertRaisesRegex(PackagingError, error):
+                    create_archive(self.root)
+                self.assertEqual(previous, output.read_bytes())
 
     def test_missing_tracked_file_rejects_delivery(self):
         (self.root / 'Tools/HauntChecks.csproj').unlink()

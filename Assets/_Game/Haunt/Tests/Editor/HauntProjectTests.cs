@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
@@ -18,13 +19,16 @@ namespace Ecos.Haunt.Tests
     public sealed class HauntProjectTests
     {
         [Test]
-        public void BuildContainsOnlyRoguelike()
+        public void BuildStartsWithFpsAndPreservesTheRoguelike()
         {
             var scenes = EditorBuildSettings.scenes;
-            Assert.AreEqual(HauntProject.ScenePath, scenes.First(s => s.enabled).path);
-            Assert.AreEqual(1, scenes.Length);
+            Assert.AreEqual(HauntFpsProject.ScenePath, scenes.First(s => s.enabled).path);
+            Assert.AreEqual(2, scenes.Length);
             Assert.IsTrue(scenes[0].enabled);
+            Assert.IsTrue(scenes[1].enabled);
+            Assert.AreEqual(HauntProject.ScenePath, scenes[1].path);
             Assert.AreEqual(1, scenes.Count(s => s.path == HauntProject.ScenePath));
+            Assert.AreEqual(1, scenes.Count(s => s.path == HauntFpsProject.ScenePath));
         }
 
         [Test]
@@ -38,6 +42,30 @@ namespace Ecos.Haunt.Tests
             {
                 Assert.AreEqual(1, scene.GetRootGameObjects().Sum(g => g.GetComponentsInChildren<HauntGame>(true).Length));
                 Assert.AreEqual(1, scene.GetRootGameObjects().Length);
+            }
+            finally
+            {
+                if (opened) EditorSceneManager.CloseScene(scene, true);
+                if (previous.IsValid() && previous.isLoaded) SceneManager.SetActiveScene(previous);
+            }
+        }
+
+        [Test]
+        public void FpsSceneHasExactlyOneSeparateBootstrap()
+        {
+            var previous = SceneManager.GetActiveScene();
+            var existing = SceneManager.GetSceneByPath(HauntFpsProject.ScenePath);
+            bool opened = !existing.isLoaded;
+            var scene = opened ? EditorSceneManager.OpenScene(HauntFpsProject.ScenePath, OpenSceneMode.Additive) : existing;
+            try
+            {
+                var games = scene.GetRootGameObjects()
+                    .SelectMany(g => g.GetComponentsInChildren<Ecos.Haunt.Fps.HauntFpsGame>(true)).ToArray();
+                Assert.AreEqual(1, games.Length);
+                Assert.IsTrue(games[0].enabled);
+                Assert.AreEqual(1, scene.GetRootGameObjects().Length);
+                Assert.AreEqual(0, scene.GetRootGameObjects().Sum(g => g.GetComponentsInChildren<HauntGame>(true).Length));
+                Assert.AreEqual(HauntFpsProject.ScenePath, HauntProject.DefaultScenePath);
             }
             finally
             {
@@ -2021,6 +2049,104 @@ namespace Ecos.Haunt.Tests
             Assert.IsFalse(HauntProject.CanOpen());
             LogAssert.Expect(LogType.Warning, new Regex("^Ecos: pare o Play Mode"));
             Assert.DoesNotThrow(HauntProject.Open);
+            Assert.AreEqual(scene.handle, SceneManager.GetActiveScene().handle);
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator FpsHitsRespectCoverAndPauseCannotCompleteAManualReload()
+        {
+            var root = new GameObject("FPS combat integration fixture");
+            try
+            {
+                var game = root.AddComponent<Ecos.Haunt.Fps.HauntFpsGame>();
+                game.enabled = false;
+                object FpsCall(string name, params object[] args) => typeof(Ecos.Haunt.Fps.HauntFpsGame)
+                    .GetMethod(name, PrivateInstance).Invoke(game, args);
+                game.BeginRun(42);
+                Assert.IsTrue(game.CanSimulate);
+                Assert.AreEqual(WeaponKind.Pistol, game.State.Weapon);
+                Assert.AreEqual(8, game.State.Magazine);
+                var targetObject = new GameObject("FPS target");
+                targetObject.transform.SetParent(root.transform, false);
+                var target = targetObject.AddComponent<Ecos.Haunt.Fps.HauntFpsEnemy>();
+                target.Initialize(game, Ecos.Haunt.Fps.FpsEnemyKind.Skeleton, new Vector3(0, 0, -3));
+                var cover = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                cover.transform.SetParent(root.transform, false);
+                cover.transform.position = new Vector3(0, 1.4f, -5);
+                cover.transform.localScale = new Vector3(1, 2.8f, .25f);
+                Physics.SyncTransforms();
+                var ray = new Ray(game.Player.View.transform.position, Vector3.forward);
+                Assert.IsTrue(game.TryFire(ray));
+                Assert.AreEqual(target.MaxHealth, target.Health, "Cover blocks the nearest ray before the enemy.");
+                cover.SetActive(false); Physics.SyncTransforms();
+                Assert.IsTrue(game.TryFire(ray));
+                Assert.AreEqual(target.MaxHealth - 1, target.Health);
+                Assert.AreEqual(6, game.State.Magazine, "One accepted shot consumes one round.");
+                Assert.IsTrue(game.State.TryReload());
+                FpsCall("SetPaused", true);
+                float remaining = game.State.ReloadRemaining;
+                for (int i = 0; i < 30; i++) FpsCall("TickSimulation", .05f);
+                Assert.AreEqual(remaining, game.State.ReloadRemaining);
+                Assert.IsFalse(game.TryFire(ray));
+                FpsCall("SetPaused", false);
+                for (int i = 0; i < 24; i++) FpsCall("TickSimulation", .05f);
+                Assert.AreEqual(8, game.State.Magazine);
+                Assert.AreEqual(-1, game.State.ReserveAmmo);
+                Assert.IsFalse(game.State.IsReloading);
+                yield return null;
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally { UnityEngine.Object.Destroy(root); }
+        }
+
+        [UnityTest]
+        public IEnumerator FpsThreeWavesOpenThePortalAndRestartClearsTheEncounter()
+        {
+            var root = new GameObject("FPS encounter integration fixture");
+            try
+            {
+                var game = root.AddComponent<Ecos.Haunt.Fps.HauntFpsGame>();
+                game.enabled = false;
+                var type = typeof(Ecos.Haunt.Fps.HauntFpsGame);
+                var tick = type.GetMethod("TickSimulation", PrivateInstance);
+                var registry = type.GetField("enemies", PrivateInstance);
+                game.BeginRun(81);
+                for (int frame = 0; frame < 1000 && !game.World.ExitOpen; frame++)
+                {
+                    tick.Invoke(game, new object[] { .05f });
+                    var actors = ((IEnumerable<Ecos.Haunt.Fps.HauntFpsEnemy>)registry.GetValue(game)).ToArray();
+                    foreach (var actor in actors)
+                        if (actor && !actor.IsDead) actor.TakeDamage(100, actor.AimPosition, Vector3.zero);
+                }
+                Assert.IsTrue(game.World.ExitOpen, "The exit opens only after the third wave clears.");
+                Assert.AreEqual(3, game.WaveNumber);
+                Assert.AreEqual(12, game.KillCount);
+                Assert.AreEqual(0, game.ActiveProjectileCount);
+                var previousPlayer = game.Player;
+                var previousWorld = game.World;
+                game.BeginRun(82);
+                Assert.AreEqual(0, game.KillCount);
+                Assert.AreEqual(0, game.ActiveProjectileCount);
+                Assert.IsFalse(game.World.ExitOpen);
+                Assert.AreEqual(6, game.State.Health);
+                Assert.AreEqual(0, previousWorld.GeneratedTextureCount);
+                Assert.AreEqual(0, previousWorld.OwnedMaterialCount);
+                yield return null;
+                Assert.IsTrue(previousPlayer == null);
+                Assert.IsTrue(previousWorld == null);
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally { UnityEngine.Object.Destroy(root); }
+        }
+
+        [UnityTest]
+        public IEnumerator OpeningFpsDuringPlayPreservesCurrentScene()
+        {
+            var scene = SceneManager.GetActiveScene();
+            Assert.IsFalse(HauntFpsProject.CanOpen());
+            LogAssert.Expect(LogType.Warning, new Regex("^Ecos: pare o Play Mode"));
+            Assert.DoesNotThrow(HauntFpsProject.Open);
             Assert.AreEqual(scene.handle, SceneManager.GetActiveScene().handle);
             yield return null;
         }

@@ -7,7 +7,7 @@ using UnityEngine.Rendering.Universal;
 
 namespace Ecos.Haunt.Editor
 {
-    /// <summary>Creates only the renderer resources required by the pixel-art roguelike.</summary>
+    /// <summary>Creates separate renderer resources for the roguelike and first-person prototype.</summary>
     [InitializeOnLoad]
     public static class HauntSetup
     {
@@ -45,8 +45,12 @@ namespace Ecos.Haunt.Editor
                 if (QualitySettings.GetRenderPipelineAssetAt(i) != pipeline) return true;
             var material = AssetDatabase.LoadAssetAtPath<Material>(MaterialPath);
             if (!material || material.shader != Shader.Find(SpriteShader)) return true;
+            var fpsPipeline = AssetDatabase.LoadAssetAtPath<UniversalRenderPipelineAsset>(HauntFpsProject.PipelinePath);
+            var fpsRenderer = AssetDatabase.LoadAssetAtPath<UniversalRendererData>(HauntFpsProject.RendererPath);
+            if (!UsesRenderer(fpsPipeline, fpsRenderer) || fpsPipeline.shadowDistance != 30) return true;
             var scenes = EditorBuildSettings.scenes;
-            return scenes.Length != 1 || !scenes[0].enabled || scenes[0].path != HauntProject.ScenePath;
+            return scenes.Length != 2 || !scenes[0].enabled || scenes[0].path != HauntFpsProject.ScenePath
+                || !scenes[1].enabled || scenes[1].path != HauntProject.ScenePath;
         }
 
         static void PrepareBeforePlay(PlayModeStateChange state)
@@ -90,12 +94,18 @@ namespace Ecos.Haunt.Editor
             {
                 if (!File.Exists(HauntProject.ScenePath))
                     throw new IOException("A cena do roguelike está ausente: " + HauntProject.ScenePath);
+                if (!File.Exists(HauntFpsProject.ScenePath))
+                    throw new IOException("A cena do protótipo FPS está ausente: " + HauntFpsProject.ScenePath);
                 Directory.CreateDirectory("Assets/_Game/Resources");
                 AssetDatabase.Refresh();
                 var pipeline = EnsurePipelineAssets(PipelinePath, RendererPath);
                 ApplyPipeline(pipeline);
+                HauntFpsProject.EnsurePipeline();
                 EnsureSpriteMaterial();
-                EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(HauntProject.ScenePath, true) };
+                EditorBuildSettings.scenes = new[] {
+                    new EditorBuildSettingsScene(HauntFpsProject.ScenePath, true),
+                    new EditorBuildSettingsScene(HauntProject.ScenePath, true)
+                };
                 PlayerSettings.companyName = "Ecos da Meia-Noite";
                 PlayerSettings.productName = "Ecos da Meia-Noite";
                 PlayerSettings.defaultScreenWidth = 1920;

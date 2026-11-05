@@ -1,6 +1,18 @@
 # Arquitetura de Ecos da Meia-Noite
 
-A única cena é `Assets/_Game/Scenes/Haunt.unity`. `HauntGame` constrói e simula a incursão local; `Haunt.Runtime`, `Haunt.Editor` e `Haunt.Tests` separam jogo, ferramentas e testes. A arte combina a folha de personagem fornecida pelo usuário, suas variantes e recursos procedurais. Sons e música são sintetizados localmente, sem rede no runtime.
+O projeto contém duas cenas independentes em `Assets/_Game/Scenes`: `HauntFps.unity` é a entrada padrão em primeira pessoa; `Haunt.unity` preserva o roguelike 2D. `Haunt.Runtime`, `Haunt.Editor` e `Haunt.Tests` separam jogo, ferramentas e testes. Sons e música são sintetizados localmente, sem rede no runtime.
+
+## Protótipo FPS
+
+`Fps/HauntFpsGame.cs` e `.UI.cs` constroem a sessão, estado, combate, três ondas e menus. `HauntFpsPlayer` conecta Input System, câmera perspectiva, `CharacterController`, salto, esquiva e arma visível em primeira pessoa. A geometria e as colisões ocupam o espaço 3D; o piso usa XZ e a altura usa Y. O revólver usa um carregador de oito tiros com reserva infinita e recarga manual, integrado ao núcleo de munição existente.
+
+`HauntFpsWorld` gera uma arena de 28 × 24 unidades, cobertura, texturas pixeladas, decoração, luzes, neblina e portal. `HauntFpsEnemy` separa Esqueleto e Lanterna; `HauntFpsBarrel` controla explosivos; `HauntFpsAudio` sintetiza música e efeitos próprios. `Core/FpsPrototypeRules.cs` centraliza a composição das ondas e os cálculos de dano radial sem depender do Unity. Consulte [PROTOTIPO_FPS.md](PROTOTIPO_FPS.md).
+
+`HauntFpsProject` cria um par URP 3D dedicado, `Resources/FpsPipeline.asset` e `FpsRenderer.asset`, mantendo os recursos da cena 2D separados. O shader `Ecos/HauntFpsLit` tem uma referência persistente em `Resources/FpsPalette.mat`. `HauntSetup` prepara os recursos no Editor e configura o build com FPS primeiro e 2D segundo. O launcher chama `HauntProject.OpenFromCommandLine`, que agora abre o FPS; o menu `Ecos/Abrir roguelike` continua abrindo a cena 2D. Durante Play, o FPS aplica seu pipeline e restaura o anterior na limpeza.
+
+## Roguelike 2D
+
+Os módulos descritos a seguir pertencem à cena `Haunt.unity`. `HauntGame` constrói e simula a incursão local; sua arte combina a folha de personagem fornecida pelo usuário, variantes e recursos procedurais. Seleção, chefes, loja e geração de andares continuam nessa implementação enquanto o protótipo FPS evolui.
 
 ## Núcleo independente do Unity
 

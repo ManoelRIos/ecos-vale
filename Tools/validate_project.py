@@ -66,8 +66,9 @@ required_packages = {
     'com.unity.modules.audio': '1.0.0',
     'com.unity.modules.imgui': '1.0.0',
     'com.unity.modules.jsonserialize': '1.0.0',
+    'com.unity.modules.physics': '1.0.0',
 }
-check(manifest == required_packages, 'Package manifest must contain only the pinned roguelike requirements')
+check(manifest == required_packages, 'Package manifest must contain only the pinned game requirements')
 for package, version in manifest.items():
     check(re.fullmatch(r'\d+\.\d+\.\d+', version) is not None, f'Unpinned dependency: {package}')
 for path in (ROOT / 'Documentation/PackageManifests').glob('*.json'):
@@ -92,17 +93,24 @@ for name, definition in assemblies.items():
               f'Unknown assembly reference {reference} in {name}')
 
 scene = assets / '_Game/Scenes/Haunt.unity'
+fps_scene = assets / '_Game/Scenes/HauntFps.unity'
 check(scene.exists(), 'Missing roguelike entry scene')
-check(set((assets / '_Game/Scenes').glob('*.unity')) == {scene}, 'Only the roguelike scene should remain')
+check(fps_scene.exists(), 'Missing first-person prototype scene')
+check(set((assets / '_Game/Scenes').glob('*.unity')) == {fps_scene, scene},
+      'Only the first-person prototype and preserved roguelike scenes should remain')
 build = (ROOT / 'ProjectSettings/EditorBuildSettings.asset').read_text()
-check(re.findall(r'^    path: (.+)$', build, re.M) == ['Assets/_Game/Scenes/Haunt.unity'],
-      'The build must contain only the roguelike entry scene')
-check(re.findall(r'^  - enabled: (\d+)$', build, re.M) == ['1'], 'The roguelike build scene must be enabled')
+check(re.findall(r'^    path: (.+)$', build, re.M) == ['Assets/_Game/Scenes/HauntFps.unity', 'Assets/_Game/Scenes/Haunt.unity'],
+      'The build must start with the first-person prototype and preserve the roguelike scene')
+check(re.findall(r'^  - enabled: (\d+)$', build, re.M) == ['1', '1'], 'Both game scenes must be enabled')
 check('activeInputHandler: 1' in (ROOT / 'ProjectSettings/ProjectSettings.asset').read_text(),
       'Input System disabled')
 for relative in ('Haunt/Runtime/HauntGame.cs', 'Haunt/Runtime/HauntGame.Visuals.cs', 'Haunt/Runtime/HauntRendering.cs',
-                 'Haunt/Editor/HauntSetup.cs', 'Resources/HauntSprites.mat'):
-    check((assets / '_Game' / relative).exists(), f'Missing roguelike resource: {relative}')
+                 'Haunt/Editor/HauntSetup.cs', 'Resources/HauntSprites.mat', 'Haunt/Editor/HauntFpsProject.cs',
+                 'Haunt/Core/FpsPrototypeRules.cs', 'Haunt/Fps/HauntFpsGame.cs', 'Haunt/Fps/HauntFpsGame.UI.cs',
+                 'Haunt/Fps/HauntFpsPlayer.cs', 'Haunt/Fps/HauntFpsWorld.cs',
+                 'Haunt/Fps/HauntFpsEnemy.cs', 'Haunt/Fps/HauntFpsBarrel.cs', 'Haunt/Fps/HauntFpsAudio.cs',
+                 'Haunt/Fps/HauntFpsLit.shader', 'Resources/FpsPalette.mat'):
+    check((assets / '_Game' / relative).exists(), f'Missing game resource: {relative}')
 for name in ('Art', 'Audio', 'Biomes', 'Core', 'Editor', 'Environment', 'Gameplay', 'Inventory',
              'Multiplayer', 'Player', 'Prefabs', 'Quests', 'ScriptableObjects', 'Tests', 'UI', 'World'):
     check(not (assets / '_Game' / name).exists(), f'Unexpected obsolete asset folder: {name}')

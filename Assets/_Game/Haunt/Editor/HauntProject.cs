@@ -11,6 +11,7 @@ namespace Ecos.Haunt.Editor
     public static class HauntProject
     {
         public const string ScenePath = "Assets/_Game/Scenes/Haunt.unity";
+        public const string DefaultScenePath = HauntFpsProject.ScenePath;
 
         [MenuItem("Ecos/Abrir roguelike", false, 0)]
         public static void Open()
@@ -36,7 +37,7 @@ namespace Ecos.Haunt.Editor
         {
             if (EditorApplication.isPlayingOrWillChangePlaymode)
             {
-                Debug.LogWarning("Ecos: pare o Play Mode antes de abrir o roguelike pelo atalho.");
+                Debug.LogWarning("Ecos: pare o Play Mode antes de abrir o protótipo FPS pelo atalho.");
                 return;
             }
             if (EditorApplication.isCompiling || EditorApplication.isUpdating)
@@ -44,7 +45,7 @@ namespace Ecos.Haunt.Editor
                 EditorApplication.delayCall += OpenWhenReady;
                 return;
             }
-            Open();
+            HauntFpsProject.Open();
         }
 
         [MenuItem("Ecos/Abrir roguelike", true)]
@@ -57,11 +58,12 @@ namespace Ecos.Haunt.Editor
         /// <summary>Batch import smoke check. Does not enter Play Mode or validate rendering.</summary>
         public static void SmokeCheck()
         {
+            HauntFpsProject.SmokeCheck();
             if (!AssetDatabase.LoadAssetAtPath<SceneAsset>(ScenePath))
                 throw new InvalidOperationException("A cena Haunt não foi importada.");
             var entry = EditorBuildSettings.scenes.FirstOrDefault(s => s.enabled);
-            if (entry == null || entry.path != ScenePath)
-                throw new InvalidOperationException("Haunt deve ser a primeira cena habilitada no build.");
+            if (entry == null || entry.path != DefaultScenePath)
+                throw new InvalidOperationException("HauntFps deve ser a primeira cena habilitada no build.");
             var previous = SceneManager.GetActiveScene();
             var existing = SceneManager.GetSceneByPath(ScenePath);
             bool opened = !existing.isLoaded;

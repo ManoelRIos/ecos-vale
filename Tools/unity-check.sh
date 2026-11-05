@@ -12,7 +12,8 @@ mode=${1:-import}
 case "$mode" in
   import) "$UNITY_EDITOR_PATH" -batchmode -nographics -projectPath "$PWD" -executeMethod Ecos.Haunt.Editor.HauntSetup.CreateDefaults -quit -logFile /tmp/haunt-import.log ;;
   smoke) "$UNITY_EDITOR_PATH" -batchmode -nographics -projectPath "$PWD" -executeMethod Ecos.Haunt.Editor.HauntProject.SmokeCheck -quit -logFile /tmp/haunt-smoke.log ;;
+  fps-smoke) "$UNITY_EDITOR_PATH" -batchmode -nographics -projectPath "$PWD" -executeMethod Ecos.Haunt.Editor.HauntFpsProject.SmokeCheck -quit -logFile /tmp/haunt-fps-smoke.log ;;
   tests) "$UNITY_EDITOR_PATH" -batchmode -nographics -projectPath "$PWD" -runTests -testPlatform EditMode -testResults /tmp/haunt-tests.xml -logFile /tmp/haunt-tests.log ;;
   build) "$UNITY_EDITOR_PATH" -batchmode -nographics -projectPath "$PWD" -executeMethod Ecos.Haunt.Editor.HauntSetup.BuildWindows -quit -logFile /tmp/haunt-build.log ;;
-  *) printf '%s\n' 'Usage: Tools/unity-check.sh [import|smoke|tests|build]' >&2; exit 2 ;;
+  *) printf '%s\n' 'Usage: Tools/unity-check.sh [import|smoke|fps-smoke|tests|build]' >&2; exit 2 ;;
 esac
