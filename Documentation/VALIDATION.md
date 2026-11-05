@@ -2,6 +2,10 @@
 
 ## O que foi executado nesta revisão
 
+A correção após o log do usuário remove a atribuição à propriedade de escrita interna `supportsMainLightShadows` do URP 17. A preparação usa `SerializedObject` e inclui um teste Editor que desativa as sombras em assets temporários, repara a configuração e confere identidade dos assets e preservação das configurações globais. Esse teste no Editor permanece pendente neste ambiente.
+
+Um helper externo compilou a fonte Editor original contra um contrato simulado com a propriedade somente leitura e reproduziu o `CS0200` da linha 44. A fonte corrigida compilou e passou 19 verificações de configuração, reparo, idempotência e tratamento de campos ausentes. Esse resultado não é uma compilação contra as DLLs do Unity nem uma execução no Editor.
+
 - 31 testes Python de versões, atalho, importação de folhas e empacotamento. A entrega exige FPS primeiro, cena 2D preservada e ambas habilitadas; configurações inválidas não substituem o ZIP anterior.
 - O validador estático confere sintaxe C#, referências, metadados, fontes FPS, material, cenas e dependências. Ele não compila o código contra o motor.
 - 2.507.249 asserções compilando o núcleo C# real, incluindo regras FPS de três ondas, esquiva e dano radial; preserva os checks dos 2.436 andares, 645 arenas irregulares, estoque, compras, progressão, geometria e munição do roguelike 2D.

@@ -14,6 +14,8 @@ A primeira mensagem vermelha do Console identifica o bloqueio mais útil. Regist
 
 Um erro `CS0246` sobre um atributo de testes pode impedir o Play mesmo que o runtime compile. Os testes deste projeto usam o NUnit personalizado do Unity; mantenha a cópia atualizada dos testes e as dependências declaradas no manifest.
 
+O erro `CS0200` em `HauntFpsProject.cs`, citando `supportsMainLightShadows`, foi corrigido: no URP 17 essa propriedade permite leitura pública, mas sua escrita é interna ao pacote. A preparação agora altera o campo serializado do asset pelo Editor. Atualize o projeto e aguarde a recompilação. Nesse caso, a mensagem posterior `executeMethod class 'HauntProject' could not be found` é consequência da falha de compilação de `Haunt.Editor.dll`; não exige mudar o nome da classe nem o atalho.
+
 ## Renderização
 
 Se faltar a configuração do pipeline, pare o Play e use **Ecos → Preparar projeto**. A preparação cria `FpsPipeline` e `FpsRenderer` para a cena FPS e `HauntURP` e `HauntRenderer` para a cena 2D, dentro de `Assets/_Game/Resources`. Aguarde o fim da importação antes de abrir a cena ou voltar ao Play. **Ecos → Reparar renderização URP** também prepara os recursos e reinicializa o par usado pela versão 2D.

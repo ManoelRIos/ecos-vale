@@ -61,6 +61,42 @@ namespace Ecos.Haunt.Tests
         }
 
         [Test]
+        public void FpsPreparationRepairsDisabledShadowsAndKeepsAssetIdentityAndGlobalSettings()
+        {
+            var graphics = GraphicsSettings.defaultRenderPipeline;
+            var quality = QualitySettings.renderPipeline;
+            int level = QualitySettings.GetQualityLevel();
+            var pipeline = HauntSetup.EnsurePipelineAssets(pipelinePath, rendererPath);
+            string pipelineGuid = AssetDatabase.AssetPathToGUID(pipelinePath);
+            string rendererGuid = AssetDatabase.AssetPathToGUID(rendererPath);
+            pipeline.shadowDistance = 0;
+            pipeline.msaaSampleCount = 4;
+            pipeline.renderScale = .5f;
+            using (var serialized = new SerializedObject(pipeline))
+            {
+                var shadows = serialized.FindProperty("m_MainLightShadowsSupported");
+                Assert.IsNotNull(shadows, "URP 17's public shadow property has no accessible setter.");
+                shadows.boolValue = false;
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+            }
+            Assert.IsFalse(pipeline.supportsMainLightShadows);
+
+            var repaired = HauntFpsProject.EnsurePipelineAssets(pipelinePath, rendererPath);
+            Assert.AreSame(pipeline, repaired);
+            Assert.IsTrue(repaired.supportsMainLightShadows);
+            Assert.AreEqual(30, repaired.shadowDistance);
+            Assert.AreEqual(1, repaired.msaaSampleCount);
+            Assert.AreEqual(1, repaired.renderScale);
+            Assert.AreSame(repaired, HauntFpsProject.EnsurePipelineAssets(pipelinePath, rendererPath));
+            Assert.AreEqual(pipelineGuid, AssetDatabase.AssetPathToGUID(pipelinePath));
+            Assert.AreEqual(rendererGuid, AssetDatabase.AssetPathToGUID(rendererPath));
+            Assert.AreSame(AssetDatabase.LoadAssetAtPath<UniversalRendererData>(rendererPath), repaired.rendererDataList[0]);
+            Assert.AreSame(graphics, GraphicsSettings.defaultRenderPipeline);
+            Assert.AreSame(quality, QualitySettings.renderPipeline);
+            Assert.AreEqual(level, QualitySettings.GetQualityLevel());
+        }
+
+        [Test]
         public void ExplicitResourceRepairKeepsGuidsAndPixelRenderingDefaults()
         {
             var pipeline = HauntSetup.EnsurePipelineAssets(pipelinePath, rendererPath);

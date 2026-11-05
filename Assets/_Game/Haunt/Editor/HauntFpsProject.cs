@@ -32,16 +32,31 @@ namespace Ecos.Haunt.Editor
         [MenuItem("Ecos/Abrir protótipo FPS", true)]
         public static bool CanOpen() => HauntProject.CanOpen();
 
-        public static UniversalRenderPipelineAsset EnsurePipeline()
+        public static UniversalRenderPipelineAsset EnsurePipeline() => EnsurePipelineAssets(PipelinePath, RendererPath);
+
+        // Isolated paths let repair checks exercise the same configuration without
+        // replacing the user's global Graphics/Quality settings or renderer assets.
+        public static UniversalRenderPipelineAsset EnsurePipelineAssets(string pipelinePath, string rendererPath)
         {
-            var pipeline = HauntSetup.EnsurePipelineAssets(PipelinePath, RendererPath);
+            var pipeline = HauntSetup.EnsurePipelineAssets(pipelinePath, rendererPath);
             bool dirty = pipeline.shadowDistance != 30 || pipeline.msaaSampleCount != 1 || pipeline.renderScale != 1;
             pipeline.shadowDistance = 30;
             pipeline.msaaSampleCount = 1;
             pipeline.renderScale = 1;
             if (!pipeline.supportsMainLightShadows)
             {
-                pipeline.supportsMainLightShadows = true;
+                // URP 17 exposes only a public getter; its setter is internal to
+                // the package. Editor tools must modify the serialized asset.
+                using (var serialized = new SerializedObject(pipeline))
+                {
+                    var shadows = serialized.FindProperty("m_MainLightShadowsSupported");
+                    if (shadows == null)
+                        throw new InvalidOperationException("Configuração de sombras URP não encontrada. Use a versão de pacotes do projeto.");
+                    shadows.boolValue = true;
+                    var anyShadows = serialized.FindProperty("m_AnyShadowsSupported");
+                    if (anyShadows != null) anyShadows.boolValue = true;
+                    serialized.ApplyModifiedPropertiesWithoutUndo();
+                }
                 dirty = true;
             }
             if (dirty) EditorUtility.SetDirty(pipeline);
