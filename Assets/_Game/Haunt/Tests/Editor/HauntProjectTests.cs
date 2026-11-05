@@ -2065,8 +2065,8 @@ namespace Ecos.Haunt.Tests
                     .GetMethod(name, PrivateInstance).Invoke(game, args);
                 game.BeginRun(42);
                 Assert.IsTrue(game.CanSimulate);
-                Assert.AreEqual(WeaponKind.Pistol, game.State.Weapon);
-                Assert.AreEqual(8, game.State.Magazine);
+                Assert.AreEqual(WeaponKind.HunterCarbine, game.State.Weapon);
+                Assert.AreEqual(WeaponAmmo.Stats(game.State.Weapon).MagazineSize, game.State.Magazine);
                 var targetObject = new GameObject("FPS target");
                 targetObject.transform.SetParent(root.transform, false);
                 var target = targetObject.AddComponent<Ecos.Haunt.Fps.HauntFpsEnemy>();
@@ -2082,7 +2082,7 @@ namespace Ecos.Haunt.Tests
                 cover.SetActive(false); Physics.SyncTransforms();
                 Assert.IsTrue(game.TryFire(ray));
                 Assert.AreEqual(target.MaxHealth - 1, target.Health);
-                Assert.AreEqual(6, game.State.Magazine, "One accepted shot consumes one round.");
+                Assert.AreEqual(WeaponAmmo.Stats(game.State.Weapon).MagazineSize - 2, game.State.Magazine, "One accepted shot consumes one round.");
                 Assert.IsTrue(game.State.TryReload());
                 FpsCall("SetPaused", true);
                 float remaining = game.State.ReloadRemaining;
@@ -2091,7 +2091,7 @@ namespace Ecos.Haunt.Tests
                 Assert.IsFalse(game.TryFire(ray));
                 FpsCall("SetPaused", false);
                 for (int i = 0; i < 24; i++) FpsCall("TickSimulation", .05f);
-                Assert.AreEqual(8, game.State.Magazine);
+                Assert.AreEqual(WeaponAmmo.Stats(game.State.Weapon).MagazineSize, game.State.Magazine);
                 Assert.AreEqual(-1, game.State.ReserveAmmo);
                 Assert.IsFalse(game.State.IsReloading);
                 yield return null;
@@ -2101,40 +2101,138 @@ namespace Ecos.Haunt.Tests
         }
 
         [UnityTest]
-        public IEnumerator FpsThreeWavesOpenThePortalAndRestartClearsTheEncounter()
+        public IEnumerator FpsCampaignRequiresBossesBeforePortalsAndRetainsTheRunAcrossFiveThemes()
         {
-            var root = new GameObject("FPS encounter integration fixture");
+            var root = new GameObject("Hybrid campaign integration fixture");
             try
             {
                 var game = root.AddComponent<Ecos.Haunt.Fps.HauntFpsGame>();
                 game.enabled = false;
                 var type = typeof(Ecos.Haunt.Fps.HauntFpsGame);
                 var tick = type.GetMethod("TickSimulation", PrivateInstance);
-                var registry = type.GetField("enemies", PrivateInstance);
+                var advance = type.GetMethod("AdvanceFloor", PrivateInstance);
                 game.BeginRun(81);
-                for (int frame = 0; frame < 1000 && !game.World.ExitOpen; frame++)
+                var run = game.State;
+                // The fixture tests campaign gating rather than player survival.
+                run.MaxHealth = run.Health = 100;
+                for (int floor = 1; floor <= Ecos.Haunt.Fps.HauntFpsCampaign.ThemeCount; floor++)
                 {
-                    tick.Invoke(game, new object[] { .05f });
-                    var actors = ((IEnumerable<Ecos.Haunt.Fps.HauntFpsEnemy>)registry.GetValue(game)).ToArray();
-                    foreach (var actor in actors)
-                        if (actor && !actor.IsDead) actor.TakeDamage(100, actor.AimPosition, Vector3.zero);
+                    Assert.AreSame(run, game.State);
+                    Assert.AreEqual(floor, game.State.Floor);
+                    Assert.AreEqual(floor - 1, game.World.ThemeIndex);
+                    Assert.IsFalse(game.World.ExitOpen);
+                    for (int frame = 0; frame < 1400 && !game.World.ExitOpen; frame++)
+                    {
+                        tick.Invoke(game, new object[] { .05f });
+                        foreach (var actor in game.Enemies.ToArray())
+                            if (actor && !actor.IsDead) actor.TakeDamage(100, actor.AimPosition, Vector3.zero);
+                        if (game.Boss && !game.Boss.IsDead)
+                        {
+                            if (game.Boss.IntroRemaining > 0)
+                            {
+                                int health = game.Boss.Health;
+                                game.Boss.TakeDamage(10000, game.Boss.AimPosition, Vector3.zero);
+                                Assert.AreEqual(health, game.Boss.Health, "The introduction cannot be skipped by damage.");
+                                Assert.IsFalse(game.World.ExitOpen, "Clearing the mobs alone does not open the exit.");
+                            }
+                            else game.Boss.TakeDamage(10000, game.Boss.AimPosition, Vector3.zero);
+                        }
+                    }
+                    Assert.IsTrue(game.World.ExitOpen, "The guardian must be defeated before advancing.");
+                    Assert.IsTrue(game.State.BossDefeated);
+                    Assert.AreEqual(Ecos.Haunt.Fps.HauntFpsCampaign.BossForFloor(81, floor), game.Boss.Archetype);
+                    Assert.AreEqual(3, game.WaveNumber);
+                    Assert.AreEqual(13 * floor, game.KillCount);
+                    Assert.AreEqual(0, game.ActiveProjectileCount);
+                    var previousPlayer = game.Player;
+                    var previousWorld = game.World;
+                    advance.Invoke(game, Array.Empty<object>());
+                    if (floor < Ecos.Haunt.Fps.HauntFpsCampaign.ThemeCount)
+                    {
+                        Assert.AreEqual(floor + 1, game.State.Floor);
+                        Assert.AreEqual(0, previousWorld.GeneratedTextureCount);
+                        Assert.AreEqual(0, previousWorld.OwnedMaterialCount);
+                        yield return null;
+                        Assert.IsTrue(previousPlayer == null);
+                        Assert.IsTrue(previousWorld == null);
+                    }
                 }
-                Assert.IsTrue(game.World.ExitOpen, "The exit opens only after the third wave clears.");
-                Assert.AreEqual(3, game.WaveNumber);
-                Assert.AreEqual(12, game.KillCount);
-                Assert.AreEqual(0, game.ActiveProjectileCount);
-                var previousPlayer = game.Player;
-                var previousWorld = game.World;
+                Assert.IsFalse(game.CanSimulate, "The fifth completed floor ends the campaign.");
+                Assert.AreEqual(5, game.State.Floor);
                 game.BeginRun(82);
+                Assert.AreNotSame(run, game.State);
+                Assert.AreEqual(1, game.State.Floor);
                 Assert.AreEqual(0, game.KillCount);
                 Assert.AreEqual(0, game.ActiveProjectileCount);
                 Assert.IsFalse(game.World.ExitOpen);
                 Assert.AreEqual(6, game.State.Health);
-                Assert.AreEqual(0, previousWorld.GeneratedTextureCount);
-                Assert.AreEqual(0, previousWorld.OwnedMaterialCount);
                 yield return null;
-                Assert.IsTrue(previousPlayer == null);
-                Assert.IsTrue(previousWorld == null);
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally { UnityEngine.Object.Destroy(root); }
+        }
+
+        [UnityTest]
+        public IEnumerator HybridCameraPreservesTheEncounterAndPauseFreezesTheTransition()
+        {
+            var root = new GameObject("Hybrid perspective continuity fixture");
+            try
+            {
+                var game = root.AddComponent<Ecos.Haunt.Fps.HauntFpsGame>(); game.enabled = false;
+                var type = typeof(Ecos.Haunt.Fps.HauntFpsGame);
+                object FpsCall(string name, params object[] args) => type.GetMethod(name, PrivateInstance).Invoke(game, args);
+                game.BeginRun(42);
+                Assert.IsTrue((bool)FpsCall("TrySpawn", Ecos.Haunt.Fps.FpsEnemyKind.Skeleton));
+                var state = game.State;
+                state.Health = 4; Assert.IsTrue(state.TryConsumeShot()); Assert.IsTrue(state.TryReload());
+                var actor = game.Enemies[0];
+                game.FireHostile(new Vector3(11, 1.1f, -8), Vector3.forward, 5, 1, Color.green);
+                var shots = (IList)type.GetField("projectiles", PrivateInstance).GetValue(game);
+                Assert.AreEqual(1, shots.Count);
+                object shot = shots[0];
+                var world = game.World; var controller = game.Player.GetComponent<CharacterController>();
+                var camera = game.Player.View; Quaternion heading = camera.transform.rotation;
+                var art = root.GetComponentInChildren<Ecos.Haunt.Fps.HauntFpsHybridArt>();
+                int magazine = state.Magazine; float reload = state.ReloadRemaining;
+                Assert.IsTrue(game.Player.TryDodge(Vector3.forward));
+                float dodgeCooldown = game.Player.DodgeCooldownRemaining;
+                Physics.SyncTransforms();
+                Assert.IsTrue(Physics.Raycast(new Vector3(0, 1, -10), Vector3.back, out var wall, 4));
+
+                Assert.IsTrue(game.Player.TryTogglePerspective());
+                Assert.IsFalse(game.TryFire(new Ray(camera.transform.position, camera.transform.forward)), "The transition blocks firing without consuming ammunition.");
+                var perspective = game.Player.Perspective;
+                perspective.Tick(.05f); perspective.Tick(.05f);
+                FpsCall("SetPaused", true);
+                float progress = perspective.TransitionProgress;
+                for (int i = 0; i < 12; i++) perspective.Tick(.05f);
+                Assert.AreEqual(progress, perspective.TransitionProgress);
+                Assert.IsFalse(game.Player.TryTogglePerspective());
+                FpsCall("SetPaused", false);
+                for (int i = 0; i < 16; i++) perspective.Tick(.05f);
+                art.Tick(0, true, camera, perspective.AimDirection, false, true);
+                Assert.IsTrue(camera.orthographic);
+                Assert.IsTrue(game.Player.IsTopDown);
+                Assert.AreSame(state, game.State); Assert.AreSame(world, game.World);
+                Assert.AreSame(controller, game.Player.GetComponent<CharacterController>());
+                Assert.AreSame(actor, game.Enemies[0]); Assert.AreSame(shot, shots[0]);
+                Assert.AreEqual(4, state.Health); Assert.AreEqual(magazine, state.Magazine);
+                Assert.AreEqual(reload, state.ReloadRemaining, "Camera ticks cannot advance the combat clock.");
+                Assert.AreEqual(dodgeCooldown, game.Player.DodgeCooldownRemaining);
+                Physics.SyncTransforms();
+                Assert.IsTrue(Physics.Raycast(new Vector3(0, 1, -10), Vector3.back, out var cutawayWall, 4));
+                Assert.AreSame(wall.collider, cutawayWall.collider, "The cutaway hides geometry but preserves physical cover.");
+
+                // A top-down aim rotation must not replace the saved FPS heading.
+                game.Player.transform.rotation = Quaternion.Euler(0, 120, 0);
+                Assert.IsTrue(game.Player.TryTogglePerspective());
+                for (int i = 0; i < 10; i++) perspective.Tick(.05f);
+                art.Tick(0, false, camera, perspective.AimDirection, false, true);
+                Assert.IsFalse(camera.orthographic);
+                Assert.Less(Quaternion.Angle(heading, camera.transform.rotation), .1f);
+                Assert.AreSame(state, game.State); Assert.AreSame(shot, shots[0]);
+                Assert.AreEqual(reload, state.ReloadRemaining);
+                yield return null;
                 LogAssert.NoUnexpectedReceived();
             }
             finally { UnityEngine.Object.Destroy(root); }

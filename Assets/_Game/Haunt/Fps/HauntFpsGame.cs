@@ -17,6 +17,10 @@ namespace Ecos.Haunt.Fps
         HauntFpsPlayer player;
         HauntFpsWorld world;
         HauntFpsAudio sound;
+        HauntFpsHybridArt hybridArt;
+        HauntFpsBoss boss;
+        Transform ears;
+        HauntFpsHeroBody heroBody;
         RunState state;
         readonly List<HauntFpsEnemy> enemies = new List<HauntFpsEnemy>();
         readonly List<HauntFpsBarrel> barrels = new List<HauntFpsBarrel>();
@@ -30,6 +34,10 @@ namespace Ecos.Haunt.Fps
         bool savedCursorVisible, paused, focusLost, disposed, exitReady, bootstrapped;
         float damageGrace, hitMarker, damageOverlay, waveDelay, spawnDelay, noticeRemaining;
         int wave, pendingSkeletons, pendingLanterns, kills, spawnSerial, seed = 1105;
+        CharacterKind selectedCharacter;
+        int practiceBoss = -1, practiceTheme;
+        bool bossSpawned;
+        Vector3 lastPlayerPosition;
         string notice = "", failure;
         readonly HauntPixelText lettering = new HauntPixelText();
 
@@ -41,6 +49,8 @@ namespace Ecos.Haunt.Fps
             public float Speed, Life = 5;
             public int Damage;
             public Color Color;
+            public float Distance, SplitDistance, Fuse;
+            public bool Splits, Bomb;
         }
         sealed class Spark
         {
@@ -53,6 +63,9 @@ namespace Ecos.Haunt.Fps
         public RunState State => state;
         public HauntFpsPlayer Player => player;
         public HauntFpsWorld World => world;
+        public IReadOnlyList<HauntFpsEnemy> Enemies => enemies;
+        public IReadOnlyList<HauntFpsBarrel> Barrels => barrels;
+        public HauntFpsBoss Boss => boss;
         public Vector3 PlayerPosition => player ? player.Position : Vector3.zero;
         public bool CanSimulate => !disposed && string.IsNullOrEmpty(failure) && mode == ScreenMode.Playing
             && !paused && !focusLost && state != null && !state.IsDead;
@@ -84,11 +97,18 @@ namespace Ecos.Haunt.Fps
             SetCursor(false);
         }
 
-        void BuildRun(int newSeed)
+        void BuildRun(int newSeed, bool retainState = false, bool topDown = false)
         {
             ClearRun();
-            seed = newSeed; state = new RunState(seed); state.Equip(WeaponKind.Pistol);
-            wave = kills = spawnSerial = 0; pendingSkeletons = pendingLanterns = 0;
+            seed = newSeed;
+            if (!retainState)
+            {
+                state = new RunState(seed, selectedCharacter);
+                if (practiceBoss >= 0) state.Floor = practiceTheme + 1;
+                kills = 0;
+            }
+            wave = spawnSerial = 0; pendingSkeletons = pendingLanterns = 0;
+            bossSpawned = false;
             damageGrace = hitMarker = damageOverlay = waveDelay = spawnDelay = 0;
             exitReady = false; paused = false; noticeRemaining = 0;
             runRoot = new GameObject("Protótipo FPS • arena");
@@ -104,23 +124,29 @@ namespace Ecos.Haunt.Fps
             cameraObject.transform.SetParent(avatar.transform, false);
             var camera = cameraObject.AddComponent<Camera>(); camera.tag = "MainCamera";
             camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = new Color(.025f, .018f, .05f);
-            cameraObject.AddComponent<AudioListener>();
+            var listenerObject = new GameObject("Ouvido da alma"); listenerObject.transform.SetParent(avatar.transform, false);
+            listenerObject.transform.localPosition = Vector3.up * 1.6f; listenerObject.AddComponent<AudioListener>(); ears = listenerObject.transform;
             player = avatar.AddComponent<HauntFpsPlayer>(); player.Initialize(this, camera, body);
+            heroBody = avatar.AddComponent<HauntFpsHeroBody>(); heroBody.Initialize(this); heroBody.Tick(0, false);
             foreach (Vector3 position in world.BarrelSpawns)
             {
                 var obj = new GameObject("Barril explosivo"); obj.transform.SetParent(runRoot.transform, false);
                 var barrel = obj.AddComponent<HauntFpsBarrel>(); barrel.Initialize(this, position);
                 SetLayer(obj.transform, BarrelLayer); barrels.Add(barrel);
             }
+            hybridArt = runRoot.AddComponent<HauntFpsHybridArt>(); hybridArt.Initialize(this);
+            lastPlayerPosition = PlayerPosition;
             Physics.SyncTransforms();
-            sound.Initialize(camera.transform); sound.SetSuspended(true);
+            sound.Initialize(ears); sound.SetSuspended(true);
+            if (topDown && player.Perspective) player.Perspective.TryToggle();
         }
 
         public void BeginRun(int newSeed)
         {
             if (disposed || !string.IsNullOrEmpty(failure)) return;
             BuildRun(newSeed); mode = ScreenMode.Playing;
-            StartWave(0); player.SuspendInput(); UpdateSuspension();
+            if (practiceBoss >= 0) SpawnBoss(); else StartWave(0);
+            player.SuspendInput(); UpdateSuspension();
         }
 
         void Update()
@@ -134,13 +160,25 @@ namespace Ecos.Haunt.Fps
             if (keyboard != null && keyboard.mKey.wasPressedThisFrame) sound.SetEnabled(!sound.SoundEnabled);
             if (mode != ScreenMode.Playing)
             {
+                if (mode == ScreenMode.Menu && !focusLost)
+                {
+                    if (keyboard != null && keyboard.leftArrowKey.wasPressedThisFrame || pad != null && pad.leftShoulder.wasPressedThisFrame)
+                        selectedCharacter = (CharacterKind)(((int)selectedCharacter + 3) % 4);
+                    if (keyboard != null && keyboard.rightArrowKey.wasPressedThisFrame || pad != null && pad.rightShoulder.wasPressedThisFrame)
+                        selectedCharacter = (CharacterKind)(((int)selectedCharacter + 1) % 4);
+                    if (pad != null && pad.buttonNorth.wasPressedThisFrame) practiceBoss = practiceBoss < 6 ? practiceBoss + 1 : -1;
+                    if (practiceBoss >= 0 && pad != null && pad.selectButton.wasPressedThisFrame) practiceTheme = (practiceTheme + 1) % HauntFpsCampaign.ThemeCount;
+                }
+                else if (escape) { mode = ScreenMode.Menu; paused = false; UpdateSuspension(); return; }
                 if (sound && mode != ScreenMode.Menu && !focusLost)
                     sound.Tick(Mathf.Min(Time.unscaledDeltaTime, .05f), false);
-                if (confirm && !focusLost) BeginRun(mode == ScreenMode.Menu ? seed : unchecked(seed + 1));
+                if (confirm && !focusLost) BeginRun(mode == ScreenMode.Menu ? NewMenuSeed() : unchecked(seed + 1));
                 return;
             }
             if (escape && !focusLost) SetPaused(!paused);
             else if (paused && confirm && !focusLost) SetPaused(false);
+            else if (paused && pad != null && pad.buttonNorth.wasPressedThisFrame)
+            { mode = ScreenMode.Menu; paused = false; UpdateSuspension(); return; }
             if (!CanSimulate) return;
             TickSimulation(Time.unscaledDeltaTime);
             if (!CanSimulate) return;
@@ -148,7 +186,7 @@ namespace Ecos.Haunt.Fps
                 || pad != null && pad.buttonWest.wasPressedThisFrame;
             if (exitReady && interact && Vector3.Distance(PlayerPosition, world.ExitPosition) < 2.8f)
             {
-                mode = ScreenMode.Victory; PlayCue(FpsCue.Victory, PlayerPosition); UpdateSuspension();
+                AdvanceFloor();
             }
         }
 
@@ -163,8 +201,20 @@ namespace Ecos.Haunt.Fps
             noticeRemaining = Mathf.Max(0, noticeRemaining - dt);
             bool reloading = state.IsReloading;
             state.TickReload(dt);
+            state.TickPower(dt);
             if (reloading && !state.IsReloading) PlayCue(FpsCue.ReloadEnd, PlayerPosition);
             player.Tick(dt);
+            bool moving = (PlayerPosition - lastPlayerPosition).sqrMagnitude > .00001f;
+            if (heroBody) heroBody.Tick(dt, moving);
+            if (ears)
+            {
+                ears.position = PlayerPosition + Vector3.up * 1.6f;
+                ears.rotation = player.IsTopDown ? Quaternion.identity : player.View.transform.rotation;
+            }
+            UpdateCursorMode();
+            bool power = Keyboard.current != null && Keyboard.current.qKey.wasPressedThisFrame
+                || Gamepad.current != null && Gamepad.current.leftShoulder.wasPressedThisFrame;
+            if (power && !player.IsPerspectiveTransition) TryPower();
             if (!CanSimulate) return;
             world.Tick(dt);
             for (int i = enemies.Count - 1; i >= 0; i--)
@@ -174,9 +224,14 @@ namespace Ecos.Haunt.Fps
                 if (!CanSimulate) return;
             }
             for (int i = 0; i < barrels.Count; i++) if (barrels[i]) barrels[i].Tick(dt);
+            if (boss) boss.Tick(dt);
             if (!CanSimulate) return;
             TickProjectiles(dt); TickEffects(dt); TickWaves(dt);
             sound.Tick(dt, !exitReady);
+            if (hybridArt)
+                hybridArt.Tick(dt, player.IsTopDown, player.View, player.Perspective.AimDirection,
+                    moving, player.IsDodging);
+            lastPlayerPosition = PlayerPosition;
         }
 
         void StartWave(int index)
@@ -190,14 +245,16 @@ namespace Ecos.Haunt.Fps
 
         void TickWaves(float dt)
         {
-            if (exitReady) return;
+            if (exitReady || bossSpawned) return;
             if (pendingSkeletons + pendingLanterns > 0)
             {
                 spawnDelay -= dt;
                 if (spawnDelay > 0) return;
-                FpsEnemyKind kind = pendingSkeletons > 0 ? FpsEnemyKind.Skeleton : FpsEnemyKind.Lantern;
+                int total = FpsPrototypeRules.Wave(wave, seed).Total;
+                int index = total - pendingSkeletons - pendingLanterns;
+                FpsEnemyKind kind = HauntFpsCampaign.EnemyForWave(state.Floor, wave, index);
                 if (!TrySpawn(kind)) { spawnDelay = .25f; return; }
-                if (kind == FpsEnemyKind.Skeleton) pendingSkeletons--; else pendingLanterns--;
+                if (pendingSkeletons > 0) pendingSkeletons--; else pendingLanterns--;
                 spawnDelay = FpsPrototypeRules.Wave(wave, seed).SpawnInterval;
                 return;
             }
@@ -206,17 +263,12 @@ namespace Ecos.Haunt.Fps
             if (waveDelay < 1.5f) return;
             ClearProjectiles();
             if (wave + 1 < FpsPrototypeRules.WaveCount) StartWave(wave + 1);
-            else
-            {
-                exitReady = true; world.SetExitOpen(true);
-                Notify("SALA PURIFICADA. SIGA A LUZ VERDE E PRESSIONE E NO PORTAL.", 6);
-                PlayCue(FpsCue.Victory, world.ExitPosition);
-            }
+            else SpawnBoss();
         }
 
         bool TrySpawn(FpsEnemyKind kind)
         {
-            Vector3[] bases = kind == FpsEnemyKind.Skeleton ? world.MeleeSpawns : world.RangedSpawns;
+            Vector3[] bases = (spawnSerial & 1) == 0 ? world.MeleeSpawns : world.RangedSpawns;
             for (int attempt = 0; attempt < 24; attempt++)
             {
                 float angle = (spawnSerial * 2.39996f + attempt * .65f);
@@ -238,28 +290,13 @@ namespace Ecos.Haunt.Fps
 
         public bool TryFire(Ray ray)
         {
-            if (!CanSimulate) return false;
+            if (!CanSimulate || player.IsPerspectiveTransition || player.IsDodging) return false;
             if (!state.TryConsumeShot())
             {
                 if (!state.IsReloading) { PlayCue(FpsCue.DryFire, PlayerPosition); Notify("SEM BALAS NO TAMBOR. R PARA RECARREGAR.", 1.2f); }
                 return false;
             }
-            Vector3 end = ray.GetPoint(FpsPrototypeRules.ShotRange);
-            int mask = ~((1 << PlayerLayer) | (1 << ViewLayer));
-            if (Physics.Raycast(ray, out RaycastHit hit, FpsPrototypeRules.ShotRange, mask, QueryTriggerInteraction.Ignore))
-            {
-                end = hit.point;
-                var enemy = hit.collider.GetComponentInParent<HauntFpsEnemy>();
-                var barrel = hit.collider.GetComponentInParent<HauntFpsBarrel>();
-                if (enemy && !enemy.IsDead)
-                {
-                    enemy.TakeDamage(state.Damage, hit.point, ray.direction * 4);
-                    PlayCue(FpsCue.EnemyHit, hit.point); hitMarker = .12f;
-                }
-                else if (barrel && !barrel.IsDestroyed) { barrel.TakeDamage(state.Damage, hit.point); hitMarker = .12f; }
-                Burst(end, enemy ? new Color(.8f, .3f, .95f) : new Color(1, .65f, .22f), 5, 1.8f);
-            }
-            AddTrace(player.MuzzlePosition, end, new Color(1, .8f, .33f));
+            FireCharacterWeapon(ray);
             PlayCue(FpsCue.Shot, PlayerPosition); AddShake(.035f); return true;
         }
 
@@ -271,26 +308,53 @@ namespace Ecos.Haunt.Fps
             var body = player.GetComponent<CharacterController>();
             if (body && body.enabled) body.Move(Vector3.ClampMagnitude(force, 6) * .04f);
             PlayCue(FpsCue.PlayerHit, PlayerPosition);
-            if (state.IsDead) { mode = ScreenMode.Dead; UpdateSuspension(); }
+            if (state.IsDead)
+            {
+                mode = ScreenMode.Dead;
+                if (hybridArt) hybridArt.Tick(0, player.IsTopDown, player.View, player.Perspective.AimDirection, false, false);
+                UpdateSuspension();
+            }
             return true;
         }
 
         public void FireHostile(Vector3 origin, Vector3 direction, float speed, int damage, Color color)
+            => CreateHostile(origin, direction, speed, damage, color);
+
+        public void FireSplittingHostile(Vector3 origin, Vector3 direction, float speed, int damage, Color color, float splitDistance = 4)
         {
-            if (!CanSimulate || projectiles.Count >= ProjectileLimit || direction.sqrMagnitude < .001f || !(speed > 0)) return;
+            Hostile shot = CreateHostile(origin, direction, speed, damage, color);
+            if (shot == null) return;
+            shot.Splits = true; shot.SplitDistance = Mathf.Max(.5f, splitDistance);
+            shot.Visual.localScale = Vector3.one * .48f;
+        }
+
+        public void FireBombHostile(Vector3 origin, Vector3 direction, float speed, int damage, Color color, float fuseSeconds = 1)
+        {
+            Hostile shot = CreateHostile(origin, direction, speed, damage, color);
+            if (shot == null) return;
+            shot.Bomb = true; shot.Fuse = Mathf.Max(.2f, fuseSeconds);
+            shot.Visual.localScale = Vector3.one * .36f;
+        }
+
+        Hostile CreateHostile(Vector3 origin, Vector3 direction, float speed, int damage, Color color)
+        {
+            if (!CanSimulate || projectiles.Count >= ProjectileLimit || direction.sqrMagnitude < .001f || !(speed > 0)) return null;
             var visual = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             visual.name = "Orbe espectral"; visual.transform.SetParent(runRoot.transform, false);
             visual.transform.position = origin; visual.transform.localScale = Vector3.one * .23f;
             var collider = visual.GetComponent<Collider>(); collider.enabled = false; Destroy(collider);
-            Material material = PixelMaterial("orbe espectral", color);
+            string palette = Mathf.RoundToInt(color.r * 15) + ":" + Mathf.RoundToInt(color.g * 15) + ":" + Mathf.RoundToInt(color.b * 15);
+            Material material = PixelMaterial("orbe espectral " + palette, color);
             material.SetColor("_EmissionColor", color * 1.4f);
             visual.GetComponent<Renderer>().sharedMaterial = material;
             var trail = new GameObject("Rastro").AddComponent<LineRenderer>(); trail.transform.SetParent(visual.transform, false);
             SetupLine(trail, material, .065f); trail.positionCount = 2;
             trail.SetPosition(0, origin); trail.SetPosition(1, origin);
-            projectiles.Add(new Hostile { Visual = visual.transform, Trail = trail, Position = origin,
-                Direction = direction.normalized, Speed = Mathf.Min(speed, 40), Damage = Mathf.Max(1, damage), Color = color });
+            var shot = new Hostile { Visual = visual.transform, Trail = trail, Position = origin,
+                Direction = direction.normalized, Speed = Mathf.Min(speed, 40), Damage = Mathf.Max(1, damage), Color = color };
+            projectiles.Add(shot);
             PlayCue(FpsCue.HostileShot, origin);
+            return shot;
         }
 
         void TickProjectiles(float dt)
@@ -311,9 +375,26 @@ namespace Ecos.Haunt.Fps
                     else if (barrel) barrel.TakeDamage(shot.Damage, hit.point);
                     Burst(hit.point, shot.Color, 5, 1.4f); remove = true;
                 }
-                shot.Position += shot.Direction * distance; shot.Life -= dt;
+                shot.Position += shot.Direction * distance; shot.Distance += distance; shot.Life -= dt;
+                if (shot.Bomb) shot.Fuse -= dt;
+                bool releasePattern = shot.Splits && shot.Distance >= shot.SplitDistance || shot.Bomb && shot.Fuse <= 0;
+                if (releasePattern) remove = true;
                 if (shot.Life <= 0 || !world.IsInsideBounds(shot.Position, -.5f)) remove = true;
-                if (remove) { if (shot.Visual) Destroy(shot.Visual.gameObject); projectiles.RemoveAt(i); }
+                if (remove)
+                {
+                    if (shot.Visual) Destroy(shot.Visual.gameObject); projectiles.RemoveAt(i);
+                    if (releasePattern)
+                    {
+                        int count = shot.Splits ? 12 : 4;
+                        for (int part = 0; part < count; part++)
+                        {
+                            float angle = part * Mathf.PI * 2 / count;
+                            FireHostile(shot.Position, new Vector3(Mathf.Sin(angle), 0, Mathf.Cos(angle)),
+                                shot.Splits ? 5.5f : 7, shot.Damage, shot.Color);
+                        }
+                        Burst(shot.Position, shot.Color, 10, 3); if (shot.Bomb) AddShake(.16f);
+                    }
+                }
                 else
                 {
                     shot.Visual.position = shot.Position;
@@ -349,6 +430,11 @@ namespace Ecos.Haunt.Fps
                 if (!barrel || barrel.IsDestroyed) continue;
                 int hit = FpsPrototypeRules.ExplosionDamage(Vector3.Distance(position, barrel.BlastPosition), radius, damage);
                 if (hit > 0 && BlastVisible(position, barrel.BlastPosition)) barrel.TakeDamage(hit, position);
+            }
+            if (boss && !boss.IsDead)
+            {
+                int hit = FpsPrototypeRules.ExplosionDamage(Vector3.Distance(position, boss.AimPosition), radius, damage);
+                if (hit > 0 && BlastVisible(position, boss.AimPosition)) boss.TakeDamage(hit, boss.AimPosition, Vector3.zero);
             }
             int playerHit = FpsPrototypeRules.ExplosionDamage(Vector3.Distance(position, PlayerPosition + Vector3.up), radius, damage);
             if (playerHit > 0 && BlastVisible(position, PlayerPosition + Vector3.up))
@@ -451,12 +537,11 @@ namespace Ecos.Haunt.Fps
         void SetPaused(bool value) { paused = value; if (player) player.SuspendInput(); UpdateSuspension(); }
         void UpdateSuspension()
         {
-            bool suspended = !CanSimulate;
             // Death/victory stop gameplay while their final cue and the quieter
             // ambience finish. An explicit pause or lost focus silences both.
             if (sound) sound.SetSuspended(paused || focusLost || mode == ScreenMode.Menu || !string.IsNullOrEmpty(failure));
             if (player) player.SuspendInput();
-            SetCursor(!suspended);
+            UpdateCursorMode();
         }
         static void SetCursor(bool locked) { Cursor.lockState = locked ? CursorLockMode.Locked : CursorLockMode.None; Cursor.visible = !locked; }
         void OnApplicationFocus(bool focus)
@@ -475,10 +560,12 @@ namespace Ecos.Haunt.Fps
         void ClearRun()
         {
             if (runRoot) runRoot.SetActive(false);
+            if (hybridArt) hybridArt.Dispose(); hybridArt = null;
             if (player) player.DisposeView();
+            boss = null;
             ClearProjectiles(); enemies.Clear(); barrels.Clear(); sparks.Clear(); traces.Clear();
             if (world != null) world.Dispose(); world = null;
-            if (runRoot) Destroy(runRoot); runRoot = null; player = null;
+            if (runRoot) Destroy(runRoot); runRoot = null; player = null; ears = null; heroBody = null;
         }
         void OnDestroy()
         {

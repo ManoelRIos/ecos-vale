@@ -107,8 +107,11 @@ check('activeInputHandler: 1' in (ROOT / 'ProjectSettings/ProjectSettings.asset'
 for relative in ('Haunt/Runtime/HauntGame.cs', 'Haunt/Runtime/HauntGame.Visuals.cs', 'Haunt/Runtime/HauntRendering.cs',
                  'Haunt/Editor/HauntSetup.cs', 'Resources/HauntSprites.mat', 'Haunt/Editor/HauntFpsProject.cs',
                  'Haunt/Core/FpsPrototypeRules.cs', 'Haunt/Fps/HauntFpsGame.cs', 'Haunt/Fps/HauntFpsGame.UI.cs',
-                 'Haunt/Fps/HauntFpsPlayer.cs', 'Haunt/Fps/HauntFpsWorld.cs',
-                 'Haunt/Fps/HauntFpsEnemy.cs', 'Haunt/Fps/HauntFpsBarrel.cs', 'Haunt/Fps/HauntFpsAudio.cs',
+                 'Haunt/Fps/HauntFpsGame.Campaign.cs', 'Haunt/Fps/HauntFpsPlayer.cs',
+                 'Haunt/Fps/HauntFpsPerspective.cs', 'Haunt/Fps/HauntFpsHybridArt.cs', 'Haunt/Fps/HauntFpsHeroBody.cs',
+                 'Haunt/Fps/HauntFpsWorld.cs', 'Haunt/Fps/HauntFpsCampaign.cs',
+                 'Haunt/Fps/HauntFpsEnemy.cs', 'Haunt/Fps/HauntFpsEnemy.Models.cs', 'Haunt/Fps/HauntFpsBoss.cs',
+                 'Haunt/Fps/HauntFpsBarrel.cs', 'Haunt/Fps/HauntFpsAudio.cs',
                  'Haunt/Fps/HauntFpsLit.shader', 'Resources/FpsPalette.mat'):
     check((assets / '_Game' / relative).exists(), f'Missing game resource: {relative}')
 for name in ('Art', 'Audio', 'Biomes', 'Core', 'Editor', 'Environment', 'Gameplay', 'Inventory',

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Ecos.Haunt.Fps;
 using NUnit.Framework;
@@ -31,6 +32,45 @@ namespace Ecos.Haunt.Tests
             }
             Assert.Throws<ArgumentOutOfRangeException>(() => FpsPrototypeRules.Wave(-1, 1));
             Assert.Throws<ArgumentOutOfRangeException>(() => FpsPrototypeRules.Wave(FpsPrototypeRules.WaveCount, 1));
+        }
+
+        [Test]
+        public void CampaignKeepsAllThemesEnemiesAndBossesAvailableWithoutRerollingTheCorePools()
+        {
+            var names = new HashSet<string>();
+            var kinds = new HashSet<FpsEnemyKind>();
+            var bosses = new HashSet<int>();
+            Assert.AreEqual(17, Enum.GetValues(typeof(FpsEnemyKind)).Length);
+            for (int floor = 1; floor <= HauntFpsCampaign.ThemeCount; floor++)
+            {
+                Assert.AreEqual(floor - 1, HauntFpsCampaign.ThemeIndex(floor));
+                Assert.IsTrue(names.Add(HauntFpsCampaign.ThemeName(floor)), "Each theme has its own title.");
+                var roster = HauntFpsCampaign.EnemyRosterForTheme(floor);
+                foreach (var kind in roster)
+                {
+                    kinds.Add(kind);
+                    Assert.IsNotEmpty(HauntFpsEnemy.SpriteForKind(kind));
+                }
+                var first = roster[0];
+                roster[0] = (FpsEnemyKind)int.MaxValue;
+                Assert.AreEqual(first, HauntFpsCampaign.EnemyRosterForTheme(floor)[0], "Callers cannot mutate the shared roster.");
+                for (int wave = 0; wave < FpsPrototypeRules.WaveCount; wave++)
+                    for (int member = 0; member < 20; member++)
+                        CollectionAssert.Contains(HauntFpsCampaign.EnemyRosterForTheme(floor),
+                            HauntFpsCampaign.EnemyForWave(floor, wave, member));
+                for (int seed = -30; seed < 30; seed++)
+                {
+                    int boss = HauntFpsCampaign.BossForFloor(seed, floor);
+                    bosses.Add(boss);
+                    Assert.AreEqual(DungeonFloor.Generate(seed, floor).BossArchetype, boss);
+                    CollectionAssert.Contains(DungeonFloor.BossCandidatesForTheme(floor - 1), boss);
+                }
+            }
+            Assert.AreEqual(5, names.Count);
+            Assert.AreEqual(HauntFpsCampaign.EnemyCount, kinds.Count);
+            Assert.AreEqual(HauntFpsCampaign.BossCount, bosses.Count);
+            Assert.Throws<ArgumentOutOfRangeException>(() => HauntFpsCampaign.EnemyForWave(1, -1, 0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => HauntFpsCampaign.EnemyForWave(1, 0, -1));
         }
 
         [Test]

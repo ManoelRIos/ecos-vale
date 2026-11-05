@@ -3,10 +3,10 @@ using UnityEngine;
 
 namespace Ecos.Haunt.Fps
 {
-    public enum FpsEnemyKind { Skeleton, Lantern }
+    public enum FpsEnemyKind { Skeleton, Lantern, Pumpkin, Ghost, Cultist, Bat, Larva, Sentinel, Acolyte, Slime, Spider, MushroomBrute, ClockworkImp, Scarecrow, Gargoyle, StalkerShadow, FireBat }
 
-    /// <summary>Two readable combat roles for the first-person prototype.</summary>
-    public sealed class HauntFpsEnemy : MonoBehaviour
+    /// <summary>The complete common roster uses the same XZ simulation in both perspectives.</summary>
+    public sealed partial class HauntFpsEnemy : MonoBehaviour
     {
         const float WindupDuration = .42f, DeathDuration = .32f;
         HauntFpsGame game;
@@ -18,7 +18,10 @@ namespace Ecos.Haunt.Fps
         Light soulLight;
         FpsEnemyKind kind;
         Vector3 knockVelocity, attackDirection;
-        float phase, attackCooldown, windup, attackPose, hurtFlash, hitStretch, deathRemaining, verticalSpeed;
+        float phase, attackCooldown, windup, attackPose, hurtFlash, hitStretch, deathRemaining, verticalSpeed, secondRing;
+        Vector3 previousPlayer, estimatedPlayerVelocity;
+        bool awakened;
+        int attack;
         bool initialized;
         int steerSide;
 
@@ -26,13 +29,50 @@ namespace Ecos.Haunt.Fps
         public int Health { get; private set; }
         public int MaxHealth { get; private set; }
         public FpsEnemyKind Kind => kind;
-        public Vector3 AimPosition => transform.position + Vector3.up * (kind == FpsEnemyKind.Lantern ? 1.35f : 1.15f);
+        public Vector3 AimPosition => transform.position + Vector3.up * (IsFloating ? 1.35f : 1.15f);
+        public string SpriteKey => SpriteForKind(kind);
+        public bool IsPetrified => kind == FpsEnemyKind.Gargoyle && Mathf.Repeat(phase, 3) < 1.5f;
+        public ActorAnimationState AnimationState => IsDead ? ActorAnimationState.Death
+            : IsPetrified ? ActorAnimationState.Petrified : windup > 0 || attackPose > 0 ? ActorAnimationState.Attack
+            : kind == FpsEnemyKind.Scarecrow && !awakened ? ActorAnimationState.Idle : ActorAnimationState.Walk;
+        bool IsFloating => kind == FpsEnemyKind.Lantern || kind == FpsEnemyKind.Ghost || kind == FpsEnemyKind.Bat
+            || kind == FpsEnemyKind.FireBat || kind == FpsEnemyKind.StalkerShadow;
+        bool IsMelee => kind == FpsEnemyKind.Pumpkin || kind == FpsEnemyKind.Larva || kind == FpsEnemyKind.Bat;
+
+        public static string SpriteForKind(FpsEnemyKind value)
+        {
+            switch (value)
+            {
+                case FpsEnemyKind.Skeleton: return "skeleton";
+                case FpsEnemyKind.Lantern: return "lantern-wisp";
+                case FpsEnemyKind.Pumpkin: return "pumpkin";
+                case FpsEnemyKind.Ghost: return "ghost";
+                case FpsEnemyKind.Cultist: return "cultist";
+                case FpsEnemyKind.Bat: return "bat";
+                case FpsEnemyKind.Larva: return "larva";
+                case FpsEnemyKind.Sentinel: return "sentinel";
+                case FpsEnemyKind.Acolyte: return "acolyte";
+                case FpsEnemyKind.Slime: return "slime";
+                case FpsEnemyKind.Spider: return "spider";
+                case FpsEnemyKind.MushroomBrute: return "mushroom-brute";
+                case FpsEnemyKind.ClockworkImp: return "clockwork-imp";
+                case FpsEnemyKind.Scarecrow: return "scarecrow";
+                case FpsEnemyKind.Gargoyle: return "gargoyle";
+                case FpsEnemyKind.StalkerShadow: return "stalker-shadow";
+                case FpsEnemyKind.FireBat: return "fire-bat";
+                default: return "skeleton";
+            }
+        }
 
         public void Initialize(HauntFpsGame owner, FpsEnemyKind enemyKind, Vector3 spawn)
         {
             game = owner; kind = enemyKind;
             transform.position = spawn;
-            MaxHealth = Health = kind == FpsEnemyKind.Skeleton ? 4 : 5;
+            MaxHealth = Health = kind == FpsEnemyKind.MushroomBrute ? 8 : kind == FpsEnemyKind.Gargoyle ? 7
+                : kind == FpsEnemyKind.Sentinel || kind == FpsEnemyKind.Scarecrow ? 6
+                : kind == FpsEnemyKind.Bat || kind == FpsEnemyKind.Larva || kind == FpsEnemyKind.FireBat ? 3
+                : kind == FpsEnemyKind.Skeleton ? 4 : 5;
+            previousPlayer = game.PlayerPosition;
             attackCooldown = kind == FpsEnemyKind.Skeleton ? .75f : 1.25f;
             phase = Mathf.Abs(spawn.x) * .27f + Mathf.Abs(spawn.z) * .13f;
             steerSide = spawn.x < 0 ? -1 : 1;
@@ -40,7 +80,7 @@ namespace Ecos.Haunt.Fps
             body.height = 1.8f; body.radius = .36f; body.center = Vector3.up * .9f;
             body.skinWidth = .045f; body.stepOffset = .18f; body.slopeLimit = 50;
             model = new GameObject("Visual").transform; model.SetParent(transform, false);
-            if (kind == FpsEnemyKind.Skeleton) BuildSkeleton(); else BuildLantern();
+            if (kind == FpsEnemyKind.Skeleton) BuildSkeleton(); else if (kind == FpsEnemyKind.Lantern) BuildLantern(); else BuildRosterModel();
             renderers = model.GetComponentsInChildren<Renderer>();
             hitProperties = new MaterialPropertyBlock();
             initialized = true;
@@ -48,7 +88,8 @@ namespace Ecos.Haunt.Fps
 
         public void Tick(float dt)
         {
-            if (!initialized || !(dt > 0)) return;
+            if (!initialized || !(dt > 0) || float.IsInfinity(dt) || !game || !game.CanSimulate) return;
+            dt = Mathf.Min(dt, .05f);
             if (IsDead)
             {
                 deathRemaining -= dt;
@@ -60,6 +101,13 @@ namespace Ecos.Haunt.Fps
             }
             if (!game || !game.CanSimulate) return;
             phase += dt;
+            estimatedPlayerVelocity = Vector3.ClampMagnitude((game.PlayerPosition - previousPlayer) / dt, 9);
+            previousPlayer = game.PlayerPosition;
+            if (secondRing > 0)
+            {
+                secondRing -= dt;
+                if (secondRing <= 0) EmitRing(8, 22.5f, 4.3f);
+            }
             attackCooldown = Mathf.Max(0, attackCooldown - dt);
             attackPose = Mathf.Max(0, attackPose - dt);
             hurtFlash = Mathf.Max(0, hurtFlash - dt);
@@ -70,6 +118,15 @@ namespace Ecos.Haunt.Fps
             Vector3 direction = distance > .001f ? toPlayer / distance : transform.forward;
             transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(direction, Vector3.up), 1 - Mathf.Exp(-10 * dt));
 
+            if (IsPetrified)
+            {
+                windup = 0; attackCooldown = Mathf.Max(.2f, attackCooldown); Present(distance, dt); return;
+            }
+            if (kind == FpsEnemyKind.Scarecrow && !awakened)
+            {
+                if (distance > 4.5f && Health == MaxHealth) { Present(distance, dt); return; }
+                awakened = true; attackCooldown = .4f;
+            }
             if (windup > 0)
             {
                 windup = Mathf.Max(0, windup - dt);
@@ -78,22 +135,25 @@ namespace Ecos.Haunt.Fps
             else if (attackPose <= 0)
             {
                 bool visible = HasLineToPlayer();
-                if (attackCooldown <= 0 && visible && distance < (kind == FpsEnemyKind.Skeleton ? 1.65f : 14))
+                if (attackCooldown <= 0 && visible && distance < (IsMelee ? 1.65f : 14))
                 {
                     windup = WindupDuration;
-                    attackDirection = (game.PlayerPosition + Vector3.up * 1.15f - AimPosition).normalized;
+                    Vector3 lead = kind == FpsEnemyKind.Spider ? estimatedPlayerVelocity * Mathf.Min(.65f, distance / 6) : Vector3.zero;
+                    attackDirection = (game.PlayerPosition + lead + Vector3.up * 1.15f - AimPosition).normalized;
                 }
                 else
                 {
                     Vector3 travel;
                     float speed;
-                    if (kind == FpsEnemyKind.Skeleton)
-                    { travel = distance > 1.18f ? direction : Vector3.zero; speed = 2.55f; }
+                    if (IsMelee || kind == FpsEnemyKind.Scarecrow)
+                    { travel = distance > 1.18f ? direction : Vector3.zero; speed = kind == FpsEnemyKind.Bat ? 3.8f : kind == FpsEnemyKind.Larva ? 3.2f : 2.55f; }
                     else
                     {
                         Vector3 side = Vector3.Cross(Vector3.up, direction) * (Mathf.Sin(phase * 1.4f) > 0 ? steerSide : -steerSide);
                         travel = !visible || distance > 8 ? direction : distance < 4.4f ? -direction + side * .3f : side * .65f;
-                        speed = 1.75f;
+                        speed = kind == FpsEnemyKind.FireBat ? 4.1f : kind == FpsEnemyKind.Gargoyle ? 3.6f : kind == FpsEnemyKind.StalkerShadow ? 2.65f : 1.75f;
+                        if (kind == FpsEnemyKind.FireBat) travel = direction * .6f + side * Mathf.Sin(phase * 7);
+                        if (kind == FpsEnemyKind.StalkerShadow) travel = direction + side * Mathf.Sin(phase * 2.2f) * .4f;
                     }
                     Move(travel, speed, dt);
                 }
@@ -101,7 +161,7 @@ namespace Ecos.Haunt.Fps
             // Keep grounded while winding up as well; CharacterController.Move
             // resolves collisions for both steering and the short hit impulse.
             verticalSpeed = body.isGrounded ? -2 : Mathf.Max(-18, verticalSpeed - 22 * dt);
-            body.Move((knockVelocity + Vector3.up * verticalSpeed) * dt);
+            if (kind != FpsEnemyKind.StalkerShadow) body.Move((knockVelocity + Vector3.up * verticalSpeed) * dt);
             knockVelocity = Vector3.MoveTowards(knockVelocity, Vector3.zero, dt * 16);
             Present(distance, dt);
         }
@@ -111,6 +171,13 @@ namespace Ecos.Haunt.Fps
             desired.y = 0;
             if (desired.sqrMagnitude < .001f) return;
             desired.Normalize();
+            if (kind == FpsEnemyKind.StalkerShadow)
+            {
+                Vector3 next = transform.position + desired * (speed * dt);
+                if (game.World == null || game.World.IsInsideBounds(next, .6f))
+                { body.enabled = false; transform.position = next; body.enabled = true; }
+                return;
+            }
             Vector3 origin = transform.position + Vector3.up * .8f;
             if (Physics.SphereCast(origin, .30f, desired, out RaycastHit hit, .85f, ~(1 << 31), QueryTriggerInteraction.Ignore)
                 && !hit.collider.transform.IsChildOf(transform))
@@ -133,26 +200,56 @@ namespace Ecos.Haunt.Fps
 
         void ExecuteAttack(float distance)
         {
-            attackCooldown = kind == FpsEnemyKind.Skeleton ? 1.15f : 1.65f;
+            attackCooldown = IsMelee ? 1.15f : kind == FpsEnemyKind.MushroomBrute || kind == FpsEnemyKind.Sentinel ? 2.5f : 1.65f;
             attackPose = .18f;
-            if (!HasLineToPlayer()) return;
-            if (kind == FpsEnemyKind.Skeleton)
+            if (!HasLineToPlayer() && kind != FpsEnemyKind.StalkerShadow) return;
+            attack++;
+            if (IsMelee)
             {
-                if (distance <= 1.82f)
-                    game.TryDamagePlayer(1, (game.PlayerPosition - transform.position).normalized * 3);
+                if (distance <= 1.82f) game.TryDamagePlayer(1, (game.PlayerPosition - transform.position).normalized * 3);
+                return;
             }
-            else
+            switch (kind)
             {
-                // Aim is captured at the start of the wind-up. Movement during
-                // the visible tell remains a useful way to evade the orb.
-                Vector3 origin = AimPosition + attackDirection * .62f;
-                game.FireHostile(origin, attackDirection, 6.8f, 1, new Color(.47f, 1, .30f));
+                case FpsEnemyKind.Skeleton: EmitFan(attack % 2 == 0 ? 1 : 3, 22, 5.5f); break;
+                case FpsEnemyKind.Slime: case FpsEnemyKind.MushroomBrute: EmitRing(8, attack * 22.5f, 5.6f); break;
+                case FpsEnemyKind.Sentinel: EmitRing(8, 0, 4.3f); secondRing = .24f; break;
+                case FpsEnemyKind.Spider: EmitFan(5, 64, 5.4f); break;
+                case FpsEnemyKind.Lantern: EmitFan(2, 30, 4.8f); break;
+                case FpsEnemyKind.Gargoyle: EmitFan(5, 68, 4.7f); break;
+                case FpsEnemyKind.Scarecrow: EmitFan(3, 38, 5.6f); break;
+                case FpsEnemyKind.FireBat: EmitFan(3, 28, 5.1f); break;
+                case FpsEnemyKind.StalkerShadow: EmitFan(3, 30, 4.8f); break;
+                case FpsEnemyKind.ClockworkImp: case FpsEnemyKind.Acolyte: EmitFan(2, 24, 6); break;
+                default: EmitFan(3, 34, 5); break;
             }
+        }
+
+        Color ProjectileColor => kind == FpsEnemyKind.FireBat || kind == FpsEnemyKind.Gargoyle || kind == FpsEnemyKind.Scarecrow
+            ? new Color(1,.43f,.14f) : kind == FpsEnemyKind.StalkerShadow || kind == FpsEnemyKind.Cultist || kind == FpsEnemyKind.Acolyte
+            ? new Color(.75f,.35f,1) : new Color(.47f,1,.30f);
+        void EmitFan(int count, float arc, float speed)
+        {
+            Vector3 direction = attackDirection; direction.y = 0;
+            if (direction.sqrMagnitude < .001f) direction = transform.forward;
+            direction.Normalize();
+            for (int i=0;i<count;i++) Emit(direction, count == 1 ? 0 : -arc*.5f+arc*i/(count-1), speed);
+        }
+        void EmitRing(int count, float start, float speed)
+        {
+            for (int i=0;i<count;i++) Emit(Vector3.forward, start+i*360f/count, speed);
+        }
+        void Emit(Vector3 direction, float angle, float speed)
+        {
+            float rad=angle*Mathf.Deg2Rad,c=Mathf.Cos(rad),s=Mathf.Sin(rad);
+            Vector3 aim=new Vector3(direction.x*c+direction.z*s,0,direction.z*c-direction.x*s).normalized;
+            Vector3 origin=transform.position+Vector3.up*1.15f+aim*.62f;
+            game.FireHostile(origin,aim,speed,1,ProjectileColor);
         }
 
         public void TakeDamage(int amount, Vector3 point, Vector3 force)
         {
-            if (!initialized || IsDead || amount <= 0) return;
+            if (!initialized || IsDead || IsPetrified || amount <= 0) return;
             Health = Mathf.Max(0, Health - amount);
             hurtFlash = .065f; hitStretch = 1;
             force.y = 0;
@@ -162,14 +259,16 @@ namespace Ecos.Haunt.Fps
             IsDead = true; deathRemaining = DeathDuration; windup = 0;
             body.enabled = false;
             if (soulLight) soulLight.enabled = false;
+            if (kind == FpsEnemyKind.FireBat) EmitRing(4, phase * 20, 3.7f);
+            else if (kind == FpsEnemyKind.Slime || kind == FpsEnemyKind.MushroomBrute) EmitRing(6, phase * 20, 3.3f);
             game.OnEnemyKilled(this);
         }
 
         void Present(float distance, float dt)
         {
             float tell = windup > 0 ? 1 - windup / WindupDuration : 0;
-            float stride = distance > 1.3f && windup <= 0 ? Mathf.Sin(phase * (kind == FpsEnemyKind.Skeleton ? 9 : 4)) : 0;
-            model.localPosition = Vector3.up * (kind == FpsEnemyKind.Lantern ? Mathf.Sin(phase * 3.3f) * .14f : Mathf.Abs(stride) * .035f);
+            float stride = distance > 1.3f && windup <= 0 && !IsPetrified && (kind != FpsEnemyKind.Scarecrow || awakened) ? Mathf.Sin(phase * (kind == FpsEnemyKind.Skeleton ? 9 : 4)) : 0;
+            model.localPosition = Vector3.up * (IsFloating ? Mathf.Sin(phase * 3.3f) * .14f : Mathf.Abs(stride) * .035f);
             model.localScale = new Vector3(1 + hitStretch * .12f, 1 - hitStretch * .12f, 1 + hitStretch * .12f);
             if (leftArm) leftArm.localRotation = Quaternion.Euler(stride * 22 - tell * 22, 0, tell * -12);
             if (rightArm)
@@ -177,7 +276,7 @@ namespace Ecos.Haunt.Fps
                 float swing = attackPose > 0 ? Mathf.Lerp(65, -80, attackPose / .18f) : -stride * 25 - tell * 80;
                 rightArm.localRotation = Quaternion.Euler(swing, 0, tell * 20);
             }
-            if (jaw) jaw.localPosition = new Vector3(0, 1.19f - tell * .09f, .035f);
+            if (jaw && kind == FpsEnemyKind.Skeleton) jaw.localPosition = new Vector3(0, 1.19f - tell * .09f, .035f);
             if (soulLight)
             {
                 soulLight.intensity = windup > 0 ? .8f + tell * 2.2f : .6f + Mathf.Sin(phase * 4) * .14f;

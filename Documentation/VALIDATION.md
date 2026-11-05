@@ -1,17 +1,25 @@
 # Validação de Ecos da Meia-Noite
 
-## O que foi executado nesta revisão
+## Verificações da expansão híbrida
 
-A correção após o log do usuário remove a atribuição à propriedade de escrita interna `supportsMainLightShadows` do URP 17. A preparação usa `SerializedObject` e inclui um teste Editor que desativa as sombras em assets temporários, repara a configuração e confere identidade dos assets e preservação das configurações globais. Esse teste no Editor permanece pendente neste ambiente.
+- **32 testes Python passaram**, cobrindo versões, atalho, importação das folhas e entrega. O novo teste recusa um pacote sem componentes híbridos ou seus metadados e conserva o ZIP anterior. O build deve manter a campanha como primeira cena e o roguelike anterior como segunda, ambas habilitadas.
+- O validador estático verifica sintaxe C#, referências, metadados, dependências e presença dos módulos de perspectiva, arte híbrida, campanha, catálogo, modelos e chefes. Ele não compila contra as DLLs do Unity.
+- Um helper externo compilou todos os módulos FPS, Core e Art reais e passou **435 verificações integradas**: troca e continuidade de estado/projéteis, mira, cobertura, quatro corpos e equipamentos, armas e poderes, menus pelo controle, sprites dos 17 mobs e sete chefes, seus modelos 3D, cinco fases, portal, pausa, morte, reinício e descarte. Usa tipos Unity/URP/Input System e consultas de física simulados, com arquivos reais de atlas e catálogo; não é Play Mode.
+- Helpers isolados passaram **4.007 verificações** de temas/catálogo/cenário, **319** de mobs/chefes e **29** de apresentação/descarte. Esses resultados verificam lógica com APIs simuladas, sem validar pixels renderizados, colisões reais ou áudio reproduzido.
+- Testes nativos de Editor foram ampliados para a continuidade da troca, pausa durante a transição, preservação das colisões no corte de paredes e progressão por cinco temas com chefe obrigatório. Sua execução no motor está pendente.
+- A validação no motor da troca de câmera, dos quatro personagens, cinco arenas, 17 mobs e sete chefes está pendente. Os roteiros abaixo especificam os cenários necessários; os resultados históricos da base FPS não certificam a expansão atual.
 
-Um helper externo compilou a fonte Editor original contra um contrato simulado com a propriedade somente leitura e reproduziu o `CS0200` da linha 44. A fonte corrigida compilou e passou 19 verificações de configuração, reparo, idempotência e tratamento de campos ausentes. Esse resultado não é uma compilação contra as DLLs do Unity nem uma execução no Editor.
+## Histórico da base FPS e da correção URP
 
-- 31 testes Python de versões, atalho, importação de folhas e empacotamento. A entrega exige FPS primeiro, cena 2D preservada e ambas habilitadas; configurações inválidas não substituem o ZIP anterior.
-- O validador estático confere sintaxe C#, referências, metadados, fontes FPS, material, cenas e dependências. Ele não compila o código contra o motor.
-- 2.507.249 asserções compilando o núcleo C# real, incluindo regras FPS de três ondas, esquiva e dano radial; preserva os checks dos 2.436 andares, 645 arenas irregulares, estoque, compras, progressão, geometria e munição do roguelike 2D.
-- Um helper externo compilou todos os módulos FPS e o núcleo reais com tipos Unity/URP/Input System simulados. Passaram 52 verificações integradas de bootstrap, pipeline, tiro/cover, recarga, pausa, proteção da esquiva, três ondas, portal, explosão, limites de projéteis, morte, áudio de conclusão, reinício e descarte. Consultas de física foram programadas pelo helper; isso não executa a física do Unity.
-- Helpers isolados dos componentes passaram 114 verificações de jogador/arma, 28 de cenário e 27 de inimigos/barris. O áudio passou 847.897 verificações de PCM finito, determinismo, limites e ciclo de vida. Esses helpers temporários não substituem Play Mode, renderização, audição ou controle físico.
-- Foram adicionados testes Editor para física da sala/portal e integração de tiro, recarga, pausa, ondas e reinício. A execução desses testes no motor está pendente.
+Antes desta expansão, a correção do log do usuário removeu a atribuição à propriedade de escrita interna `supportsMainLightShadows` do URP 17. A preparação usa `SerializedObject`. Um helper externo reproduziu o `CS0200` original e a fonte corrigida passou 19 verificações com contratos simulados. O teste Editor nativo de reparo e preservação dos assets permanece pendente no motor.
+
+A base FPS anterior registrou:
+
+- 2.507.249 asserções compilando o núcleo C# real, incluindo regras FPS de três ondas, esquiva e dano radial e os checks do roguelike 2D.
+- 52 verificações integradas de bootstrap, pipeline, tiro/cover, recarga, pausa, esquiva, três ondas, portal, explosão, limites, morte, áudio de conclusão, reinício e descarte, com Unity/URP/Input System e consultas de física simulados.
+- Helpers isolados com 114 verificações de jogador/arma, 28 de cenário e 27 de inimigos/barris. O áudio passou 847.897 verificações de PCM finito, determinismo, limites e ciclo de vida.
+
+Esses helpers temporários não executam importação Unity, HLSL, Play Mode, audição ou controle físico. Os testes nativos adicionados à base também precisam ser executados no Editor.
 
 ## Verificações registradas do roguelike 2D
 
@@ -56,16 +64,20 @@ bash Tools/unity-check.sh build
 
 `fps-smoke` confere a importação da cena FPS, seu único bootstrap, material e renderer 3D; `smoke` acrescenta a cena 2D. Ambos verificam recursos sem entrar em Play Mode. O build solicitado fica em `Builds/Windows/EcosDaMeiaNoite.exe`, iniciando em `HauntFps` e incluindo `Haunt` em segundo lugar. Teste a execução em Windows; o atalho opcional também precisa de validação nesse sistema.
 
-## Roteiro pendente do protótipo FPS
+## Roteiro pendente da campanha híbrida
 
-1. Abra o FPS, inicie e capture o mouse na janela Game. Confira mira horizontal/vertical, piso e paredes sólidos, pilares como cobertura, salto e esquiva. Esc/Options deve liberar o cursor e congelar a sessão; retomar exige soltar o gatilho antes de disparar.
-2. Dispare oito vezes e confirme que a arma vazia exige R/Triângulo. Confira recarga manual com reserva infinita, clarão, recuo, rastro, cápsulas no chão, colisão do primeiro alvo e som. Pause no meio da recarga e retome sem antecipar sua conclusão.
-3. Confira Esqueletos perseguindo e atacando de perto e Lanternas anunciando projéteis. Teste a proteção dos primeiros 60% da esquiva e a vulnerabilidade dos 40% finais; cobertura deve bloquear tiros hostis. Observe flash e reação ao dano.
-4. Acerte barris em espaço aberto e atrás de cobertura. Confira pavio, explosão, dano em inimigos/jogador, trauma, empurrão e reação em cadeia. A morte do último inimigo deve avançar uma única onda, preservando os recém-criados.
-5. Complete as três ondas e use E/Quadrado perto do portal aberto. Teste vitória, morte e Enter/X para reiniciar. Repita reinícios e encerre Play, conferindo limpeza de modelos, materiais, texturas, efeitos, clipes e restauração dos ajustes de ambiente/pipeline/cursor.
-6. Ouça música e efeitos, alterne M/som, pause e retire/devolva foco. Teste o controle PS4 físico e confira o acesso ao 2D pelo menu. Abra a cena 2D separadamente e verifique a sua apresentação.
+1. Inicie com cada um dos quatro personagens e confira arma, mãos/modelo, sprite e poder. Esvazie os carregadores de 12/6/6/30 tiros e confirme R/Triângulo manual com reserva infinita. Pause durante a recarga; alternar perspectiva não pode completá-la, cancelá-la ou cobrar outra bala.
+2. Alterne Tab/R1 durante movimento, tiro, esquiva, dano, recarga e projéteis próximos. Vida, munição, posições, inimigos, chefe, tiros e cooldowns devem continuar. A transição de 0,4 s bloqueia o disparo e não acrescenta invencibilidade. Pressões repetidas respeitam o intervalo; pausa e perda de foco congelam a transição.
+3. Na visão 2D, confira movimento nos eixos da sala, mira pelo mouse/analógico, retículo, sprites e corte visual das paredes. Os colisores de chão, parede, pilar e barril permanecem iguais. No FPS, modelos e paredes devem voltar; olhar vertical e orientação precisam continuar estáveis após várias trocas.
+4. Teste a proteção dos primeiros 60% da esquiva e a recuperação vulnerável dos 40% finais nas duas visões. Balas devem atravessar o jogador durante a proteção, sem ser consumidas, e acertar na recuperação. Trocar perspectiva não deve reiniciar o relógio da esquiva.
+5. Confira as cinco arenas: Jardins da Colheita, Galeria dos Véus, Catedral das Cinzas, Ninho da Peste e Abismo dos Sinos. Compare materiais, cobertura, decoração, luzes e neblina. Todas as combinações de chegada e luta precisam manter caminho ao portal, spawn seguro e leitura dos projéteis.
+6. Observe os 17 tipos de criatura nos rosters e confira modelos, sprites, preparação, ataques, feedback e morte. Acerte barris em espaço aberto e atrás de cobertura; confira pavio, explosão, dano, empurrão, trauma e reação em cadeia. Objetos em corte não podem perder colisão.
+7. No treino, teste os sete chefes em todos os temas. Confira introdução de três segundos invulnerável, título/barra de vida, preparação, padrões, fúria abaixo de 50% e morte. Alterne visão durante cada estado. Bombas em cruz e orbes que dividem devem respeitar primeiro contato, pausa, limite e cancelamento ao encerrar a luta.
+8. Complete três ondas e o chefe de cada fase. O portal permanece fechado até a vitória; E/Quadrado avança uma única vez. Vida, arma, carregador, moedas e poder persistem para a próxima fase. A quinta termina a campanha; o treino termina seu encontro. Confira morte e reinício restaurando a incursão inicial.
+9. Ouça música e efeitos, alterne M/som, pause e retire/devolva foco. Use o DualShock 4 físico por USB e Bluetooth, verificando os dois analógicos, R1, R2, L1, Triângulo, Círculo, X, Quadrado e Options. Os testes sintéticos não garantem compatibilidade do driver.
+10. Reinicie várias vezes e encerre Play. Confira descarte de modelos, sprites, texturas, materiais, clipes, vozes, cápsulas, efeitos e câmera de arma; não devem restar atores ou colisores antigos. Ambiente, pipeline e cursor precisam ser restaurados. Abra também `Haunt.unity` e confira a versão 2D anterior.
 
-Essas etapas, incluindo renderização, física, reprodução de áudio e hardware, **ainda não foram executadas no Unity**. Detalhes do recorte estão em [PROTOTIPO_FPS.md](PROTOTIPO_FPS.md).
+Essas etapas, incluindo importação, compilação Unity, renderização, física, audição e hardware, **ainda não foram executadas neste ambiente**. A campanha usa cinco arenas temáticas; a rede completa de salas, a loja e o arsenal anterior continuam na cena 2D. Detalhes estão em [PROTOTIPO_FPS.md](PROTOTIPO_FPS.md).
 
 Os roteiros seguintes referem-se ao roguelike **2D** preservado.
 

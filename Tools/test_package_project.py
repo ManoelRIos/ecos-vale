@@ -96,8 +96,11 @@ class PackageProjectTests(unittest.TestCase):
         for name in ('Tools/export_sprite_sheets.py', 'Tools/SpriteSheetExport/Program.cs',
                      'Tools/SpriteSheetExport/UnityPixelStubs.cs', 'Tools/SpriteSheetExport/SpriteSheetExport.csproj'):
             self.write(name, 'exporter fixture\n')
-        for name in ('HauntFpsGame.cs', 'HauntFpsGame.UI.cs', 'HauntFpsPlayer.cs', 'HauntFpsWorld.cs', 'HauntFpsEnemy.cs',
-                     'HauntFpsBarrel.cs', 'HauntFpsAudio.cs', 'HauntFpsLit.shader'):
+        for name in ('HauntFpsGame.cs', 'HauntFpsGame.UI.cs', 'HauntFpsGame.Campaign.cs',
+                     'HauntFpsPlayer.cs', 'HauntFpsPerspective.cs', 'HauntFpsHybridArt.cs', 'HauntFpsHeroBody.cs',
+                     'HauntFpsWorld.cs', 'HauntFpsCampaign.cs', 'HauntFpsEnemy.cs',
+                     'HauntFpsEnemy.Models.cs', 'HauntFpsBoss.cs', 'HauntFpsBarrel.cs',
+                     'HauntFpsAudio.cs', 'HauntFpsLit.shader'):
             self.write('Assets/_Game/Haunt/Fps/' + name, 'fps source fixture\n')
             self.write('Assets/_Game/Haunt/Fps/' + name + '.meta', 'fps metadata fixture\n')
         self.write('Assets/_Game/Resources/FpsPalette.mat', 'fps material fixture\n')
@@ -195,6 +198,20 @@ class PackageProjectTests(unittest.TestCase):
         self.git('rm', '--cached', 'Assets/_Game/Haunt/Runtime/HauntGame.cs')
         with self.assertRaisesRegex(PackagingError, 'must be tracked'):
             create_archive(self.root)
+
+    def test_missing_hybrid_components_or_metadata_preserve_the_previous_delivery(self):
+        output = create_archive(self.root)
+        previous = output.read_bytes()
+        for component in ('HauntFpsPerspective.cs', 'HauntFpsHybridArt.cs', 'HauntFpsHeroBody.cs', 'HauntFpsCampaign.cs',
+                          'HauntFpsGame.Campaign.cs', 'HauntFpsBoss.cs', 'HauntFpsEnemy.Models.cs'):
+            for suffix in ('', '.meta'):
+                name = 'Assets/_Game/Haunt/Fps/' + component + suffix
+                with self.subTest(missing=name):
+                    self.git('rm', '--cached', name)
+                    with self.assertRaisesRegex(PackagingError, 'must be tracked'):
+                        create_archive(self.root)
+                    self.assertEqual(previous, output.read_bytes())
+                    self.git('add', name)
 
     def test_extra_build_scene_rejects_delivery(self):
         self.write('ProjectSettings/EditorBuildSettings.asset',

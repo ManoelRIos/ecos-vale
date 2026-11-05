@@ -1,6 +1,6 @@
 # Ecos da Meia-Noite
 
-Protótipo de ação em **3D e primeira pessoa**, com estética macabra de formas cartoon, texturas pixeladas e geração em C#, para **Unity 6.0 LTS 6000.0.85f1**. A nova cena FPS é a entrada padrão. O roguelike 2D com quatro personagens, arsenal, chefes e Mercado das Almas continua disponível em sua própria cena. Efeitos sonoros e música são sintetizados localmente; o jogo não exige serviços externos.
+Campanha de ação com alternância entre **visão 2D e primeira pessoa na mesma arena 3D**, estética macabra, texturas pixeladas e geração em C#, para **Unity 6.0 LTS 6000.0.85f1**. Os quatro personagens, os cinco temas e os sete chefes fazem parte desta expansão híbrida. Música e efeitos são sintetizados localmente; o jogo permanece solo e não exige serviços externos.
 
 [**Projeto no GitHub**](https://github.com/ManoelRIos/ecos-vale/tree/codex/ecos-do-vale-vertical-slice) · [**Baixar projeto em ZIP**](https://github.com/ManoelRIos/ecos-vale/raw/refs/heads/codex/ecos-do-vale-vertical-slice/Distribution/EcosDaMeiaNoite.zip)
 
@@ -8,36 +8,52 @@ Protótipo de ação em **3D e primeira pessoa**, com estética macabra de forma
 
 1. Instale **Unity 6000.0.85f1** pelo Unity Hub; acrescente Windows Build Support para gerar um executável Windows.
 2. Extraia todo o ZIP em uma **pasta nova e curta**, por exemplo `C:\Dev\EcosDaMeiaNoite`. Preserve suas alterações da cópia anterior. A raiz deve conter `Assets`, `Packages` e `ProjectSettings`.
-3. No Hub, use **Add / Add project from disk** e selecione essa raiz. Abra o projeto, aguarde os pacotes e a compilação e use **Ecos → Abrir protótipo FPS**, com Play parado, para abrir `Assets/_Game/Scenes/HauntFps.unity`.
-4. Pressione **Play**, inicie o protótipo e clique na janela Game para capturar o mouse. Sobreviva às três ondas e use o portal liberado ao final. **Esc** pausa e libera o cursor.
+3. No Hub, use **Add / Add project from disk** e selecione essa raiz. Aguarde os pacotes e a compilação. Com Play parado, use **Ecos → Abrir protótipo FPS** para abrir `Assets/_Game/Scenes/HauntFps.unity`.
+4. Pressione **Play**, escolha um dos quatro personagens e inicie a campanha. **Tab / R1** alterna a perspectiva durante o combate. Vença as três ondas e o chefe de cada fase; **E / Quadrado** no portal aberto leva à próxima, até a quinta fase.
+5. O menu também oferece **treino de chefe**, com seleção dos sete chefes e dos cinco temas. **Esc / Options** pausa e libera o cursor.
 
-O atalho opcional `ABRIR_ECOS_DA_MEIA_NOITE.cmd` abre a cena FPS e continua disponível para instalações no caminho padrão do Hub; `/check` confere a pasta e o log fica em `Logs/MeiaNoite-Editor.log`. Abrir pelo Hub dispensa o atalho. O atalho não foi executado no Windows neste ambiente.
+O atalho opcional `ABRIR_ECOS_DA_MEIA_NOITE.cmd` abre essa mesma cena. `/check` confere a pasta e o log fica em `Logs/MeiaNoite-Editor.log`. Abrir pelo Hub dispensa o atalho. O atalho não foi executado no Windows neste ambiente.
 
 Para atualizar por ZIP, use uma extração nova: sobrepor pastas não remove arquivos antigos. Um clone Git atualizado também aplica as remoções rastreadas. Ainda não há um executável Windows validado desta revisão.
 
-## Primeiro protótipo FPS
+## Campanha híbrida 2D / FPS
 
-A arena 3D de **28 × 24 unidades** é montada em C#: piso e paredes com textura pixelada, pilares de cobertura, lápides, grades, velas, abóboras, luzes oscilantes e neblina. A câmera tem mira livre, recuo, oscilação discreta ao caminhar e trauma por impacto. A arma e as mãos usam modelos de formas simples, com clarão no cano, rastro do tiro e cápsulas no chão.
+**A troca de perspectiva preserva o encontro.** Vida, munição, recarga, poderes, inimigos e projéteis continuam no mesmo estado. A visão 2D usa câmera ortográfica, personagens em sprites e paredes apresentadas em corte para melhorar a leitura. A primeira pessoa usa a câmera perspectiva e os modelos 3D. As duas consultam as mesmas colisões da sala. A transição dura 0,4 s, bloqueia disparos nesse intervalo e não concede invencibilidade adicional.
 
-O revólver inicial tem **oito disparos por carregador e reserva infinita**; **R recarrega manualmente**. Esqueletos avançam para atacar de perto e Lanternas lançam projéteis anunciados. O encontro tem três ondas. Barris explosivos podem ferir criaturas e jogador e iniciar uma reação em cadeia. Após vencer a última onda, aproxime-se do portal e pressione **E** para concluir. Há música e efeitos originais para disparos, impacto, recarga, passos, esquiva, explosão e progressão.
+Na primeira pessoa, o mouse e o analógico direito controlam o olhar. Na visão 2D, WASD segue os eixos da sala; o mouse aponta a posição da mira e o analógico direito mantém a direção do tiro. Mãos, armas, clarões, cápsulas e sprites acompanham o personagem selecionado.
 
-| Ação no FPS | Teclado / mouse | Controle PS4 reconhecido |
+| Personagem | Arma inicial | Carregador | Poder — Q / L1 |
+| --- | --- | --- | --- |
+| Caçador | Carabina da Aurora | 12 | Pulso de dano próximo |
+| Médium | Varinha do Véu | 6 | Lamento que atinge criaturas e desfaz projéteis hostis |
+| Ceifador | Ceifador de Ossos | 6 | Colheita de curto alcance |
+| Alquimista | Bobina Voltaica | 30 | Elixir que recupera vida |
+
+As armas iniciais têm reserva infinita e exigem **recarga manual com R / Triângulo**. A carabina dispara em linha, a varinha abre um leque, os ossos podem atravessar criaturas e a bobina pode encadear um alvo próximo. A esquiva protege nos primeiros 60% de sua duração e termina com recuperação vulnerável.
+
+A campanha atravessa **Jardins da Colheita, Galeria dos Véus, Catedral das Cinzas, Ninho da Peste e Abismo dos Sinos**. Cada tema tem paleta, materiais, iluminação, neblina, decoração e disposição de cobertura próprias. As arenas medem 28 × 24 unidades e mantêm uma passagem central. Os encontros distribuem **17 tipos de criatura** entre três ondas e terminam com um chefe sorteado do grupo daquele tema.
+
+Os sete chefes possuem modelos 3D e apresentação em sprites na visão 2D: **Rei das Abóboras, Viúva do Véu, Bispo das Cinzas, Matriarca da Peste, Sino do Abismo, Carrasco de Ferro e Oráculo do Brejo**. Têm introdução, preparação de ataque, padrões próprios, fúria abaixo de metade da vida e morte. Barris explosivos, cobertura, efeitos, som e dano usam a mesma simulação nas duas perspectivas. O portal só abre depois do chefe; avançar conserva a progressão da incursão.
+
+| Ação | Teclado / mouse | Controle PS4 reconhecido |
 | --- | --- | --- |
-| Mover / olhar | WASD ou setas / mouse | Analógicos esquerdo / direito |
+| Mover / olhar ou mirar | WASD ou setas / mouse | Analógicos esquerdo / direito |
+| Alternar 2D / primeira pessoa | Tab | R1 |
 | Atirar | Botão esquerdo | R2 |
 | Recarregar | R | Triângulo |
+| Usar poder | Q | L1 |
 | Esquivar | Alt esquerdo, Ctrl esquerdo ou botão direito | Círculo |
 | Saltar | Espaço | X |
 | Usar portal | E | Quadrado |
 | Pausar / liberar cursor | Esc | Options |
-| Confirmar início / reiniciar após morte ou vitória | Enter | X |
+| Confirmar início / reiniciar | Enter | X |
 | Ligar / desligar som | M ou botão do menu | Botão do menu |
 
-Os menus têm cursor livre e botões; Enter/X confirmam o início ou reinício indicado. O suporte usa o Input System; o hardware PS4 ainda precisa ser testado no PC. A esquiva protege nos primeiros 60% e tem recuperação vulnerável nos 40% finais.
+Os menus têm cursor livre. Depois de retomar ou alternar a perspectiva, solte o gatilho antes de voltar a disparar. O Input System faz o mapeamento; o funcionamento com o DualShock 4 físico e seus drivers ainda precisa ser testado no PC.
 
-Este é um recorte inicial para avaliar movimento, combate e atmosfera em primeira pessoa. Seleção de personagens, arsenal expandido, chefes, loja e geração de andares pertencem à cena 2D preservada. Para jogá-la, pare o Play e use **Ecos → Abrir roguelike**; o menu do protótipo também oferece acesso à versão 2D. O build começa em `HauntFps` e inclui `Haunt` como segunda cena.
+A campanha híbrida usa cinco arenas temáticas. A rede de salas procedurais, a loja e o catálogo completo de armas do roguelike anterior continuam na cena `Haunt.unity`; esses sistemas ainda não foram todos migrados para a campanha híbrida. **Ecos → Abrir roguelike** e o botão do menu dão acesso a essa versão preservada. O build começa em `HauntFps` e inclui `Haunt` como segunda cena.
 
-Veja [PROTOTIPO_FPS.md](Documentation/PROTOTIPO_FPS.md) para módulos, fluxo e roteiro de teste. **Ainda não houve execução no Editor Unity deste protótipo**; compilação no motor, renderização, física, áudio reproduzido e controle físico aguardam essa validação.
+Veja [PROTOTIPO_FPS.md](Documentation/PROTOTIPO_FPS.md) para módulos e roteiro de teste. **Esta expansão híbrida ainda não foi executada no Editor Unity deste ambiente**; importação, compilação no motor, resultado renderizado, física, áudio reproduzido e controle físico precisam dessa validação.
 
 ## Roguelike 2D preservado
 

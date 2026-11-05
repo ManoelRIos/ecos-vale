@@ -6,7 +6,7 @@ using UnityEngine.Rendering.Universal;
 
 namespace Ecos.Haunt.Fps
 {
-    /// <summary>First-person input, CharacterController movement and viewmodel presentation.
+    /// <summary>Shared first-person/top-down input, CharacterController movement and weapon presentation.
     /// HauntFpsGame owns ammunition, damage, pause/focus and the simulation clock.</summary>
     public sealed class HauntFpsPlayer : MonoBehaviour
     {
@@ -16,10 +16,13 @@ namespace Ecos.Haunt.Fps
         readonly List<Casing> casings = new List<Casing>();
         HauntFpsGame game;
         CharacterController body;
+        HauntFpsPerspective perspective;
         Camera view, modelCamera;
-        Transform weaponRoot, flashRoot;
-        Light flashLight;
+        Transform weaponRoot, flashRoot, worldFlashRoot;
+        Light flashLight, worldFlashLight;
         Material casingMaterial;
+        Vector3 muzzleLocal = new Vector3(0, .025f, .62f);
+        Color muzzleTint;
         int originalCullingMask;
         float yaw, pitch, verticalSpeed, dodgeRemaining, dodgeReady, shotReady;
         float recoilAngle, gunKick, flashRemaining, walkPhase, footstepRemaining, trauma, clock;
@@ -35,12 +38,17 @@ namespace Ecos.Haunt.Fps
         }
 
         public Camera View => view;
+        public HauntFpsPerspective Perspective => perspective;
+        public bool IsTopDown => perspective && perspective.IsTopDown;
+        public bool IsPerspectiveTransition => perspective && perspective.IsTransitioning;
         public Vector3 Position => transform.position;
-        public Vector3 MuzzlePosition => weaponRoot ? weaponRoot.TransformPoint(new Vector3(0, .025f, .62f)) : view ? view.transform.position : Position;
+        public Vector3 MuzzlePosition => IsTopDown ? perspective.MuzzlePosition
+            : weaponRoot ? weaponRoot.TransformPoint(muzzleLocal) : view ? view.transform.position : Position;
         public bool IsDodging => dodgeRemaining > 0;
         public bool IsInvulnerable => DodgeRules.IsInvulnerable(dodgeRemaining, DodgeDuration);
         public float DodgeCooldownRemaining => Mathf.Max(0, dodgeReady);
         public float Pitch => pitch;
+        public float CameraTrauma => trauma;
 
         public void Initialize(HauntFpsGame owner, Camera camera, CharacterController controller)
         {
@@ -54,6 +62,8 @@ namespace Ecos.Haunt.Fps
             view.nearClipPlane = .04f; view.farClipPlane = 80; view.fieldOfView = BaseFov;
             yaw = transform.eulerAngles.y;
             BuildViewModel();
+            perspective = gameObject.AddComponent<HauntFpsPerspective>();
+            perspective.Initialize(game, this, view, modelCamera, weaponRoot);
             initialized = true;
         }
 
@@ -68,9 +78,11 @@ namespace Ecos.Haunt.Fps
             recoilAngle = Mathf.Lerp(recoilAngle, 0, 1 - Mathf.Exp(-15 * dt));
             gunKick = Mathf.Lerp(gunKick, 0, 1 - Mathf.Exp(-17 * dt));
             trauma = Mathf.Max(0, trauma - dt * 1.65f);
-            ReadLook(dt);
+            if (PerspectivePressed()) TryTogglePerspective();
+            bool wasTransitioning = IsPerspectiveTransition;
+            if (!IsTopDown && !wasTransitioning) ReadLook(dt);
             Vector2 input = MoveInput();
-            Vector3 wish = transform.right * input.x + transform.forward * input.y;
+            Vector3 wish = perspective ? perspective.Movement(input) : transform.right * input.x + transform.forward * input.y;
             if (ReloadPressed() && game.State.TryReload())
             {
                 flashRemaining = 0;
@@ -78,11 +90,27 @@ namespace Ecos.Haunt.Fps
             }
             if (DodgePressed()) TryDodge(wish);
             Move(wish, input.magnitude, dt);
-            bool held = FireHeld();
-            if (!held) fireNeedsRelease = false;
-            if (held && !fireNeedsRelease && shotReady <= 0 && !IsDodging)
+            if (perspective) perspective.Tick(dt);
+            if (IsTopDown)
             {
-                if (game.TryFire(new Ray(view.transform.position, view.transform.forward)))
+                Vector3 facing = perspective.AimDirection; facing.y = 0;
+                if (facing.sqrMagnitude > .001f)
+                {
+                    // The camera is parented to the actor. Turning the body must
+                    // preserve the world-space north-up camera just presented.
+                    Vector3 cameraPosition = view.transform.position;
+                    Quaternion cameraRotation = view.transform.rotation;
+                    transform.rotation = Quaternion.LookRotation(facing, Vector3.up);
+                    view.transform.position = cameraPosition; view.transform.rotation = cameraRotation;
+                }
+            }
+            bool held = FireHeld();
+            if (wasTransitioning || IsPerspectiveTransition) fireNeedsRelease = true;
+            else if (!held) fireNeedsRelease = false;
+            if (held && !fireNeedsRelease && shotReady <= 0 && !IsDodging && !IsPerspectiveTransition)
+            {
+                Ray shot = perspective ? perspective.AimRay : new Ray(view.transform.position, view.transform.forward);
+                if (game.TryFire(shot))
                 {
                     shotReady = Mathf.Max(.05f, game.State.WeaponInterval);
                     recoilAngle = Mathf.Min(4.5f, recoilAngle + 1.4f);
@@ -142,6 +170,18 @@ namespace Ecos.Haunt.Fps
             || (Gamepad.current != null && Gamepad.current.buttonSouth.wasPressedThisFrame);
         static bool FireHeld() => (Mouse.current != null && Mouse.current.leftButton.isPressed)
             || (Gamepad.current != null && Gamepad.current.rightTrigger.ReadValue() > .2f);
+        static bool PerspectivePressed() => (Keyboard.current != null && Keyboard.current.tabKey.wasPressedThisFrame)
+            || (Gamepad.current != null && Gamepad.current.rightShoulder.wasPressedThisFrame);
+
+        public bool TryTogglePerspective()
+        {
+            if (!initialized || disposed || !game || !game.CanSimulate || !perspective || !perspective.TryToggle()) return false;
+            // Top-down facing never changes the stored FPS yaw/pitch. Restore the
+            // original heading after the camera captures its transition start.
+            if (!perspective.IsTopDown) transform.rotation = Quaternion.Euler(0, yaw, 0);
+            SuspendInput();
+            return true;
+        }
 
         public bool TryDodge(Vector3 direction)
         {
@@ -186,16 +226,32 @@ namespace Ecos.Haunt.Fps
             float roll = IsDodging ? Mathf.Sin((1 - dodgeRemaining / DodgeDuration) * Mathf.PI) * -Vector3.Dot(dodgeDirection, transform.right) * 3 : 0;
             Vector3 offset = new Vector3((Mathf.PerlinNoise(13, clock * 29) * 2 - 1) * .028f * shake,
                 EyeHeight + bob + (Mathf.PerlinNoise(71, clock * 31) * 2 - 1) * .024f * shake, 0);
-            view.transform.localPosition = offset;
-            view.transform.localRotation = Quaternion.Euler(pitch - recoilAngle, 0, roll);
-            view.fieldOfView = Mathf.Lerp(view.fieldOfView, BaseFov + (IsDodging ? 3 : 0), 1 - Mathf.Exp(-12 * dt));
-            if (modelCamera) modelCamera.fieldOfView = view.fieldOfView;
+            // The perspective component owns the world camera during the switch
+            // and in top-down view; weapon animation continues on its own clock.
+            if (!IsTopDown && !IsPerspectiveTransition)
+            {
+                view.transform.localPosition = offset;
+                view.transform.localRotation = Quaternion.Euler(pitch - recoilAngle, 0, roll);
+                view.fieldOfView = Mathf.Lerp(view.fieldOfView, BaseFov + (IsDodging ? 3 : 0), 1 - Mathf.Exp(-12 * dt));
+                if (modelCamera) modelCamera.fieldOfView = view.fieldOfView;
+            }
             float reload = game.State.IsReloading ? Mathf.Sin(game.State.ReloadProgress * Mathf.PI) : 0;
             weaponRoot.localPosition = new Vector3(.24f + Mathf.Sin(walkPhase) * .006f * movement,
                 -.225f - reload * .15f - (IsDodging ? .08f : 0) + bob * .35f, .42f - gunKick - reload * .045f);
             weaponRoot.localRotation = Quaternion.Euler(reload * 18 + gunKick * -85, 0, reload * -48);
-            flashRoot.gameObject.SetActive(flashRemaining > 0 && !game.State.IsReloading && !IsDodging);
-            if (flashLight) flashLight.enabled = flashRemaining > 0 && !game.State.IsReloading && !IsDodging;
+            bool flashing = flashRemaining > 0 && !game.State.IsReloading && !IsDodging && !IsPerspectiveTransition;
+            flashRoot.gameObject.SetActive(flashing && !IsTopDown);
+            if (flashLight) flashLight.enabled = flashing && !IsTopDown;
+            if (worldFlashRoot)
+            {
+                worldFlashRoot.gameObject.SetActive(flashing && IsTopDown);
+                if (flashing && IsTopDown)
+                {
+                    worldFlashRoot.position = MuzzlePosition;
+                    worldFlashRoot.rotation = Quaternion.LookRotation(perspective.AimDirection, Vector3.up);
+                }
+            }
+            if (worldFlashLight) worldFlashLight.enabled = flashing && IsTopDown;
         }
 
         public void AddTrauma(float amount)
@@ -210,6 +266,9 @@ namespace Ecos.Haunt.Fps
             flashRemaining = 0;
             if (flashRoot) flashRoot.gameObject.SetActive(false);
             if (flashLight) flashLight.enabled = false;
+            if (worldFlashRoot) worldFlashRoot.gameObject.SetActive(false);
+            if (worldFlashLight) worldFlashLight.enabled = false;
+            if (perspective) perspective.SuspendInput();
         }
 
         public void ResetView()
@@ -238,6 +297,8 @@ namespace Ecos.Haunt.Fps
             }
             if (flashRoot) flashRoot.gameObject.SetActive(false);
             if (flashLight) flashLight.enabled = false;
+            if (worldFlashRoot) worldFlashRoot.gameObject.SetActive(false);
+            if (worldFlashLight) worldFlashLight.enabled = false;
         }
 
         void BuildViewModel()
@@ -261,17 +322,62 @@ namespace Ecos.Haunt.Fps
             Material metal = game.PixelMaterial("fps-gun-steel", new Color(.24f, .3f, .33f));
             Material dark = game.PixelMaterial("fps-gun-dark", new Color(.07f, .09f, .12f));
             Material trim = game.PixelMaterial("fps-gun-brass", new Color(.69f, .46f, .2f));
-            Material glove = game.PixelMaterial("fps-gloves", new Color(.23f, .25f, .18f));
-            Material sleeve = game.PixelMaterial("fps-sleeves", new Color(.14f, .2f, .22f));
+            CharacterKind character = game.State.Character;
+            string characterId = character.ToString();
+            Color gloveColor = character == CharacterKind.Reaper ? new Color(.67f, .65f, .54f)
+                : character == CharacterKind.Medium ? new Color(.35f, .23f, .47f)
+                : character == CharacterKind.Alchemist ? new Color(.21f, .36f, .25f) : new Color(.23f, .25f, .18f);
+            Color sleeveColor = character == CharacterKind.Reaper ? new Color(.35f, .07f, .1f)
+                : character == CharacterKind.Medium ? new Color(.23f, .11f, .38f)
+                : character == CharacterKind.Alchemist ? new Color(.2f, .31f, .23f) : new Color(.14f, .2f, .22f);
+            muzzleTint = character == CharacterKind.Medium ? new Color(.72f, .38f, 1)
+                : character == CharacterKind.Reaper ? new Color(.75f, .95f, .65f)
+                : character == CharacterKind.Alchemist ? new Color(.3f, 1, .65f) : new Color(1, .82f, .31f);
+            Material glove = game.PixelMaterial("fps-gloves-" + characterId, gloveColor);
+            Material sleeve = game.PixelMaterial("fps-sleeves-" + characterId, sleeveColor);
             Material bone = game.PixelMaterial("fps-gun-bone", new Color(.8f, .78f, .64f));
-            Material energy = game.PixelMaterial("fps-gun-energy", new Color(.25f, .8f, .58f));
-            casingMaterial = trim;
+            Material energy = game.PixelMaterial("fps-gun-energy-" + characterId, muzzleTint);
+            energy.SetColor("_EmissionColor", muzzleTint * .7f);
+            casingMaterial = character == CharacterKind.Hunter ? trim : character == CharacterKind.Reaper ? bone : energy;
+            if (character == CharacterKind.Medium) BuildVeilWand(dark, trim, energy);
+            else if (character == CharacterKind.Reaper) BuildBoneScythe(dark, metal, bone, energy);
+            else if (character == CharacterKind.Alchemist) BuildArcCoil(dark, metal, trim, energy);
+            else BuildHunterCarbine(metal, dark, trim, bone, energy);
+            Part("Right glove", new Vector3(0, -.14f, -.02f), new Vector3(.14f, .14f, .17f), glove);
+            Part("Right sleeve", new Vector3(.035f, -.255f, -.125f), new Vector3(.17f, .19f, .32f), sleeve, new Vector3(-22, -8, -8));
+            Part("Support glove", new Vector3(-.11f, -.08f, .23f), new Vector3(.13f, .12f, .18f), glove, new Vector3(0, 0, 15));
+            Part("Support sleeve", new Vector3(-.24f, -.18f, .1f), new Vector3(.17f, .18f, .3f), sleeve, new Vector3(-20, 18, -30));
+            flashRoot = new GameObject("Muzzle flash").transform;
+            flashRoot.SetParent(weaponRoot, false); flashRoot.localPosition = muzzleLocal;
+            Material flash = game.PixelMaterial("fps-muzzle-" + characterId, muzzleTint);
+            flash.EnableKeyword("_EMISSION"); flash.SetColor("_EmissionColor", muzzleTint * 2.2f);
+            game.Box("Flash core", Vector3.zero, new Vector3(.055f, .055f, .12f), flash, flashRoot, false);
+            game.Box("Flash cross", new Vector3(0, 0, .055f), new Vector3(.12f, .025f, .035f), flash, flashRoot, false);
+            flashLight = flashRoot.gameObject.AddComponent<Light>(); flashLight.type = LightType.Point;
+            flashLight.color = muzzleTint; flashLight.range = 2.7f; flashLight.intensity = 3;
+            flashLight.shadows = LightShadows.None; flashLight.enabled = false;
+            SetLayer(modelObject, ViewModelLayer);
+            flashRoot.gameObject.SetActive(false);
+            worldFlashRoot = new GameObject("Top-down muzzle flash").transform;
+            worldFlashRoot.SetParent(game.transform, false);
+            game.Box("World flash core", Vector3.zero, new Vector3(.11f, .11f, .2f), flash, worldFlashRoot, false);
+            game.Box("World flash cross", new Vector3(0, 0, .08f), new Vector3(.22f, .05f, .05f), flash, worldFlashRoot, false);
+            worldFlashLight = worldFlashRoot.gameObject.AddComponent<Light>();
+            worldFlashLight.type = LightType.Point; worldFlashLight.color = muzzleTint;
+            worldFlashLight.range = 2.7f; worldFlashLight.intensity = 2; worldFlashLight.shadows = LightShadows.None;
+            worldFlashRoot.gameObject.SetActive(false); worldFlashLight.enabled = false;
+        }
+
+        void BuildHunterCarbine(Material metal, Material dark, Material trim, Material bone, Material energy)
+        {
+            weaponRoot.name = "Carabina da Aurora / luvas do Caçador";
+            muzzleLocal = new Vector3(0, .025f, .78f);
             Part("Receiver", new Vector3(0, 0, .1f), new Vector3(.19f, .14f, .34f), metal);
-            Part("Barrel", new Vector3(0, .025f, .36f), new Vector3(.105f, .1f, .25f), dark);
-            Part("Muzzle ring", new Vector3(0, .025f, .505f), new Vector3(.13f, .12f, .045f), trim);
+            Part("Rifled barrel", new Vector3(0, .025f, .47f), new Vector3(.105f, .1f, .49f), dark);
+            Part("Muzzle ring", new Vector3(0, .025f, .725f), new Vector3(.13f, .12f, .045f), trim);
             Part("Cylinder", new Vector3(.02f, -.005f, .075f), new Vector3(.215f, .13f, .17f), trim);
-            Part("Top rail", new Vector3(0, .09f, .12f), new Vector3(.12f, .035f, .3f), dark);
-            Part("Front sight", new Vector3(0, .09f, .445f), new Vector3(.025f, .04f, .035f), energy);
+            Part("Top rail", new Vector3(0, .09f, .2f), new Vector3(.12f, .035f, .46f), dark);
+            Part("Front sight", new Vector3(0, .09f, .67f), new Vector3(.025f, .04f, .035f), energy);
             Part("Rear sight", new Vector3(0, .115f, -.02f), new Vector3(.065f, .035f, .025f), metal);
             Part("Grip", new Vector3(0, -.14f, -.015f), new Vector3(.105f, .22f, .13f), dark, new Vector3(-15, 0, 0));
             for (int i = 0; i < 3; i++)
@@ -280,21 +386,59 @@ namespace Ecos.Haunt.Fps
             Part("Bone charm", new Vector3(.115f, .005f, .1f), new Vector3(.012f, .06f, .055f), bone);
             Part("Charm eye A", new Vector3(.123f, .018f, .087f), new Vector3(.006f, .012f, .012f), dark);
             Part("Charm eye B", new Vector3(.123f, .018f, .113f), new Vector3(.006f, .012f, .012f), dark);
-            Part("Right glove", new Vector3(0, -.14f, -.02f), new Vector3(.14f, .14f, .17f), glove);
-            Part("Right sleeve", new Vector3(.035f, -.255f, -.125f), new Vector3(.17f, .19f, .32f), sleeve, new Vector3(-22, -8, -8));
-            Part("Support glove", new Vector3(-.11f, -.08f, .23f), new Vector3(.13f, .12f, .18f), glove, new Vector3(0, 0, 15));
-            Part("Support sleeve", new Vector3(-.24f, -.18f, .1f), new Vector3(.17f, .18f, .3f), sleeve, new Vector3(-20, 18, -30));
-            flashRoot = new GameObject("Muzzle flash").transform;
-            flashRoot.SetParent(weaponRoot, false); flashRoot.localPosition = new Vector3(0, .025f, .555f);
-            Material flash = game.PixelMaterial("fps-muzzle", new Color(1, .82f, .31f));
-            flash.EnableKeyword("_EMISSION"); flash.SetColor("_EmissionColor", new Color(2.2f, 1.4f, .35f));
-            game.Box("Flash core", Vector3.zero, new Vector3(.055f, .055f, .12f), flash, flashRoot, false);
-            game.Box("Flash cross", new Vector3(0, 0, .055f), new Vector3(.12f, .025f, .035f), flash, flashRoot, false);
-            flashLight = flashRoot.gameObject.AddComponent<Light>(); flashLight.type = LightType.Point;
-            flashLight.color = new Color(1, .7f, .28f); flashLight.range = 2.7f; flashLight.intensity = 3;
-            flashLight.shadows = LightShadows.None; flashLight.enabled = false;
-            SetLayer(modelObject, ViewModelLayer);
-            flashRoot.gameObject.SetActive(false);
+            Part("Shoulder stock", new Vector3(0, -.025f, -.2f), new Vector3(.17f, .16f, .22f), dark);
+            for (int band = 0; band < 3; band++)
+                Part("Barrel band", new Vector3(0, .025f, .35f + band * .13f), new Vector3(.125f, .125f, .025f), trim);
+        }
+
+        void BuildVeilWand(Material dark, Material trim, Material energy)
+        {
+            weaponRoot.name = "Varinha do Véu / mangas do Médium";
+            muzzleLocal = new Vector3(0, .07f, .66f);
+            Part("Obsidian staff", new Vector3(0, -.015f, .18f), new Vector3(.075f, .075f, .69f), dark);
+            for (int band = 0; band < 4; band++)
+                Part("Arcane binding", new Vector3(0, -.015f, -.08f + band * .15f), new Vector3(.092f, .092f, .035f), trim);
+            Part("Crystal cradle left", new Vector3(-.085f, .025f, .48f), new Vector3(.04f, .04f, .22f), trim, new Vector3(0, 18, 0));
+            Part("Crystal cradle right", new Vector3(.085f, .025f, .48f), new Vector3(.04f, .04f, .22f), trim, new Vector3(0, -18, 0));
+            Part("Veil crystal", new Vector3(0, .065f, .55f), new Vector3(.13f, .13f, .19f), energy, new Vector3(0, 0, 45));
+            Part("Crystal facet", new Vector3(0, .09f, .62f), new Vector3(.055f, .055f, .12f), energy, new Vector3(0, 0, 45));
+            Part("Runic seal", new Vector3(0, .035f, .18f), new Vector3(.032f, .018f, .13f), energy);
+            for (int orb = 0; orb < 3; orb++)
+                Part("Bound orb", new Vector3((orb - 1) * .11f, .16f + (orb % 2) * .04f, .43f), Vector3.one * .055f, energy, new Vector3(0, 0, 45));
+        }
+
+        void BuildBoneScythe(Material dark, Material metal, Material bone, Material energy)
+        {
+            weaponRoot.name = "Ceifador de Ossos / foice do Ceifador";
+            muzzleLocal = new Vector3(0, .045f, .68f);
+            Part("Scythe haft", new Vector3(0, -.045f, .18f), new Vector3(.075f, .08f, .78f), dark);
+            for (int grip = 0; grip < 4; grip++)
+                Part("Bone grip", new Vector3(0, -.045f, -.06f + grip * .13f), new Vector3(.1f, .1f, .045f), bone);
+            Part("Blade heel", new Vector3(-.07f, .06f, .5f), new Vector3(.24f, .06f, .13f), metal, new Vector3(0, 15, 0));
+            Part("Crescent blade", new Vector3(-.22f, .065f, .55f), new Vector3(.21f, .045f, .1f), bone, new Vector3(0, 32, 0));
+            Part("Blade tip", new Vector3(-.36f, .055f, .48f), new Vector3(.17f, .025f, .055f), bone, new Vector3(0, 65, 0));
+            Part("Spectral edge", new Vector3(-.2f, .09f, .58f), new Vector3(.25f, .012f, .025f), energy, new Vector3(0, 26, 0));
+            Part("Bone launcher skull", new Vector3(0, .005f, .57f), new Vector3(.15f, .16f, .17f), bone);
+            Part("Skull socket left", new Vector3(-.038f, .025f, .66f), new Vector3(.034f, .045f, .012f), dark);
+            Part("Skull socket right", new Vector3(.038f, .025f, .66f), new Vector3(.034f, .045f, .012f), dark);
+            Part("Soul aperture", new Vector3(0, -.035f, .665f), new Vector3(.045f, .04f, .015f), energy);
+        }
+
+        void BuildArcCoil(Material dark, Material metal, Material trim, Material energy)
+        {
+            weaponRoot.name = "Bobina Voltaica / frascos do Alquimista";
+            muzzleLocal = new Vector3(0, .04f, .66f);
+            Part("Induction housing", new Vector3(0, -.005f, .18f), new Vector3(.19f, .14f, .37f), metal);
+            Part("Coil core", new Vector3(0, .02f, .45f), new Vector3(.09f, .09f, .29f), dark);
+            for (int winding = 0; winding < 5; winding++)
+                Part("Copper winding", new Vector3(0, .02f, .33f + winding * .055f), new Vector3(.17f, .15f, .025f), trim);
+            Part("Arc tip", new Vector3(0, .04f, .6f), new Vector3(.09f, .08f, .09f), energy);
+            Part("Right glowing flask", new Vector3(.14f, -.045f, .16f), new Vector3(.1f, .16f, .12f), energy);
+            Part("Left glowing flask", new Vector3(-.15f, -.045f, .23f), new Vector3(.1f, .17f, .12f), energy);
+            Part("Right bottle stopper", new Vector3(.14f, .06f, .16f), new Vector3(.07f, .05f, .075f), dark);
+            Part("Left bottle stopper", new Vector3(-.15f, .065f, .23f), new Vector3(.07f, .05f, .075f), dark);
+            Part("Pressure gauge", new Vector3(.11f, .075f, .16f), new Vector3(.06f, .035f, .09f), trim, new Vector3(15, 0, 0));
+            Part("Voltaic reservoir", new Vector3(0, -.055f, -.02f), new Vector3(.15f, .13f, .16f), dark);
         }
 
         void Part(string name, Vector3 position, Vector3 scale, Material material, Vector3? rotation = null)
@@ -318,12 +462,14 @@ namespace Ecos.Haunt.Fps
                 if (casings[0].Transform) Destroy(casings[0].Transform.gameObject);
                 casings.RemoveAt(0);
             }
-            Vector3 position = weaponRoot.TransformPoint(new Vector3(.14f, .04f, .08f));
+            Vector3 position = IsTopDown ? MuzzlePosition : weaponRoot.TransformPoint(new Vector3(.14f, .04f, .08f));
             var shell = game.Box("Spent brass", Vector3.zero, new Vector3(.025f, .045f, .025f), casingMaterial, game.transform, false);
             shell.transform.position = position;
             float variation = Mathf.Sin(clock * 31) * .25f;
+            Vector3 forward = IsTopDown ? perspective.AimDirection : view.transform.forward;
+            Vector3 right = IsTopDown ? Vector3.Cross(Vector3.up, forward).normalized : view.transform.right;
             casings.Add(new Casing { Transform = shell.transform, Position = position,
-                Velocity = view.transform.right * (1.6f + variation) + Vector3.up * 1.8f + view.transform.forward * .4f,
+                Velocity = right * (1.6f + variation) + Vector3.up * 1.8f + forward * .4f,
                 Spin = 270 + variation * 180 });
         }
 
@@ -357,6 +503,7 @@ namespace Ecos.Haunt.Fps
         {
             if (disposed) return;
             disposed = true;
+            if (perspective) perspective.Dispose();
             if (view)
             {
                 view.cullingMask = originalCullingMask;
@@ -364,6 +511,7 @@ namespace Ecos.Haunt.Fps
                 if (modelCamera) data.cameraStack.Remove(modelCamera);
             }
             if (modelCamera) Destroy(modelCamera.gameObject);
+            if (worldFlashRoot) { worldFlashRoot.gameObject.SetActive(false); Destroy(worldFlashRoot.gameObject); }
             foreach (var casing in casings) if (casing.Transform) Destroy(casing.Transform.gameObject);
             casings.Clear();
         }

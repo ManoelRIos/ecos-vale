@@ -90,8 +90,11 @@ REQUIRED_FILES.update({'Assets/_Game/Resources/CharacterSheets/catalog.json',
                        'Assets/_Game/ArtSources/PilotOriginal.png', 'Assets/_Game/ArtSources/PilotOriginal.png.meta',
                        'Tools/Pilot/source-clips.json', 'Tools/import_pilot_sheet.py', 'Tools/requirements-sprite-import.txt'})
 REQUIRED_FILES.update('Assets/_Game/Haunt/Fps/' + name + suffix
-                      for name in ('HauntFpsGame.cs', 'HauntFpsGame.UI.cs', 'HauntFpsPlayer.cs', 'HauntFpsWorld.cs',
-                                   'HauntFpsEnemy.cs', 'HauntFpsBarrel.cs', 'HauntFpsAudio.cs', 'HauntFpsLit.shader')
+                      for name in ('HauntFpsGame.cs', 'HauntFpsGame.UI.cs', 'HauntFpsGame.Campaign.cs',
+                                   'HauntFpsPlayer.cs', 'HauntFpsPerspective.cs', 'HauntFpsHybridArt.cs', 'HauntFpsHeroBody.cs',
+                                   'HauntFpsWorld.cs', 'HauntFpsCampaign.cs', 'HauntFpsEnemy.cs',
+                                   'HauntFpsEnemy.Models.cs', 'HauntFpsBoss.cs', 'HauntFpsBarrel.cs',
+                                   'HauntFpsAudio.cs', 'HauntFpsLit.shader')
                       for suffix in ('', '.meta'))
 REQUIRED_FILES.update({'Assets/_Game/Resources/FpsPalette.mat', 'Assets/_Game/Resources/FpsPalette.mat.meta'})
 REQUIRED_FILES.update({'Assets/_Game/Haunt/Core/FpsPrototypeRules.cs',

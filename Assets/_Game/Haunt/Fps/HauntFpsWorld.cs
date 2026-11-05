@@ -5,16 +5,22 @@ using UnityEngine.Rendering;
 
 namespace Ecos.Haunt.Fps
 {
-    /// <summary>A deliberately small 3D combat arena. Geometry, texture pixels,
-    /// lights and decorations belong to this component and share its lifetime.</summary>
+    /// <summary>Shared 3D geometry for both perspectives. Each campaign theme owns
+    /// its palette, cover plan, decorations, lights and generated textures.</summary>
     public sealed class HauntFpsWorld : MonoBehaviour, IDisposable
     {
         public const float Width = 28, Depth = 24;
         public Vector3 PlayerSpawn => new Vector3(0, 0, -8);
         public Vector3 ExitPosition => new Vector3(0, 0, 10.55f);
-        public Vector3[] MeleeSpawns => new[] { new Vector3(-5.5f, 0, 5.5f) };
-        public Vector3[] RangedSpawns => new[] { new Vector3(6, 0, 6.5f) };
+        public Vector3 BossSpawn => new Vector3(0, 0, 5.5f);
+        public Vector3[] MeleeSpawns => new[] { new Vector3(-5.5f, 0, 5.5f), new Vector3(5.5f, 0, -.5f), new Vector3(-5.5f, 0, -.5f) };
+        public Vector3[] RangedSpawns => new[] { new Vector3(6, 0, 6.5f), new Vector3(-6, 0, 7.5f), new Vector3(5.5f, 0, -4.5f) };
         public Vector3[] BarrelSpawns => new[] { new Vector3(3.2f, 0, 2.4f), new Vector3(5.2f, 0, 3.2f) };
+        public int ThemeIndex { get; private set; }
+        public int FloorNumber { get; private set; } = 1;
+        public string ThemeName => HauntFpsCampaign.ThemeName(FloorNumber);
+        public string LayoutName => ThemeIndex == 0 ? "JARDIM FUNERARIO" : ThemeIndex == 1 ? "ALCOVAS DO VEU"
+            : ThemeIndex == 2 ? "NAVE DA CATEDRAL" : ThemeIndex == 3 ? "PONTES DO NINHO" : "ANEL DO ABISMO";
         public bool ExitOpen { get; private set; }
         public int GeneratedTextureCount => textures.Count;
         public int OwnedMaterialCount => materials.Count;
@@ -47,7 +53,9 @@ namespace Ecos.Haunt.Fps
             if (initialized) throw new InvalidOperationException("A arena FPS já foi construída.");
             if (disposed) throw new ObjectDisposedException(nameof(HauntFpsWorld));
             initialized = true;
-            geometry = new GameObject("Cripta / geometria e luzes").transform;
+            FloorNumber = game && game.State != null ? Mathf.Max(1, game.State.Floor) : 1;
+            ThemeIndex = HauntFpsCampaign.ThemeIndex(FloorNumber);
+            geometry = new GameObject(ThemeName + " / geometria e luzes").transform;
             geometry.SetParent(transform, false);
             ConfigureAtmosphere();
             BuildArena();
@@ -87,21 +95,29 @@ namespace Ecos.Haunt.Fps
             }
             environmentOwner = this;
             RenderSettings.ambientMode = AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(.22f, .19f, .31f);
+            RenderSettings.ambientLight = ThemeIndex == 0 ? new Color(.22f, .19f, .27f)
+                : ThemeIndex == 1 ? new Color(.20f, .19f, .34f) : ThemeIndex == 2 ? new Color(.28f, .16f, .20f)
+                : ThemeIndex == 3 ? new Color(.16f, .25f, .19f) : new Color(.17f, .13f, .28f);
             RenderSettings.fog = true;
-            RenderSettings.fogColor = new Color(.055f, .045f, .09f);
+            RenderSettings.fogColor = ThemeIndex == 0 ? new Color(.055f, .045f, .065f)
+                : ThemeIndex == 1 ? new Color(.065f, .055f, .13f) : ThemeIndex == 2 ? new Color(.095f, .035f, .05f)
+                : ThemeIndex == 3 ? new Color(.035f, .085f, .055f) : new Color(.04f, .025f, .10f);
             RenderSettings.fogMode = FogMode.ExponentialSquared;
-            RenderSettings.fogDensity = .018f;
+            RenderSettings.fogDensity = ThemeIndex == 0 ? .018f : ThemeIndex == 1 ? .025f : ThemeIndex == 2 ? .02f : ThemeIndex == 3 ? .029f : .032f;
             RenderSettings.fogStartDistance = 10;
             RenderSettings.fogEndDistance = 45;
         }
 
         void BuildArena()
         {
-            var floor = Surface("piso", new Color(.48f, .5f, .53f), PixelTexture("piso", 64, 0));
+            var floorTint = ThemeIndex == 0 ? new Color(.48f, .5f, .53f) : ThemeIndex == 1 ? new Color(.43f, .4f, .57f)
+                : ThemeIndex == 2 ? new Color(.56f, .39f, .38f) : ThemeIndex == 3 ? new Color(.36f, .47f, .33f) : new Color(.31f, .29f, .43f);
+            var wallTint = ThemeIndex == 0 ? new Color(.45f, .43f, .52f) : ThemeIndex == 1 ? new Color(.40f, .35f, .58f)
+                : ThemeIndex == 2 ? new Color(.51f, .36f, .37f) : ThemeIndex == 3 ? new Color(.34f, .43f, .30f) : new Color(.31f, .28f, .44f);
+            var floor = Surface("piso", floorTint, PixelTexture("piso", 64, ThemeIndex == 0 ? 0 : 3 + ThemeIndex));
             floor.mainTextureScale = new Vector2(14, 12);
-            var wall = Surface("alvenaria", new Color(.45f, .43f, .52f), PixelTexture("parede", 32, 1));
-            var trim = Surface("pedra fria", new Color(.31f, .34f, .41f), PixelTexture("pedra", 32, 2));
+            var wall = Surface("alvenaria", wallTint, PixelTexture("parede", 32, 1));
+            var trim = Surface("pedra fria", wallTint * .72f, PixelTexture("pedra", 32, 2));
             var bone = Surface("osso", new Color(.81f, .77f, .61f));
             var iron = Surface("ferro", new Color(.16f, .19f, .23f));
             var wood = Surface("madeira", new Color(.27f, .19f, .15f), PixelTexture("madeira", 32, 3));
@@ -126,28 +142,36 @@ namespace Ecos.Haunt.Fps
                 Cube("Parede oeste", new Vector3(-14.2f, 2, z * 2 + 1), new Vector3(.4f, 4, 2), wall, true);
                 Cube("Parede leste", new Vector3(14.2f, 2, z * 2 + 1), new Vector3(.4f, 4, 2), wall, true);
             }
-            // Cover sits away from the center route and the two enemy approaches.
-            foreach (var p in new[] { new Vector3(-8, 0, -1), new Vector3(8, 0, -1), new Vector3(-9, 0, 7), new Vector3(9, 0, 7) })
-                Pillar(p, wall, trim, bone);
-            foreach (var p in new[] { new Vector3(-11, 0, 3.5f), new Vector3(11, 0, 3.5f), new Vector3(-11, 0, -5), new Vector3(11, 0, -5) })
-                Gravestone(p, trim, bone);
+            // Distinct physical cover plans keep the central route and the boss
+            // staging area open. Perspectives share these exact colliders.
+            BuildThemeCover(wall, trim, bone, wood, iron);
+            if (ThemeIndex == 0 || ThemeIndex == 3)
+                foreach (var p in new[] { new Vector3(-11, 0, 3.5f), new Vector3(11, 0, 3.5f), new Vector3(-11, 0, -5), new Vector3(11, 0, -5) })
+                    Gravestone(p, trim, bone);
             // Decorative objects are non-solid; only cover and architecture stop movement or shots.
             for (int side = -1; side <= 1; side += 2)
             {
                 Fence(new Vector3(side * 11.5f, 0, 9.8f), iron);
                 for (int n = 0; n < 3; n++)
                     Cube("Tábua caída", new Vector3(side * (11.8f - n * .45f), .035f, -9.7f + n * .25f), new Vector3(.17f, .07f, 1.1f), wood, false).transform.localRotation = Quaternion.Euler(0, side * (n * 19 + 8), 0);
-                Pumpkin(new Vector3(side * 10.8f, .38f, -9.2f), pumpkin, black, amber);
-                Pumpkin(new Vector3(side * 12.2f, .3f, 8.5f), pumpkin, black, green);
+                if (ThemeIndex == 0)
+                {
+                    Pumpkin(new Vector3(side * 10.8f, .38f, -9.2f), pumpkin, black, amber);
+                    Pumpkin(new Vector3(side * 12.2f, .3f, 8.5f), pumpkin, black, green);
+                }
             }
-            Candelabrum(new Vector3(-11.8f, 0, -3.5f), iron, bone, wax, amber, new Color(1, .47f, .13f), 1);
-            Candelabrum(new Vector3(11.8f, 0, -3.5f), iron, bone, wax, amber, new Color(1, .47f, .13f), 4);
-            Candelabrum(new Vector3(-11.8f, 0, 6.5f), iron, bone, wax, green, new Color(.35f, 1, .6f), 8);
-            Candelabrum(new Vector3(11.8f, 0, 6.5f), iron, bone, wax, amber, new Color(1, .47f, .13f), 12);
+            Color themeLight = ThemeIndex == 0 ? new Color(1, .47f, .13f) : ThemeIndex == 1 ? new Color(.61f, .40f, 1)
+                : ThemeIndex == 2 ? new Color(1, .24f, .20f) : ThemeIndex == 3 ? new Color(.38f, 1, .31f) : new Color(.48f, .30f, 1);
+            var themeFlame = ThemeIndex == 0 ? amber : Surface("chama do tema", themeLight, null, themeLight * 2);
+            Candelabrum(new Vector3(-11.8f, 0, -3.5f), iron, bone, wax, themeFlame, themeLight, 1);
+            Candelabrum(new Vector3(11.8f, 0, -3.5f), iron, bone, wax, themeFlame, themeLight, 4);
+            Candelabrum(new Vector3(-11.8f, 0, 6.5f), iron, bone, wax, ThemeIndex == 0 ? green : themeFlame, ThemeIndex == 0 ? new Color(.35f, 1, .6f) : themeLight, 8);
+            Candelabrum(new Vector3(11.8f, 0, 6.5f), iron, bone, wax, themeFlame, themeLight, 12);
             Candle(new Vector3(-2.6f, .03f, 9.9f), wax, amber, .34f);
             Candle(new Vector3(2.6f, .03f, 9.9f), wax, amber, .46f);
             Skull(new Vector3(-12.6f, .16f, -7.4f), bone, black, .28f);
             Skull(new Vector3(12.6f, .16f, 1.1f), bone, black, .24f);
+            BuildThemeDecor(wall, trim, bone, iron, wood, black, themeFlame, themeLight);
             BuildExit(trim, bone, iron);
             Cobweb(new Vector3(-13.96f, 3.8f, 11.94f), bone, false);
             Cobweb(new Vector3(13.96f, 3.8f, 11.94f), bone, true);
@@ -160,13 +184,159 @@ namespace Ecos.Haunt.Fps
                 var rune = Cube("Runas do ossuário", new Vector3(Mathf.Sin(angle) * 2.25f, .018f, Mathf.Cos(angle) * 2.25f), new Vector3(.1f, .02f, .54f), exitMaterial, false);
                 rune.transform.localRotation = Quaternion.Euler(0, -i * 45, 0);
             }
-            Point(new Vector3(-11, 1.05f, -9.2f), new Color(1, .37f, .08f), 1.35f, 5.5f, null, 16);
-            Point(new Vector3(11, 1.05f, -9.2f), new Color(1, .37f, .08f), 1.35f, 5.5f, null, 20);
+            Point(new Vector3(-11, 1.05f, -9.2f), themeLight, 1.35f, 5.5f, null, 16);
+            Point(new Vector3(11, 1.05f, -9.2f), themeLight, 1.35f, 5.5f, null, 20);
             var sunObject = new GameObject("Luz da lua"); sunObject.transform.SetParent(geometry, false);
             sunObject.transform.localRotation = Quaternion.Euler(52, -28, 0);
             var moon = sunObject.AddComponent<Light>(); moon.type = LightType.Directional;
-            moon.color = new Color(.48f, .59f, .82f); moon.intensity = .58f;
+            moon.color = ThemeIndex == 2 ? new Color(.75f, .43f, .48f) : ThemeIndex == 3 ? new Color(.44f, .66f, .54f) : new Color(.48f, .59f, .82f);
+            moon.intensity = .58f - ThemeIndex * .035f;
             moon.shadows = LightShadows.Soft; moon.shadowStrength = .7f;
+        }
+
+        void BuildThemeCover(Material wall, Material trim, Material bone, Material wood, Material iron)
+        {
+            if (ThemeIndex == 0)
+            {
+                foreach (var p in new[] { new Vector3(-8, 0, -1), new Vector3(8, 0, -1), new Vector3(-9, 0, 7), new Vector3(9, 0, 7) })
+                    Pillar(p, wall, trim, bone);
+            }
+            else if (ThemeIndex == 1)
+            {
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    Pillar(new Vector3(side * 8, 0, -4), wall, trim, bone);
+                    Pillar(new Vector3(side * 8, 0, 5), wall, trim, bone);
+                    Cube("Parede interna / alcova", new Vector3(side * 11, 1.5f, 0), new Vector3(3, 3, .45f), wall, true);
+                    Cube("Coroamento / alcova", new Vector3(side * 11, 3.08f, 0), new Vector3(3.25f, .18f, .7f), trim, false);
+                }
+            }
+            else if (ThemeIndex == 2)
+            {
+                for (int side = -1; side <= 1; side += 2)
+                    for (int row = 0; row < 3; row++)
+                    {
+                        Vector3 at = new Vector3(side * 8.5f, 0, -5 + row * 6);
+                        Pillar(at, wall, trim, bone);
+                        // Broken ribs give the nave real height without creating
+                        // a ceiling over the overhead camera or a blocked route.
+                        Cube("Coroamento / arco da nave", at + new Vector3(side * -1.1f, 3.75f, 0),
+                            new Vector3(2.5f, .24f, .42f), trim, false).transform.localRotation = Quaternion.Euler(0, 0, side * 15);
+                    }
+            }
+            else if (ThemeIndex == 3)
+            {
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    Pillar(new Vector3(side * 9, 0, 7), wall, trim, bone);
+                    for (int row = 0; row < 2; row++)
+                    {
+                        Vector3 at = new Vector3(side * 8.5f, 0, -4 + row * 6);
+                        Cube("Cover / tronco putrido", at + Vector3.up * .42f, new Vector3(3.3f, .84f, .85f), wood, true);
+                        for (int stave = -1; stave <= 1; stave++)
+                            Cube("Cover / estaca", at + new Vector3(stave * 1.2f, .9f, 0), new Vector3(.18f, 1.2f, .18f), wood, false);
+                    }
+                }
+            }
+            else
+            {
+                for (int side = -1; side <= 1; side += 2)
+                    for (int end = -1; end <= 1; end += 2)
+                    {
+                        var corner = Cube("Parede interna / canto abissal", new Vector3(side * 12.2f, 1.8f, end * 10.2f),
+                            new Vector3(3.8f, 3.6f, .6f), wall, true);
+                        corner.transform.localRotation = Quaternion.Euler(0, side * end * -45, 0);
+                        Pillar(new Vector3(side * 8, 0, end * 2.2f), wall, trim, bone);
+                    }
+            }
+        }
+
+        void BuildThemeDecor(Material wall, Material stone, Material bone, Material iron, Material wood,
+            Material dark, Material glow, Color accent)
+        {
+            if (ThemeIndex == 0)
+            {
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    Vector3 at = new Vector3(side * 12.5f, 0, 4);
+                    Cube("Arvore morta / tronco", at + Vector3.up * 1.1f, new Vector3(.32f, 2.2f, .3f), wood, false);
+                    for (int branch = -1; branch <= 1; branch += 2)
+                        Cube("Arvore morta / galho", at + new Vector3(branch * .38f, 2.1f, 0), new Vector3(.15f, 1.15f, .16f), wood, false)
+                            .transform.localRotation = Quaternion.Euler(0, 0, branch * 42);
+                }
+            }
+            else if (ThemeIndex == 1)
+            {
+                var cloth = Surface("tecido dos veus", new Color(.31f, .16f, .43f));
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    for (int panel = 0; panel < 7; panel++)
+                    {
+                        float length = 2.3f - Mathf.Abs(panel - 3) * .24f;
+                        Cube("Parede / veu rasgado", new Vector3(side * 13.85f, 3.6f - length * .5f, -7 + panel * .42f),
+                            new Vector3(.06f, length, .4f), panel % 2 == 0 ? cloth : dark, false);
+                    }
+                    for (int frame = 0; frame < 3; frame++)
+                    {
+                        Vector3 at = new Vector3(side * 13.88f, 2, 1.2f + frame * 2.4f);
+                        Cube("Parede / espelho do veu", at, new Vector3(.055f, 1.35f, .86f), dark, false);
+                        Cube("Parede / moldura do veu", at + new Vector3(0, .75f, 0), new Vector3(.09f, .12f, 1.05f), glow, false);
+                        Skull(at + new Vector3(side * -.11f, 0, 0), bone, dark, .19f);
+                    }
+                }
+            }
+            else if (ThemeIndex == 2)
+            {
+                var ash = Surface("cinzas brancas", new Color(.57f, .52f, .48f));
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    Vector3 at = new Vector3(side * 13.83f, 2, 2.4f);
+                    Cube("Parede / vitral rubro", at, new Vector3(.08f, 2.6f, 2.4f), glow, false);
+                    Cube("Parede / cruz do vitral", at + new Vector3(side * -.06f, 0, 0), new Vector3(.11f, 2.7f, .14f), iron, false);
+                    Cube("Parede / braco do vitral", at + new Vector3(side * -.06f, .3f, 0), new Vector3(.11f, .12f, 2.5f), iron, false);
+                    for (int heap = 0; heap < 4; heap++)
+                        Cube("Cinzas / monte", new Vector3(side * (10.4f + heap * .65f), .06f, -8 + heap * .27f), new Vector3(.72f, .12f, 1.35f), ash, false);
+                }
+                for (int step = 0; step < 4; step++)
+                    Cube("Passadeira ritual", new Vector3(0, .014f, -5.4f + step * 3.1f), new Vector3(2.3f, .018f, 2), dark, false);
+            }
+            else if (ThemeIndex == 3)
+            {
+                var cap = Surface("fungo putrido", new Color(.4f, .55f, .17f));
+                var pus = Surface("icor da peste", new Color(.16f, .4f, .08f), null, new Color(.1f, .45f, .04f));
+                for (int side = -1; side <= 1; side += 2)
+                    for (int colony = 0; colony < 5; colony++)
+                    {
+                        Vector3 at = new Vector3(side * (10.8f + colony % 2), 0, -8 + colony * 3.6f);
+                        Cube("Icor / margem", at + Vector3.up * .025f, new Vector3(1.5f, .045f, 2), pus, false);
+                        for (int stem = 0; stem < 3; stem++)
+                        {
+                            Vector3 p = at + new Vector3((stem - 1) * .44f, .18f, stem * .22f);
+                            Cube("Fungo / talo", p + Vector3.up * .22f, new Vector3(.13f, .45f, .13f), bone, false);
+                            Cube("Fungo / chapeu", p + Vector3.up * .48f, new Vector3(.63f, .18f, .55f), cap, false);
+                            Cube("Fungo / esporo", p + new Vector3(.12f, .59f, .06f), Vector3.one * .09f, glow, false);
+                        }
+                    }
+            }
+            else
+            {
+                var bronze = Surface("bronze funerario", new Color(.45f, .34f, .21f));
+                for (int side = -1; side <= 1; side += 2)
+                    for (int shrine = 0; shrine < 3; shrine++)
+                    {
+                        Vector3 at = new Vector3(side * 11.5f, 0, -6 + shrine * 6);
+                        Cube("Santuario / pedestal", at + Vector3.up * .3f, new Vector3(1.4f, .6f, 1.4f), stone, false);
+                        for (int crystal = -1; crystal <= 1; crystal++)
+                        {
+                            var shard = Cube("Cristal abissal", at + new Vector3(crystal * .32f, .95f, crystal * .22f), new Vector3(.22f, 1.35f - Mathf.Abs(crystal) * .45f, .24f), glow, false);
+                            shard.transform.localRotation = Quaternion.Euler(crystal * 12, 0, -crystal * 18);
+                        }
+                        Cube("Sino / corrente", at + Vector3.up * 3, new Vector3(.055f, 1.5f, .055f), iron, false);
+                        Cube("Sino / corpo", at + Vector3.up * 2.25f, new Vector3(.7f, .7f, .6f), bronze, false);
+                        Cube("Sino / borda", at + Vector3.up * 1.88f, new Vector3(.92f, .13f, .79f), bronze, false);
+                        Cube("Sino / badalo", at + Vector3.up * 1.71f, new Vector3(.13f, .25f, .13f), iron, false);
+                    }
+            }
         }
 
         void BuildExit(Material stone, Material bone, Material iron)
@@ -346,6 +516,14 @@ namespace Ecos.Haunt.Fps
                 }
                 else if (style == 3)
                     baseShade = x % 8 == 0 ? 52 : 132 + ((y + (x % 5) * 3) % 17 == 0 ? -27 : 0);
+                else if (style == 4)
+                    baseShade = (x + y) % 16 == 0 || (x - y + 64) % 16 == 0 ? 53 : ((x / 8 + y / 8) % 2 == 0 ? 139 : 111);
+                else if (style == 5)
+                    baseShade = x % 12 == 0 || (y + x / 12 * 6) % 12 == 0 ? 51 : (x % 12 == 1 ? 157 : 132);
+                else if (style == 6)
+                    baseShade = x % 16 == 0 || y % 16 == 0 ? 47 : (hash % 9 < 3 ? 88 : 131);
+                else if (style == 7)
+                    baseShade = (x / 8 + y / 8) % 2 == 0 ? 99 : 122;
                 else baseShade = 137 + ((x + y * 2) % 19 == 0 ? -26 : 0);
                 byte r = (byte)Mathf.Clamp(baseShade + grain, 0, 255);
                 byte g = (byte)Mathf.Clamp(baseShade + grain + (style == 0 ? 3 : 0), 0, 255);

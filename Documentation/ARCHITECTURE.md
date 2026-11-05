@@ -1,14 +1,22 @@
 # Arquitetura de Ecos da Meia-Noite
 
-O projeto contém duas cenas independentes em `Assets/_Game/Scenes`: `HauntFps.unity` é a entrada padrão em primeira pessoa; `Haunt.unity` preserva o roguelike 2D. `Haunt.Runtime`, `Haunt.Editor` e `Haunt.Tests` separam jogo, ferramentas e testes. Sons e música são sintetizados localmente, sem rede no runtime.
+O projeto contém duas cenas independentes em `Assets/_Game/Scenes`: `HauntFps.unity` é a entrada padrão da campanha híbrida 2D/FPS; `Haunt.unity` preserva o roguelike 2D. `Haunt.Runtime`, `Haunt.Editor` e `Haunt.Tests` separam jogo, ferramentas e testes. Sons e música são sintetizados localmente, sem rede no runtime.
 
-## Protótipo FPS
+## Campanha híbrida 2D / FPS
 
-`Fps/HauntFpsGame.cs` e `.UI.cs` constroem a sessão, estado, combate, três ondas e menus. `HauntFpsPlayer` conecta Input System, câmera perspectiva, `CharacterController`, salto, esquiva e arma visível em primeira pessoa. A geometria e as colisões ocupam o espaço 3D; o piso usa XZ e a altura usa Y. O revólver usa um carregador de oito tiros com reserva infinita e recarga manual, integrado ao núcleo de munição existente.
+`HauntFps.unity` mantém uma única simulação 3D em XZ, com Y para altura. `Fps/HauntFpsGame.cs`, `.Campaign.cs` e `.UI.cs` gerenciam sessão, armas, poderes, ondas, chefes, progressão e interface. A seleção cria `RunState(seed, character)` com a arma inicial de cada uma das quatro almas; carregadores têm 12/6/6/30 balas, reserva infinita e recarga manual. As cinco fases reutilizam o mesmo estado de incursão, com três ondas e um chefe por arena.
 
-`HauntFpsWorld` gera uma arena de 28 × 24 unidades, cobertura, texturas pixeladas, decoração, luzes, neblina e portal. `HauntFpsEnemy` separa Esqueleto e Lanterna; `HauntFpsBarrel` controla explosivos; `HauntFpsAudio` sintetiza música e efeitos próprios. `Core/FpsPrototypeRules.cs` centraliza a composição das ondas e os cálculos de dano radial sem depender do Unity. Consulte [PROTOTIPO_FPS.md](PROTOTIPO_FPS.md).
+`HauntFpsPerspective` alterna entre FPS e câmera ortográfica oblíqua, com transição de 0,4 s, intervalo de troca e mira específica para mouse/controle. O `CharacterController`, os inimigos, projéteis, carregador, recarga, poder e relógio da esquiva permanecem os mesmos durante a troca. `HauntFpsPlayer` preserva orientação FPS, controla movimento relativo à visão, bloqueia tiros durante a transição e exige soltar o gatilho após retomada/troca. A mudança não concede proteção adicional.
 
-`HauntFpsProject` cria um par URP 3D dedicado, `Resources/FpsPipeline.asset` e `FpsRenderer.asset`, mantendo os recursos da cena 2D separados. O shader `Ecos/HauntFpsLit` tem uma referência persistente em `Resources/FpsPalette.mat`. `HauntSetup` prepara os recursos no Editor e configura o build com FPS primeiro e 2D segundo. O launcher chama `HauntProject.OpenFromCommandLine`, que agora abre o FPS; o menu `Ecos/Abrir roguelike` continua abrindo a cena 2D. Durante Play, o FPS aplica seu pipeline e restaura o anterior na limpeza.
+`HauntFpsHybridArt` apresenta os quatro heróis, 17 mobs e sete chefes em sprites na visão 2D e restaura os modelos no FPS. Paredes e pilares recebem representação visual em corte sem alterar colisores. A câmera 2D, portanto, compartilha a física e os obstáculos do mundo 3D. `Dispose` restaura os renderers originais e libera os recursos próprios antes de destruir o cenário.
+
+`HauntFpsHeroBody` constrói os quatro corpos completos com pernas, cabeça, braços e acessórios de classe. Na primeira pessoa, a parte superior usa `ShadowsOnly` para não invadir a câmera; pernas e botas permanecem visíveis. Durante o retorno da câmera ao FPS, o corpo completo aparece enquanto ela está afastada. Em 2D, seus renderers são desativados e o sprite da mesma alma assume a apresentação. O corpo não acrescenta colisores ativos.
+
+`HauntFpsWorld` constrói cinco temas com materiais, cobertura, decoração, luzes e neblina próprios; cada arena mede 28 × 24. `HauntFpsCampaign` define os rosters dos 17 mobs e escolhe chefes pelos mesmos grupos e semente de `DungeonFloor`. A rede de salas desse gerador continua na cena 2D anterior: a campanha híbrida usa uma arena temática por fase. `HauntFpsEnemy`/`.Models.cs` constroem criaturas e seus ataques; `HauntFpsBoss` reúne sete modelos e padrões, introdução invulnerável, preparação, fúria e morte.
+
+O disparo consulta colisões 3D, com leque, penetração ou choque encadeado conforme a arma inicial. Poderes usam as mesmas criaturas e projéteis. Bombas em cruz e orbes de divisão são removidos antes de emitir filhos, respeitando o orçamento de projéteis. A morte do chefe libera o portal; o treino de chefe permite acessar diretamente os sete modelos nos cinco temas. Vida, munição e poderes continuam entre fases, enquanto uma nova incursão recria o estado.
+
+`HauntFpsAudio` sintetiza música e efeitos originais e mantém as vozes limitadas. `HauntFpsLit.shader` ilumina texturas com filtro Point, luzes e sombras. O Editor prepara `FpsPipeline`/`FpsRenderer`, separados dos recursos da cena antiga. A execução restaura ambiente, pipeline e cursor ao terminar; troca de perspectiva não carrega outra cena. `Haunt.unity` conserva os sistemas 2D anteriores, incluindo loja e catálogo completo de armas. Não há sincronização multiplayer.
 
 ## Roguelike 2D
 

@@ -1,4 +1,4 @@
-ECOS DA MEIA-NOITE - PROTOTIPO FPS / UNITY
+ECOS DA MEIA-NOITE - CAMPANHA HIBRIDA 2D / FPS - UNITY
 
 1. Instale Unity 6000.0.85f1 pelo Unity Hub.
 2. Extraia TODO o ZIP em uma pasta nova e curta, como C:\Dev\EcosDaMeiaNoite.
@@ -7,45 +7,61 @@ ECOS DA MEIA-NOITE - PROTOTIPO FPS / UNITY
    que contem Assets, Packages e ProjectSettings.
 4. Aguarde os pacotes e a compilacao. Com Play parado, use
    Ecos > Abrir prototipo FPS para abrir Assets/_Game/Scenes/HauntFps.unity.
-5. Pressione Play, inicie e clique na janela Game para capturar o mouse.
-   Venca as tres ondas e use E perto do portal para concluir.
+5. Pressione Play, escolha um personagem e inicie. Tab / R1 alterna
+   entre visao 2D e primeira pessoa durante o combate.
+6. Venca tres ondas e o chefe de cada fase. Use E / Quadrado no portal
+   para avancar pelas cinco fases. O menu tambem oferece treino de chefe.
 
-O atalho ABRIR_ECOS_DA_MEIA_NOITE.cmd e opcional e abre a cena FPS.
+O atalho ABRIR_ECOS_DA_MEIA_NOITE.cmd e opcional e abre a mesma cena.
 A abertura pelo Hub nao precisa dele. Log: Logs/MeiaNoite-Editor.log.
 
-CONTROLES DO FPS
-WASD/setas mover; mouse olhar; esquerdo atirar; R recarregar;
+CONTROLES DA CAMPANHA HIBRIDA
+WASD/setas mover; mouse olhar no FPS ou apontar a mira no 2D;
+Tab alternar perspectiva; esquerdo atirar; R recarregar; Q usar poder;
 Alt esquerdo/Ctrl esquerdo/direito esquivar; Espaco saltar;
 E usar portal; Esc pausar/liberar cursor; M alternar som.
 Enter inicia e reinicia apos morte/vitoria. Menus tem botoes com cursor livre.
-Solte o gatilho depois de retomar para voltar a atirar.
+Solte o gatilho depois de retomar ou trocar a visao para voltar a atirar.
 
 CONTROLE PS4 RECONHECIDO PELO INPUT SYSTEM
-Analogico esquerdo mover; direito olhar; R2 atirar; Triangulo recarregar;
-Circulo esquivar; X saltar ou confirmar inicio/reinicio; Quadrado portal;
-Options pausa. Os menus tambem oferecem botoes de som e retorno ao 2D.
-A compatibilidade do seu controle/driver precisa ser testada no PC.
+Analogico esquerdo mover; direito olhar/mirar; R1 alternar perspectiva;
+R2 atirar; Triangulo recarregar; L1 poder; Circulo esquivar;
+X saltar ou confirmar inicio/reinicio; Quadrado portal; Options pausa.
+No menu: L1/R1 personagem; Triangulo modo/chefe; Share cenario de treino.
+Na pausa, Triangulo volta a selecao.
+A compatibilidade do controle/driver precisa ser testada no PC.
 
-CONTEUDO DO PROTOTIPO
-Arena 3D de 28 x 24 unidades, gerada em C#, com texturas pixeladas,
-pilares, lapides, grades, velas, aboboras, luzes oscilantes e neblina.
-Revolver com 8 tiros por carregador, reserva infinita e recarga manual.
-Camera com recuo, clarao do cano, capsulas e feedback nos impactos.
-Esquiva de 0,22 s: primeiros 60% protegidos, ultimos 40% vulneraveis.
-Esqueletos de ataque proximo e Lanternas com tiros anunciados.
-Tres ondas, barris explosivos com reacao em cadeia e portal de conclusao.
-Musica e efeitos originais sintetizados pelo jogo.
+PERSONAGENS
+Cacador: Carabina da Aurora, 12 tiros, pulso de dano.
+Medium: Varinha do Veu, 6 tiros, leque e lamento contra tiros hostis.
+Ceifador: Ceifador de Ossos, 6 tiros, penetracao e colheita proxima.
+Alquimista: Bobina Voltaica, 30 tiros, choque encadeado e elixir vital.
+As quatro armas iniciais tem reserva infinita e recarga manual.
+Os quatro herois tem corpos 3D, maos/armas proprias no FPS e sprites no 2D.
+
+CONTEUDO DA CAMPANHA
+Cinco arenas de 28 x 24 unidades, com temas, materiais, iluminacao,
+neblina, decoracao e cobertura distintos. Tres ondas e um chefe por fase.
+17 tipos de mob e sete chefes, com modelos 3D e apresentacao 2D.
+Chefes: Rei das Aboboras, Viuva do Veu, Bispo das Cinzas, Matriarca da Peste,
+Sino do Abismo, Carrasco de Ferro e Oraculo do Brejo.
+O treino permite selecionar os chefes e temas pelo menu.
+Tab / R1 preserva vida, municao, recarga, poderes, inimigos e projeteis.
+Durante os 0,4 s da transicao, tiros do jogador ficam bloqueados;
+a troca nao acrescenta invencibilidade. A esquiva conserva a regra 60/40.
+O portal abre apos o chefe e conserva a progressao para a fase seguinte.
+Barris explosivos podem atingir jogador e criaturas e reagir em cadeia.
+Musica e efeitos originais sao sintetizados pelo jogo.
 Veja Documentation/PROTOTIPO_FPS.md para detalhes e roteiro de teste.
 
 ROGUELIKE 2D PRESERVADO
 Com Play parado: Ecos > Abrir roguelike abre Assets/_Game/Scenes/Haunt.unity.
-O menu do prototipo tambem permite abrir a versao 2D.
-O build inicia no FPS e inclui a cena 2D em segundo lugar.
-A versao 2D mantem quatro personagens, arsenal, loja, bosses, salas
-procedurais e as folhas de personagem fornecidas pelo usuario.
-Seus controles e recursos continuam descritos no README.md.
-Selecao de personagens, loja e bosses do 2D ainda dependem de expansao
-especifica para entrar no prototipo FPS. O jogo permanece solo.
+O menu da campanha tambem permite abrir essa versao.
+O build inicia em HauntFps e inclui Haunt em segundo lugar.
+O 2D anterior conserva sua rede de salas procedurais, quatro personagens,
+arsenal completo, loja, bosses e folhas de personagem.
+A campanha hibrida usa cinco arenas tematicas; rede de salas, loja e
+arsenal completo ainda nao foram todos migrados. O jogo permanece solo.
 
 VALIDACAO
 O Editor Unity nao esta instalado no ambiente desta revisao.
