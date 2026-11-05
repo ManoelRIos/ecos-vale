@@ -4,6 +4,8 @@ Campanha de ação com alternância entre **visão 2D e primeira pessoa na mesma
 
 [**Projeto no GitHub**](https://github.com/ManoelRIos/ecos-vale/tree/codex/ecos-do-vale-vertical-slice) · [**Baixar projeto em ZIP**](https://github.com/ManoelRIos/ecos-vale/raw/refs/heads/codex/ecos-do-vale-vertical-slice/Distribution/EcosDaMeiaNoite.zip)
 
+[**PNG com todos os personagens para referência 3D**](Documentation/TODOS_OS_PERSONAGENS.png): 30 entidades com identificação e poses atuais. Veja [orientações de modelagem e exportação](Documentation/REFERENCIA_3D.md).
+
 ## Abrir e jogar
 
 1. Instale **Unity 6000.0.85f1** pelo Unity Hub; acrescente Windows Build Support para gerar um executável Windows.

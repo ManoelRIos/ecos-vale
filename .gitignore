@@ -9,6 +9,7 @@ UserSettings/
 *.csproj
 !Tools/HauntChecks.csproj
 !Tools/SpriteSheetExport/SpriteSheetExport.csproj
+!Tools/CharacterReferenceExport/CharacterReferenceExport.csproj
 Tools/bin/
 *.sln
 *.user

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="../SpriteSheetExport/UnityPixelStubs.cs" Link="UnityPixelStubs.cs" />
+    <Compile Include="../../Assets/_Game/Haunt/Art/*.cs" Link="Art/%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

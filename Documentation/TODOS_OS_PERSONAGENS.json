@@ -1,0 +1,2390 @@
+{
+  "version": 1,
+  "image": "TODOS_OS_PERSONAGENS.png",
+  "size": [
+    3200,
+    4118
+  ],
+  "entityCount": 30,
+  "groups": {
+    "players": 4,
+    "mobs": 17,
+    "bosses": 7,
+    "original2dExtras": 2
+  },
+  "cards": [
+    {
+      "id": "P01",
+      "key": "player",
+      "name": "CAÇADOR / PILOTO",
+      "poses": [
+        {
+          "label": "FRENTE",
+          "source": "Assets/_Game/Resources/CharacterSheets/pilot.png",
+          "sourceSize": [
+            32,
+            32
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            8,
+            7,
+            23,
+            29
+          ],
+          "zoom": 10,
+          "pngRect": [
+            79,
+            353,
+            150,
+            220
+          ],
+          "sourceRgbaSha256": "d13c67baeeaf0c2d32a4f9cb0b6e56e0918aa5f24cc5a1803a515dc08ac687f5"
+        },
+        {
+          "label": "LADO",
+          "source": "Assets/_Game/Resources/CharacterSheets/pilot.png",
+          "sourceSize": [
+            32,
+            32
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            8,
+            8,
+            23,
+            29
+          ],
+          "zoom": 10,
+          "pngRect": [
+            260,
+            363,
+            150,
+            210
+          ],
+          "sourceRgbaSha256": "7bf089dfed6b1386515d418da7220f0e80b335b652ad5e4f1711cc313f91e98c"
+        },
+        {
+          "label": "COSTAS",
+          "source": "Assets/_Game/Resources/CharacterSheets/pilot.png",
+          "sourceSize": [
+            32,
+            32
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            8,
+            9,
+            23,
+            29
+          ],
+          "zoom": 10,
+          "pngRect": [
+            441,
+            373,
+            150,
+            200
+          ],
+          "sourceRgbaSha256": "6dd075c0117cd5e943999246e4ac32f72e0326b6a60f8b295fe5b704328f18f7"
+        },
+        {
+          "label": "ARMA",
+          "source": "C# HauntPixelArt.Get: hunter-carbine",
+          "sourceSize": [
+            64,
+            40
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            0,
+            8,
+            64,
+            36
+          ],
+          "zoom": 2,
+          "pngRect": [
+            633,
+            517,
+            128,
+            56
+          ],
+          "sourceRgbaSha256": "d9cf9830e973d9958ebcffce599e9a9b4fb8a12e0980ca131a812ca92a4c0f3e"
+        }
+      ]
+    },
+    {
+      "id": "P02",
+      "key": "medium",
+      "name": "MÉDIUM",
+      "poses": [
+        {
+          "label": "FRENTE",
+          "source": "Assets/_Game/Resources/CharacterSheets/medium.png",
+          "sourceSize": [
+            32,
+            32
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            7,
+            5,
+            24,
+            29
+          ],
+          "zoom": 9,
+          "pngRect": [
+            860,
+            357,
+            153,
+            216
+          ],
+          "sourceRgbaSha256": "565011664e1900b00228d22ebbee12f3561f80d2b456da0be9447beb479751df"
+        },
+        {
+          "label": "LADO",
+          "source": "Assets/_Game/Resources/CharacterSheets/medium.png",
+          "sourceSize": [
+            32,
+            32
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            7,
+            6,
+            23,
+            29
+          ],
+          "zoom": 9,
+          "pngRect": [
+            1045,
+            366,
+            144,
+            207
+          ],
+          "sourceRgbaSha256": "478d1b64bfc0bef9df76b05ea3eee69b3229d732b5a41db9e5de89fcb3e48c59"
+        },
+        {
+          "label": "COSTAS",
+          "source": "Assets/_Game/Resources/CharacterSheets/medium.png",
+          "sourceSize": [
+            32,
+            32
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            7,
+            7,
+            24,
+            29
+          ],
+          "zoom": 9,
+          "pngRect": [
+            1222,
+            375,
+            153,
+            198
+          ],
+          "sourceRgbaSha256": "fc0a54a5b22831c83a2c32b4220e9c6de20e87736651b2d290d0e1184c91f088"
+        },
+        {
+          "label": "ARMA",
+          "source": "C# HauntPixelArt.Get: veil-wand",
+          "sourceSize": [
+            64,
+            40
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            4,
+            2,
+            64,
+            32
+          ],
+          "zoom": 2,
+          "pngRect": [
+            1419,
+            513,
+            120,
+            60
+          ],
+          "sourceRgbaSha256": "711d3bfcfb4274665dc8d2090bd19b4add48a7ffa83c8d473869d6835e9039cc"
+        }
+      ]
+    },
+    {
+      "id": "P03",
+      "key": "reaper",
+      "name": "CEIFADOR",
+      "poses": [
+        {
+          "label": "FRENTE",
+          "source": "Assets/_Game/Resources/CharacterSheets/reaper.png",
+          "sourceSize": [
+            32,
+            32
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            7,
+            5,
+            24,
+            29
+          ],
+          "zoom": 9,
+          "pngRect": [
+            1642,
+            357,
+            153,
+            216
+          ],
+          "sourceRgbaSha256": "e50e497a92e0942807ea8dfb5098176c0e1b6f5fb36a077811bcc359cdcb5ff7"
+        },
+        {
+          "label": "LADO",
+          "source": "Assets/_Game/Resources/CharacterSheets/reaper.png",
+          "sourceSize": [
+            32,
+            32
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            7,
+            6,
+            23,
+            29
+          ],
+          "zoom": 9,
+          "pngRect": [
+            1827,
+            366,
+            144,
+            207
+          ],
+          "sourceRgbaSha256": "e4d01f872b1741c7c3a8ce4eede8602dcfc966be8b51ecad57ae6817a8cb8c82"
+        },
+        {
+          "label": "COSTAS",
+          "source": "Assets/_Game/Resources/CharacterSheets/reaper.png",
+          "sourceSize": [
+            32,
+            32
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            7,
+            7,
+            24,
+            29
+          ],
+          "zoom": 9,
+          "pngRect": [
+            2004,
+            375,
+            153,
+            198
+          ],
+          "sourceRgbaSha256": "3d1e871a6c9f5717c3f88daff9c0065db80f7fe503ec99d4597c84dcf13ea438"
+        },
+        {
+          "label": "ARMA",
+          "source": "C# HauntPixelArt.Get: bone-caster",
+          "sourceSize": [
+            64,
+            40
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            0,
+            8,
+            64,
+            36
+          ],
+          "zoom": 2,
+          "pngRect": [
+            2197,
+            517,
+            128,
+            56
+          ],
+          "sourceRgbaSha256": "cb4f16dfdb779afcbba9240aab63f2d4d33aa4c8347feedd6bdae9b63d043317"
+        }
+      ]
+    },
+    {
+      "id": "P04",
+      "key": "alchemist",
+      "name": "ALQUIMISTA",
+      "poses": [
+        {
+          "label": "FRENTE",
+          "source": "Assets/_Game/Resources/CharacterSheets/alchemist.png",
+          "sourceSize": [
+            32,
+            32
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            6,
+            2,
+            25,
+            29
+          ],
+          "zoom": 8,
+          "pngRect": [
+            2424,
+            357,
+            152,
+            216
+          ],
+          "sourceRgbaSha256": "d15641a28907a1629d3acb4e749af02d549b15faa32c7bdb7f699e79b57a8b1f"
+        },
+        {
+          "label": "LADO",
+          "source": "Assets/_Game/Resources/CharacterSheets/alchemist.png",
+          "sourceSize": [
+            32,
+            32
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            6,
+            3,
+            23,
+            29
+          ],
+          "zoom": 8,
+          "pngRect": [
+            2613,
+            365,
+            136,
+            208
+          ],
+          "sourceRgbaSha256": "33d89f38c19b56c7dce6902d3ad26632c6c903ad51844e4c849176c2c87ec82b"
+        },
+        {
+          "label": "COSTAS",
+          "source": "Assets/_Game/Resources/CharacterSheets/alchemist.png",
+          "sourceSize": [
+            32,
+            32
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            6,
+            4,
+            25,
+            29
+          ],
+          "zoom": 8,
+          "pngRect": [
+            2786,
+            373,
+            152,
+            200
+          ],
+          "sourceRgbaSha256": "79156c58aa809ef2d31e33c2cba36de47e09305700de0b532c778861f5324b1f"
+        },
+        {
+          "label": "ARMA",
+          "source": "C# HauntPixelArt.Get: arc-coil",
+          "sourceSize": [
+            64,
+            40
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            2,
+            6,
+            64,
+            36
+          ],
+          "zoom": 2,
+          "pngRect": [
+            2981,
+            513,
+            124,
+            60
+          ],
+          "sourceRgbaSha256": "46f8a9d9436df1c33efc5951b002fd36443647839ec106b60faa18573375574e"
+        }
+      ]
+    },
+    {
+      "id": "M01",
+      "key": "skeleton",
+      "name": "ESQUELETO",
+      "poses": [
+        {
+          "label": "REPOUSO",
+          "source": "Assets/_Game/Resources/ReferenceSheets/actors/skeleton.png",
+          "sourceSize": [
+            48,
+            48
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            10,
+            4,
+            44,
+            48
+          ],
+          "zoom": 5,
+          "pngRect": [
+            100,
+            825,
+            170,
+            220
+          ],
+          "sourceRgbaSha256": "6036e08e5e5b546a81dd94596dca31dd02069d7ed281837b64445ffefc7e820e"
+        },
+        {
+          "label": "MOVIMENTO",
+          "source": "Assets/_Game/Resources/ReferenceSheets/actors/skeleton.png",
+          "sourceSize": [
+            48,
+            48
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            10,
+            6,
+            44,
+            48
+          ],
+          "zoom": 5,
+          "pngRect": [
+            342,
+            835,
+            170,
+            210
+          ],
+          "sourceRgbaSha256": "bdac936109db3ee28f2d2e1815ce94d6a967c68bc1c901dab653f54c130c06e8"
+        },
+        {
+          "label": "ATAQUE",
+          "source": "Assets/_Game/Resources/ReferenceSheets/actors/skeleton.png",
+          "sourceSize": [
+            48,
+            48
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            10,
+            4,
+            48,
+            48
+          ],
+          "zoom": 5,
+          "pngRect": [
+            574,
+            825,
+            190,
+            220
+          ],
+          "sourceRgbaSha256": "e172a4752625d890a3a36bd0296e87e102c30d9f22dfd8074939efe23c66b8d9"
+        }
+      ]
+    },
+    {
+      "id": "M02",
+      "key": "lantern-wisp",
+      "name": "LANTERNA ERRANTE",
+      "poses": [
+        {
+          "label": "POSE 1",
+          "source": "C# HauntPixelArt.Frame: lantern-wisp",
+          "sourceSize": [
+            30,
+            34
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            1,
+            2,
+            30,
+            34
+          ],
+          "zoom": 7,
+          "pngRect": [
+            865,
+            821,
+            203,
+            224
+          ],
+          "sourceRgbaSha256": "dd580887fef49df061d0ebbe270ccf8b3cca5069fe656594c1940233ae56cadb"
+        },
+        {
+          "label": "POSE 2",
+          "source": "C# HauntPixelArt.Frame: lantern-wisp",
+          "sourceSize": [
+            30,
+            34
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            1,
+            2,
+            30,
+            34
+          ],
+          "zoom": 7,
+          "pngRect": [
+            1107,
+            821,
+            203,
+            224
+          ],
+          "sourceRgbaSha256": "d78b7b3be298797a1f03b65849472ebbc94e88a610fdc0e3f712efa3a29c2299"
+        },
+        {
+          "label": "POSE 3",
+          "source": "C# HauntPixelArt.Frame: lantern-wisp",
+          "sourceSize": [
+            30,
+            34
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            1,
+            2,
+            30,
+            34
+          ],
+          "zoom": 7,
+          "pngRect": [
+            1349,
+            821,
+            203,
+            224
+          ],
+          "sourceRgbaSha256": "32b00807eed86e593079936a7c970a4390e70317e112eef00dcb543368ef6f21"
+        }
+      ]
+    },
+    {
+      "id": "M03",
+      "key": "pumpkin",
+      "name": "ABÓBORA",
+      "poses": [
+        {
+          "label": "POSE 1",
+          "source": "C# HauntPixelArt.Frame: pumpkin",
+          "sourceSize": [
+            24,
+            24
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            0,
+            0,
+            24,
+            23
+          ],
+          "zoom": 9,
+          "pngRect": [
+            1641,
+            838,
+            216,
+            207
+          ],
+          "sourceRgbaSha256": "c67b4081d27968046b25827595cc09c1b73449086dd1274dbbd6201ec13644ca"
+        },
+        {
+          "label": "POSE 2",
+          "source": "C# HauntPixelArt.Frame: pumpkin",
+          "sourceSize": [
+            24,
+            24
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            0,
+            0,
+            24,
+            24
+          ],
+          "zoom": 9,
+          "pngRect": [
+            1883,
+            829,
+            216,
+            216
+          ],
+          "sourceRgbaSha256": "7f42b9df904112ebf064767f13c15959a274e74d4ace3b051bd0d78de33fbba9"
+        },
+        {
+          "label": "POSE 3",
+          "source": "C# HauntPixelArt.Frame: pumpkin",
+          "sourceSize": [
+            24,
+            24
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            0,
+            0,
+            24,
+            23
+          ],
+          "zoom": 9,
+          "pngRect": [
+            2125,
+            838,
+            216,
+            207
+          ],
+          "sourceRgbaSha256": "27445cb1463c818a77d47b171873144d59a19c9b4e4ae381da52ac9591049b92"
+        }
+      ]
+    },
+    {
+      "id": "M04",
+      "key": "ghost",
+      "name": "FANTASMA",
+      "poses": [
+        {
+          "label": "POSE 1",
+          "source": "C# HauntPixelArt.Frame: ghost",
+          "sourceSize": [
+            24,
+            28
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            0,
+            1,
+            24,
+            27
+          ],
+          "zoom": 8,
+          "pngRect": [
+            2435,
+            837,
+            192,
+            208
+          ],
+          "sourceRgbaSha256": "65bd3c46103f0eef5b607496b4871efa74ce015da5a49cc156ef0ca410d7fc10"
+        },
+        {
+          "label": "POSE 2",
+          "source": "C# HauntPixelArt.Frame: ghost",
+          "sourceSize": [
+            24,
+            28
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            0,
+            1,
+            24,
+            27
+          ],
+          "zoom": 8,
+          "pngRect": [
+            2677,
+            837,
+            192,
+            208
+          ],
+          "sourceRgbaSha256": "c0a87c84b373c26e3ab8cc50515e4685addc02a4b1b7be8db505f86aa768e186"
+        },
+        {
+          "label": "POSE 3",
+          "source": "C# HauntPixelArt.Frame: ghost",
+          "sourceSize": [
+            24,
+            28
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            0,
+            1,
+            24,
+            27
+          ],
+          "zoom": 8,
+          "pngRect": [
+            2919,
+            837,
+            192,
+            208
+          ],
+          "sourceRgbaSha256": "44ec24ff3440946c7720f2da52a9d4e2cf587dfe4ce315a0c2b987d92268888f"
+        }
+      ]
+    },
+    {
+      "id": "M05",
+      "key": "cultist",
+      "name": "CULTISTA",
+      "poses": [
+        {
+          "label": "POSE 1",
+          "source": "C# HauntPixelArt.Frame: cultist",
+          "sourceSize": [
+            24,
+            28
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            0,
+            1,
+            24,
+            27
+          ],
+          "zoom": 8,
+          "pngRect": [
+            89,
+            1221,
+            192,
+            208
+          ],
+          "sourceRgbaSha256": "56784eef35dbf450788e1c346677cfd82066d6f457cf5e88b4972a4535b245c6"
+        },
+        {
+          "label": "POSE 2",
+          "source": "C# HauntPixelArt.Frame: cultist",
+          "sourceSize": [
+            24,
+            28
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            0,
+            1,
+            24,
+            28
+          ],
+          "zoom": 8,
+          "pngRect": [
+            331,
+            1213,
+            192,
+            216
+          ],
+          "sourceRgbaSha256": "910187a3291525f1dc3f11cc0d63447375247e067ede9ed72c7a3f73e0445d31"
+        },
+        {
+          "label": "POSE 3",
+          "source": "C# HauntPixelArt.Frame: cultist",
+          "sourceSize": [
+            24,
+            28
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            0,
+            1,
+            24,
+            27
+          ],
+          "zoom": 8,
+          "pngRect": [
+            573,
+            1221,
+            192,
+            208
+          ],
+          "sourceRgbaSha256": "d344b3eec9cdd494d50eed704041952f89190617133859778053bbb5c6b3e5d6"
+        }
+      ]
+    },
+    {
+      "id": "M06",
+      "key": "bat",
+      "name": "MORCEGO",
+      "poses": [
+        {
+          "label": "POSE 1",
+          "source": "C# HauntPixelArt.Frame: bat",
+          "sourceSize": [
+            28,
+            20
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            1,
+            2,
+            28,
+            19
+          ],
+          "zoom": 8,
+          "pngRect": [
+            859,
+            1293,
+            216,
+            136
+          ],
+          "sourceRgbaSha256": "3842cac825d5c0786e9fab8df224a9f6b3014477887e596958fa3b4c1c3f8df4"
+        },
+        {
+          "label": "POSE 2",
+          "source": "C# HauntPixelArt.Frame: bat",
+          "sourceSize": [
+            28,
+            20
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            0,
+            2,
+            28,
+            19
+          ],
+          "zoom": 7,
+          "pngRect": [
+            1111,
+            1310,
+            196,
+            119
+          ],
+          "sourceRgbaSha256": "395a6069c48d6a33d5c36dc37cc0e1a9cd09add7311633ff3c471533fb975303"
+        },
+        {
+          "label": "POSE 3",
+          "source": "C# HauntPixelArt.Frame: bat",
+          "sourceSize": [
+            28,
+            20
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            1,
+            2,
+            28,
+            20
+          ],
+          "zoom": 8,
+          "pngRect": [
+            1343,
+            1285,
+            216,
+            144
+          ],
+          "sourceRgbaSha256": "2785587be023d1d54aceab34a2d953a375fcdfc417f072b71068d5afccf415b6"
+        }
+      ]
+    },
+    {
+      "id": "M07",
+      "key": "larva",
+      "name": "LARVA",
+      "poses": [
+        {
+          "label": "POSE 1",
+          "source": "C# HauntPixelArt.Frame: larva",
+          "sourceSize": [
+            28,
+            28
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            0,
+            7,
+            28,
+            27
+          ],
+          "zoom": 7,
+          "pngRect": [
+            1651,
+            1289,
+            196,
+            140
+          ],
+          "sourceRgbaSha256": "cd540b2be9cb7412871622d4cf6e6e71a04912f00549bb0734836bc3b528de9f"
+        },
+        {
+          "label": "POSE 2",
+          "source": "C# HauntPixelArt.Frame: larva",
+          "sourceSize": [
+            28,
+            28
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            0,
+            7,
+            28,
+            26
+          ],
+          "zoom": 7,
+          "pngRect": [
+            1893,
+            1296,
+            196,
+            133
+          ],
+          "sourceRgbaSha256": "9ac2c5c19bd8c10c5744e718abfb3d0e841f7ce5a62eb801593070c9eab57cb3"
+        },
+        {
+          "label": "POSE 3",
+          "source": "C# HauntPixelArt.Frame: larva",
+          "sourceSize": [
+            28,
+            28
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            0,
+            7,
+            28,
+            26
+          ],
+          "zoom": 7,
+          "pngRect": [
+            2135,
+            1296,
+            196,
+            133
+          ],
+          "sourceRgbaSha256": "649227ef0b8f7840ec6336274adec97cf468a291498f1dfa780b17a4d5a51139"
+        }
+      ]
+    },
+    {
+      "id": "M08",
+      "key": "sentinel",
+      "name": "SENTINELA",
+      "poses": [
+        {
+          "label": "POSE 1",
+          "source": "C# HauntPixelArt.Frame: sentinel",
+          "sourceSize": [
+            28,
+            28
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            1,
+            1,
+            26,
+            27
+          ],
+          "zoom": 8,
+          "pngRect": [
+            2431,
+            1221,
+            200,
+            208
+          ],
+          "sourceRgbaSha256": "a372f7e4c42af0e3b81c48434868537379c20e03ac7fa88c91b9965c089f3db5"
+        },
+        {
+          "label": "POSE 2",
+          "source": "C# HauntPixelArt.Frame: sentinel",
+          "sourceSize": [
+            28,
+            28
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            1,
+            1,
+            26,
+            28
+          ],
+          "zoom": 8,
+          "pngRect": [
+            2673,
+            1213,
+            200,
+            216
+          ],
+          "sourceRgbaSha256": "2b6495a5d9e83bb8e6afec89249e00644b682e5a5f0812df49f87482ba58876d"
+        },
+        {
+          "label": "POSE 3",
+          "source": "C# HauntPixelArt.Frame: sentinel",
+          "sourceSize": [
+            28,
+            28
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            1,
+            1,
+            26,
+            27
+          ],
+          "zoom": 8,
+          "pngRect": [
+            2915,
+            1221,
+            200,
+            208
+          ],
+          "sourceRgbaSha256": "3c6788f8073aec6e0c4b684c7cdee52cbe7143a9ed03fb8e4d63f021efc4798f"
+        }
+      ]
+    },
+    {
+      "id": "M09",
+      "key": "acolyte",
+      "name": "ACÓLITO",
+      "poses": [
+        {
+          "label": "POSE 1",
+          "source": "C# HauntPixelArt.Frame: acolyte",
+          "sourceSize": [
+            28,
+            28
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            0,
+            3,
+            25,
+            28
+          ],
+          "zoom": 8,
+          "pngRect": [
+            85,
+            1613,
+            200,
+            200
+          ],
+          "sourceRgbaSha256": "e9a5cd25af6dd56f3ed2e50dbaeb42d9c8c987aa5c944edd9d05b5b41ebbf837"
+        },
+        {
+          "label": "POSE 2",
+          "source": "C# HauntPixelArt.Frame: acolyte",
+          "sourceSize": [
+            28,
+            28
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            0,
+            3,
+            25,
+            28
+          ],
+          "zoom": 8,
+          "pngRect": [
+            327,
+            1613,
+            200,
+            200
+          ],
+          "sourceRgbaSha256": "2acda5eb1ce4602ec6f81eacd3859a534451d1d4eaf335447bbc0112545ad01b"
+        },
+        {
+          "label": "POSE 3",
+          "source": "C# HauntPixelArt.Frame: acolyte",
+          "sourceSize": [
+            28,
+            28
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            0,
+            3,
+            25,
+            28
+          ],
+          "zoom": 8,
+          "pngRect": [
+            569,
+            1613,
+            200,
+            200
+          ],
+          "sourceRgbaSha256": "4faa81c5e27fd983da03d9fede75dd3847e504b4f228b11334570bba4e237697"
+        }
+      ]
+    },
+    {
+      "id": "M10",
+      "key": "slime",
+      "name": "SLIME",
+      "poses": [
+        {
+          "label": "REPOUSO",
+          "source": "Assets/_Game/Resources/ReferenceSheets/actors/slime.png",
+          "sourceSize": [
+            48,
+            48
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            6,
+            22,
+            42,
+            46
+          ],
+          "zoom": 6,
+          "pngRect": [
+            859,
+            1669,
+            216,
+            144
+          ],
+          "sourceRgbaSha256": "fd415d35b913a781d8735a1b51d7312bef44d30d56f9dc899b60e2d39e9b88eb"
+        },
+        {
+          "label": "MOVIMENTO",
+          "source": "Assets/_Game/Resources/ReferenceSheets/actors/slime.png",
+          "sourceSize": [
+            48,
+            48
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            10,
+            20,
+            38,
+            44
+          ],
+          "zoom": 7,
+          "pngRect": [
+            1111,
+            1645,
+            196,
+            168
+          ],
+          "sourceRgbaSha256": "ea39e26e3e2988484b3276fd4a8b4e5a043456912940c91eb67e0efab6e28b93"
+        },
+        {
+          "label": "ATAQUE",
+          "source": "Assets/_Game/Resources/ReferenceSheets/actors/slime.png",
+          "sourceSize": [
+            48,
+            48
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            4,
+            8,
+            48,
+            36
+          ],
+          "zoom": 5,
+          "pngRect": [
+            1341,
+            1673,
+            220,
+            140
+          ],
+          "sourceRgbaSha256": "4f5d204005dfb8b33c6ed85245c064059b3aecad44485a7d98be3604f6869b51"
+        }
+      ]
+    },
+    {
+      "id": "M11",
+      "key": "spider",
+      "name": "ARANHA",
+      "poses": [
+        {
+          "label": "POSE 1",
+          "source": "C# HauntPixelArt.Frame: spider",
+          "sourceSize": [
+            32,
+            24
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "zoom": 6,
+          "pngRect": [
+            1653,
+            1669,
+            192,
+            144
+          ],
+          "sourceRgbaSha256": "480847f1444fcb0bc8f1ec280d6a6d880ffac5bfca0924c55effc37f52a85405"
+        },
+        {
+          "label": "POSE 2",
+          "source": "C# HauntPixelArt.Frame: spider",
+          "sourceSize": [
+            32,
+            24
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "zoom": 6,
+          "pngRect": [
+            1895,
+            1669,
+            192,
+            144
+          ],
+          "sourceRgbaSha256": "beee189ccbb817c720aea993db8b8db3687a9fb515d2565e1cb0a284074cc14c"
+        },
+        {
+          "label": "POSE 3",
+          "source": "C# HauntPixelArt.Frame: spider",
+          "sourceSize": [
+            32,
+            24
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "zoom": 6,
+          "pngRect": [
+            2137,
+            1669,
+            192,
+            144
+          ],
+          "sourceRgbaSha256": "8d0c94e12c5ecb57a908d3eff77364b0311a4494d3a0a724b928cf5d90c63e48"
+        }
+      ]
+    },
+    {
+      "id": "M12",
+      "key": "mushroom-brute",
+      "name": "COGUMELO BRUTO",
+      "poses": [
+        {
+          "label": "POSE 1",
+          "source": "C# HauntPixelArt.Frame: mushroom-brute",
+          "sourceSize": [
+            36,
+            34
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            0,
+            1,
+            36,
+            34
+          ],
+          "zoom": 6,
+          "pngRect": [
+            2423,
+            1615,
+            216,
+            198
+          ],
+          "sourceRgbaSha256": "b818c08636f9372ecc88709cb0212a76591d45b098d204d34e1624b1e1dc6b40"
+        },
+        {
+          "label": "POSE 2",
+          "source": "C# HauntPixelArt.Frame: mushroom-brute",
+          "sourceSize": [
+            36,
+            34
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            0,
+            1,
+            36,
+            34
+          ],
+          "zoom": 6,
+          "pngRect": [
+            2665,
+            1615,
+            216,
+            198
+          ],
+          "sourceRgbaSha256": "a807b9b090e4978b7754bb44e75e3264366beaf12b5032968eb1b567fbd9a8b6"
+        },
+        {
+          "label": "POSE 3",
+          "source": "C# HauntPixelArt.Frame: mushroom-brute",
+          "sourceSize": [
+            36,
+            34
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            0,
+            1,
+            36,
+            34
+          ],
+          "zoom": 6,
+          "pngRect": [
+            2907,
+            1615,
+            216,
+            198
+          ],
+          "sourceRgbaSha256": "7ceb9b23bc955716a1f7c1cf00b4fec03509f1ed4041b5289d87f62e454e70be"
+        }
+      ]
+    },
+    {
+      "id": "M13",
+      "key": "clockwork-imp",
+      "name": "DIABRETE DE CORDA",
+      "poses": [
+        {
+          "label": "POSE 1",
+          "source": "C# HauntPixelArt.Frame: clockwork-imp",
+          "sourceSize": [
+            34,
+            32
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            0,
+            1,
+            34,
+            32
+          ],
+          "zoom": 6,
+          "pngRect": [
+            83,
+            2011,
+            204,
+            186
+          ],
+          "sourceRgbaSha256": "9a93de055d45350629b504358c0f0e9e465e8d1c501e792167a4fc6b70050f1b"
+        },
+        {
+          "label": "POSE 2",
+          "source": "C# HauntPixelArt.Frame: clockwork-imp",
+          "sourceSize": [
+            34,
+            32
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            0,
+            1,
+            34,
+            32
+          ],
+          "zoom": 6,
+          "pngRect": [
+            325,
+            2011,
+            204,
+            186
+          ],
+          "sourceRgbaSha256": "6247cb1de5bfc93abdd62b2cb756ba3bd5d69c8700633c78162854c0d42dca6f"
+        },
+        {
+          "label": "POSE 3",
+          "source": "C# HauntPixelArt.Frame: clockwork-imp",
+          "sourceSize": [
+            34,
+            32
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            0,
+            1,
+            34,
+            32
+          ],
+          "zoom": 6,
+          "pngRect": [
+            567,
+            2011,
+            204,
+            186
+          ],
+          "sourceRgbaSha256": "4a2df4ab4e015e8da8463268172291b9cc4c2371627061c6dadd4e7f29aff08a"
+        }
+      ]
+    },
+    {
+      "id": "M14",
+      "key": "scarecrow",
+      "name": "ESPANTALHO AMALDIÇOADO",
+      "poses": [
+        {
+          "label": "REPOUSO",
+          "source": "Assets/_Game/Resources/ReferenceSheets/actors/scarecrow.png",
+          "sourceSize": [
+            48,
+            48
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            2,
+            4,
+            48,
+            46
+          ],
+          "zoom": 4,
+          "pngRect": [
+            875,
+            2029,
+            184,
+            168
+          ],
+          "sourceRgbaSha256": "3c9226ff2b8b3868220f2d789e4f21e5d6407c15f7279680f3d331ba1a5c0835"
+        },
+        {
+          "label": "MOVIMENTO",
+          "source": "Assets/_Game/Resources/ReferenceSheets/actors/scarecrow.png",
+          "sourceSize": [
+            48,
+            48
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            2,
+            6,
+            48,
+            46
+          ],
+          "zoom": 4,
+          "pngRect": [
+            1117,
+            2037,
+            184,
+            160
+          ],
+          "sourceRgbaSha256": "e93c3e5cdd48f9a05297782e60df048c64367261d45410fec9822b87fc9681ee"
+        },
+        {
+          "label": "ATAQUE",
+          "source": "Assets/_Game/Resources/ReferenceSheets/actors/scarecrow.png",
+          "sourceSize": [
+            48,
+            48
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            2,
+            4,
+            48,
+            46
+          ],
+          "zoom": 4,
+          "pngRect": [
+            1359,
+            2029,
+            184,
+            168
+          ],
+          "sourceRgbaSha256": "c99638a7077601823cf33a68df47f0644fe30b82b5fea5f7a318aab817c0c2fc"
+        }
+      ]
+    },
+    {
+      "id": "M15",
+      "key": "gargoyle",
+      "name": "GÁRGULA DE PEDRA",
+      "poses": [
+        {
+          "label": "REPOUSO",
+          "source": "Assets/_Game/Resources/ReferenceSheets/actors/gargoyle.png",
+          "sourceSize": [
+            48,
+            48
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            6,
+            6,
+            42,
+            46
+          ],
+          "zoom": 5,
+          "pngRect": [
+            1659,
+            1997,
+            180,
+            200
+          ],
+          "sourceRgbaSha256": "1c5568e883bb57a2d5fe1e34951b828401bf4a1ee46a5d174920e85d63f78053"
+        },
+        {
+          "label": "MOVIMENTO",
+          "source": "Assets/_Game/Resources/ReferenceSheets/actors/gargoyle.png",
+          "sourceSize": [
+            48,
+            48
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            2,
+            2,
+            46,
+            46
+          ],
+          "zoom": 5,
+          "pngRect": [
+            1881,
+            1977,
+            220,
+            220
+          ],
+          "sourceRgbaSha256": "4c81f32e78279d3bf533df9d77d034f909f691fddacf8ba095a898ac21ced84f"
+        },
+        {
+          "label": "ATAQUE",
+          "source": "Assets/_Game/Resources/ReferenceSheets/actors/gargoyle.png",
+          "sourceSize": [
+            48,
+            48
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            2,
+            4,
+            48,
+            46
+          ],
+          "zoom": 4,
+          "pngRect": [
+            2141,
+            2029,
+            184,
+            168
+          ],
+          "sourceRgbaSha256": "191d875678a242f98bea5ceb70600c4ce93fbffd219a25134901a7c69961aac3"
+        }
+      ]
+    },
+    {
+      "id": "M16",
+      "key": "stalker-shadow",
+      "name": "SOMBRA PERSEGUIDORA",
+      "poses": [
+        {
+          "label": "REPOUSO",
+          "source": "Assets/_Game/Resources/ReferenceSheets/actors/stalker-shadow.png",
+          "sourceSize": [
+            48,
+            48
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            6,
+            8,
+            44,
+            46
+          ],
+          "zoom": 5,
+          "pngRect": [
+            2436,
+            2007,
+            190,
+            190
+          ],
+          "sourceRgbaSha256": "b2b25c97374642149c76abcc03793aa7ab591669a1a1944d84a3d4190285d0c8"
+        },
+        {
+          "label": "MOVIMENTO",
+          "source": "Assets/_Game/Resources/ReferenceSheets/actors/stalker-shadow.png",
+          "sourceSize": [
+            48,
+            48
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            8,
+            10,
+            42,
+            46
+          ],
+          "zoom": 6,
+          "pngRect": [
+            2671,
+            1981,
+            204,
+            216
+          ],
+          "sourceRgbaSha256": "dfbd70d684f837b8fc10e217652ab1e1e4e3e8c781d6fd714b4ab066a792eb72"
+        },
+        {
+          "label": "ATAQUE",
+          "source": "Assets/_Game/Resources/ReferenceSheets/actors/stalker-shadow.png",
+          "sourceSize": [
+            48,
+            48
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            6,
+            8,
+            48,
+            46
+          ],
+          "zoom": 5,
+          "pngRect": [
+            2910,
+            2007,
+            210,
+            190
+          ],
+          "sourceRgbaSha256": "d6904cec1855142eb2971ac2b95c2c6bc2c9974db5368ace74d86dd9d22ccd5a"
+        }
+      ]
+    },
+    {
+      "id": "M17",
+      "key": "fire-bat",
+      "name": "MORCEGO DE FOGO",
+      "poses": [
+        {
+          "label": "REPOUSO",
+          "source": "Assets/_Game/Resources/ReferenceSheets/actors/fire-bat.png",
+          "sourceSize": [
+            48,
+            48
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            0,
+            6,
+            48,
+            46
+          ],
+          "zoom": 4,
+          "pngRect": [
+            89,
+            2421,
+            192,
+            160
+          ],
+          "sourceRgbaSha256": "cc032a7399972dbb59dda291ec0c3fbd027d3887e3dbf0bd4b4f166436b9fe0b"
+        },
+        {
+          "label": "MOVIMENTO",
+          "source": "Assets/_Game/Resources/ReferenceSheets/actors/fire-bat.png",
+          "sourceSize": [
+            48,
+            48
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            0,
+            0,
+            48,
+            46
+          ],
+          "zoom": 4,
+          "pngRect": [
+            331,
+            2397,
+            192,
+            184
+          ],
+          "sourceRgbaSha256": "3a11b929637dc61cdd887fc7d5da3c7e057ed2d06c6151656ca478ca5497660c"
+        },
+        {
+          "label": "ATAQUE",
+          "source": "Assets/_Game/Resources/ReferenceSheets/actors/fire-bat.png",
+          "sourceSize": [
+            48,
+            48
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            0,
+            12,
+            48,
+            46
+          ],
+          "zoom": 4,
+          "pngRect": [
+            573,
+            2445,
+            192,
+            136
+          ],
+          "sourceRgbaSha256": "8247d3222257d352118beb4235e174aae387e9e3d8bc78cc1a19260645277138"
+        }
+      ]
+    },
+    {
+      "id": "B01",
+      "key": "boss",
+      "name": "REI DAS ABÓBORAS",
+      "poses": [
+        {
+          "label": "REPOUSO",
+          "source": "Assets/_Game/Resources/ReferenceSheets/bosses/boss.png",
+          "sourceSize": [
+            96,
+            96
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            6,
+            8,
+            90,
+            92
+          ],
+          "zoom": 2,
+          "pngRect": [
+            101,
+            2885,
+            168,
+            168
+          ],
+          "sourceRgbaSha256": "38ff72376bc1e89a089fb7cecf8295f633fc48217535e1df86a3024ae220560b"
+        },
+        {
+          "label": "ATAQUE",
+          "source": "Assets/_Game/Resources/ReferenceSheets/bosses/boss.png",
+          "sourceSize": [
+            96,
+            96
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            14,
+            10,
+            88,
+            92
+          ],
+          "zoom": 2,
+          "pngRect": [
+            353,
+            2889,
+            148,
+            164
+          ],
+          "sourceRgbaSha256": "8c1868f8fa9dea8bc8903d0ec1e78cc7c90a66a4d413c3fdabed572aeecf6481"
+        },
+        {
+          "label": "FURIA",
+          "source": "Assets/_Game/Resources/ReferenceSheets/bosses/boss.png",
+          "sourceSize": [
+            96,
+            96
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            8,
+            4,
+            90,
+            94
+          ],
+          "zoom": 2,
+          "pngRect": [
+            587,
+            2873,
+            164,
+            180
+          ],
+          "sourceRgbaSha256": "032464d4fac75c59ecaab9fc27f8b2a7c7c6a794d8a72b8179f9c78556ea1e91"
+        }
+      ]
+    },
+    {
+      "id": "B02",
+      "key": "widow",
+      "name": "VIÚVA DO VÉU",
+      "poses": [
+        {
+          "label": "REPOUSO",
+          "source": "Assets/_Game/Resources/ReferenceSheets/bosses/widow.png",
+          "sourceSize": [
+            96,
+            96
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            2,
+            10,
+            94,
+            90
+          ],
+          "zoom": 2,
+          "pngRect": [
+            875,
+            2893,
+            184,
+            160
+          ],
+          "sourceRgbaSha256": "3a98487973b316ede79a292e7279e04a6c48e7e5f6058bb1888846201e4674c6"
+        },
+        {
+          "label": "ATAQUE",
+          "source": "Assets/_Game/Resources/ReferenceSheets/bosses/widow.png",
+          "sourceSize": [
+            96,
+            96
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            2,
+            10,
+            94,
+            90
+          ],
+          "zoom": 2,
+          "pngRect": [
+            1117,
+            2893,
+            184,
+            160
+          ],
+          "sourceRgbaSha256": "42fa0b957eb03bdfc1af6323bb010c0a02d5f95a3803ff9c3fe66dc08d13cc6d"
+        },
+        {
+          "label": "FURIA",
+          "source": "Assets/_Game/Resources/ReferenceSheets/bosses/widow.png",
+          "sourceSize": [
+            96,
+            96
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            2,
+            12,
+            94,
+            94
+          ],
+          "zoom": 2,
+          "pngRect": [
+            1359,
+            2889,
+            184,
+            164
+          ],
+          "sourceRgbaSha256": "ef4c202093f3486da18a28310834c65ec5d2264a5b3da2aba7500014e1cd7d41"
+        }
+      ]
+    },
+    {
+      "id": "B03",
+      "key": "bishop",
+      "name": "BISPO DAS CINZAS",
+      "poses": [
+        {
+          "label": "REPOUSO",
+          "source": "Assets/_Game/Resources/ReferenceSheets/bosses/bishop.png",
+          "sourceSize": [
+            96,
+            96
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            12,
+            6,
+            86,
+            92
+          ],
+          "zoom": 2,
+          "pngRect": [
+            1675,
+            2881,
+            148,
+            172
+          ],
+          "sourceRgbaSha256": "75395caa8bf71311dfbe0a6ab0bab85e17d7fd949be1a435aaf4d1ce91f22a44"
+        },
+        {
+          "label": "ATAQUE",
+          "source": "Assets/_Game/Resources/ReferenceSheets/bosses/bishop.png",
+          "sourceSize": [
+            96,
+            96
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            4,
+            6,
+            86,
+            92
+          ],
+          "zoom": 2,
+          "pngRect": [
+            1909,
+            2881,
+            164,
+            172
+          ],
+          "sourceRgbaSha256": "8c8978961ce6a5ae52ae89db5afb6df22bb7d039bcd38110d9d182b4127474ac"
+        },
+        {
+          "label": "FURIA",
+          "source": "Assets/_Game/Resources/ReferenceSheets/bosses/bishop.png",
+          "sourceSize": [
+            96,
+            96
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            8,
+            8,
+            86,
+            94
+          ],
+          "zoom": 2,
+          "pngRect": [
+            2155,
+            2881,
+            156,
+            172
+          ],
+          "sourceRgbaSha256": "07a1d47ba56ef6b314bbf33fd7bc9deb0059967888d39c73fc754a52a005cd68"
+        }
+      ]
+    },
+    {
+      "id": "B04",
+      "key": "matriarch",
+      "name": "MATRIARCA DA PESTE",
+      "poses": [
+        {
+          "label": "REPOUSO",
+          "source": "Assets/_Game/Resources/ReferenceSheets/bosses/matriarch.png",
+          "sourceSize": [
+            96,
+            96
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            2,
+            18,
+            94,
+            88
+          ],
+          "zoom": 2,
+          "pngRect": [
+            2439,
+            2913,
+            184,
+            140
+          ],
+          "sourceRgbaSha256": "2997e4c66759f7d476d8d07bbd5650350a9729b0dae7df840b99cf1e8bfc4501"
+        },
+        {
+          "label": "ATAQUE",
+          "source": "Assets/_Game/Resources/ReferenceSheets/bosses/matriarch.png",
+          "sourceSize": [
+            96,
+            96
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            0,
+            18,
+            94,
+            88
+          ],
+          "zoom": 2,
+          "pngRect": [
+            2679,
+            2913,
+            188,
+            140
+          ],
+          "sourceRgbaSha256": "f740990830ea522898ba006d273c17e52b0b305145a88db351995088f5f0e773"
+        },
+        {
+          "label": "FURIA",
+          "source": "Assets/_Game/Resources/ReferenceSheets/bosses/matriarch.png",
+          "sourceSize": [
+            96,
+            96
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            2,
+            14,
+            94,
+            94
+          ],
+          "zoom": 2,
+          "pngRect": [
+            2923,
+            2893,
+            184,
+            160
+          ],
+          "sourceRgbaSha256": "4bdfa3a9d79f9e66d6f7ff9a8d473855d4f5a82131779b14b02143ac19d4842f"
+        }
+      ]
+    },
+    {
+      "id": "B05",
+      "key": "bell",
+      "name": "SINO DO ABISMO",
+      "poses": [
+        {
+          "label": "REPOUSO",
+          "source": "Assets/_Game/Resources/ReferenceSheets/bosses/bell.png",
+          "sourceSize": [
+            96,
+            96
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            16,
+            0,
+            82,
+            92
+          ],
+          "zoom": 2,
+          "pngRect": [
+            119,
+            3253,
+            132,
+            184
+          ],
+          "sourceRgbaSha256": "b2d4c74271a540410b3f825685b9a8e53970e42e2c00cad6490709d6071b297c"
+        },
+        {
+          "label": "ATAQUE",
+          "source": "Assets/_Game/Resources/ReferenceSheets/bosses/bell.png",
+          "sourceSize": [
+            96,
+            96
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            6,
+            0,
+            92,
+            92
+          ],
+          "zoom": 2,
+          "pngRect": [
+            341,
+            3253,
+            172,
+            184
+          ],
+          "sourceRgbaSha256": "eb0c365b514d40de53a26f60b7f88acc6e68df0337116cff813f89807126f626"
+        },
+        {
+          "label": "FURIA",
+          "source": "Assets/_Game/Resources/ReferenceSheets/bosses/bell.png",
+          "sourceSize": [
+            96,
+            96
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            8,
+            0,
+            86,
+            94
+          ],
+          "zoom": 2,
+          "pngRect": [
+            591,
+            3249,
+            156,
+            188
+          ],
+          "sourceRgbaSha256": "86d39beaa0c83c74fe0664bccaa2d18c671bf840ebf3d02d94551b4f87cc9cdc"
+        }
+      ]
+    },
+    {
+      "id": "B06",
+      "key": "iron-executioner",
+      "name": "CARRASCO DE FERRO",
+      "poses": [
+        {
+          "label": "REPOUSO",
+          "source": "Assets/_Game/Resources/ReferenceSheets/bosses/iron-executioner.png",
+          "sourceSize": [
+            96,
+            96
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            16,
+            14,
+            90,
+            94
+          ],
+          "zoom": 2,
+          "pngRect": [
+            893,
+            3277,
+            148,
+            160
+          ],
+          "sourceRgbaSha256": "d96af09dac94bce8b76fc40bf179ccd53a858593dc3ecfab78987fea0dd149ce"
+        },
+        {
+          "label": "ATAQUE",
+          "source": "Assets/_Game/Resources/ReferenceSheets/bosses/iron-executioner.png",
+          "sourceSize": [
+            96,
+            96
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            16,
+            16,
+            92,
+            94
+          ],
+          "zoom": 2,
+          "pngRect": [
+            1133,
+            3281,
+            152,
+            156
+          ],
+          "sourceRgbaSha256": "65264c7157b78cbdceddc5a6624fc532b6b06782e2595f4ccc892b7c4097006f"
+        },
+        {
+          "label": "FURIA",
+          "source": "Assets/_Game/Resources/ReferenceSheets/bosses/iron-executioner.png",
+          "sourceSize": [
+            96,
+            96
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            8,
+            4,
+            90,
+            94
+          ],
+          "zoom": 2,
+          "pngRect": [
+            1369,
+            3257,
+            164,
+            180
+          ],
+          "sourceRgbaSha256": "270b6efbcf1867cafaa21225827390bb837cbc47421f4c5a4ddd67d0e653c8d4"
+        }
+      ]
+    },
+    {
+      "id": "B07",
+      "key": "bog-oracle",
+      "name": "ORÁCULO DO BREJO",
+      "poses": [
+        {
+          "label": "REPOUSO",
+          "source": "Assets/_Game/Resources/ReferenceSheets/bosses/bog-oracle.png",
+          "sourceSize": [
+            96,
+            96
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            12,
+            8,
+            86,
+            94
+          ],
+          "zoom": 2,
+          "pngRect": [
+            1675,
+            3265,
+            148,
+            172
+          ],
+          "sourceRgbaSha256": "61c214336918b3b281cf385a472f08e779850bb06a1567ece6153afd79fcb282"
+        },
+        {
+          "label": "ATAQUE",
+          "source": "Assets/_Game/Resources/ReferenceSheets/bosses/bog-oracle.png",
+          "sourceSize": [
+            96,
+            96
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            0,
+            8,
+            94,
+            94
+          ],
+          "zoom": 2,
+          "pngRect": [
+            1897,
+            3265,
+            188,
+            172
+          ],
+          "sourceRgbaSha256": "bfe9204377221f811b0863e0932161f5ed52bd31cd78940bc5791f516026b537"
+        },
+        {
+          "label": "FURIA",
+          "source": "Assets/_Game/Resources/ReferenceSheets/bosses/bog-oracle.png",
+          "sourceSize": [
+            96,
+            96
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            8,
+            8,
+            86,
+            94
+          ],
+          "zoom": 2,
+          "pngRect": [
+            2155,
+            3265,
+            156,
+            172
+          ],
+          "sourceRgbaSha256": "2a5c570533f6f6486fb7af3c590f439617477fb6221382b61112ea4661e21a4f"
+        }
+      ]
+    },
+    {
+      "id": "X01",
+      "key": "merchant",
+      "name": "COLETOR DE ALMAS",
+      "poses": [
+        {
+          "label": "POSE 1",
+          "source": "C# HauntPixelArt.Frame: merchant",
+          "sourceSize": [
+            56,
+            64
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            0,
+            0,
+            56,
+            64
+          ],
+          "zoom": 3,
+          "pngRect": [
+            101,
+            3717,
+            168,
+            192
+          ],
+          "sourceRgbaSha256": "1d90a97195f0b2778e5aaa0d036407c44db98bba5c87678ae6c5d1107c723cd0"
+        },
+        {
+          "label": "POSE 2",
+          "source": "C# HauntPixelArt.Frame: merchant",
+          "sourceSize": [
+            56,
+            64
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            0,
+            0,
+            56,
+            64
+          ],
+          "zoom": 3,
+          "pngRect": [
+            343,
+            3717,
+            168,
+            192
+          ],
+          "sourceRgbaSha256": "e1e2f729a7e3b09db99712deb2d6b380c9a4bb6ac489c13793f37977fe684bbd"
+        },
+        {
+          "label": "POSE 3",
+          "source": "C# HauntPixelArt.Frame: merchant",
+          "sourceSize": [
+            56,
+            64
+          ],
+          "sourcePixelsPerUnit": 32,
+          "alphaCrop": [
+            0,
+            0,
+            56,
+            64
+          ],
+          "zoom": 3,
+          "pngRect": [
+            585,
+            3717,
+            168,
+            192
+          ],
+          "sourceRgbaSha256": "1d90a97195f0b2778e5aaa0d036407c44db98bba5c87678ae6c5d1107c723cd0"
+        }
+      ]
+    },
+    {
+      "id": "X02",
+      "key": "miniboss",
+      "name": "MINICHEFE",
+      "poses": [
+        {
+          "label": "POSE 1",
+          "source": "C# HauntPixelArt.Frame: miniboss",
+          "sourceSize": [
+            48,
+            48
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            2,
+            1,
+            44,
+            47
+          ],
+          "zoom": 4,
+          "pngRect": [
+            883,
+            3725,
+            168,
+            184
+          ],
+          "sourceRgbaSha256": "5d24d971daba81cdc0510caf02df1b75a71b6f92899d0eab94548ca1e44d2b98"
+        },
+        {
+          "label": "POSE 2",
+          "source": "C# HauntPixelArt.Frame: miniboss",
+          "sourceSize": [
+            48,
+            48
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            2,
+            1,
+            44,
+            48
+          ],
+          "zoom": 4,
+          "pngRect": [
+            1125,
+            3721,
+            168,
+            188
+          ],
+          "sourceRgbaSha256": "bbe8dc1a8b1ac3472888cf2f94db7e74fc8ad1127e90d225e5ad99bfc3e9bd3e"
+        },
+        {
+          "label": "POSE 3",
+          "source": "C# HauntPixelArt.Frame: miniboss",
+          "sourceSize": [
+            48,
+            48
+          ],
+          "sourcePixelsPerUnit": 16,
+          "alphaCrop": [
+            2,
+            1,
+            44,
+            47
+          ],
+          "zoom": 4,
+          "pngRect": [
+            1367,
+            3725,
+            168,
+            184
+          ],
+          "sourceRgbaSha256": "6a41368a83870b0b53416121fc0b4909fef80cd3a011ddbd39d1f6425a72233b"
+        }
+      ]
+    }
+  ],
+  "pngSha256": "c87bd524126e8ba3123a922137eced36b7c7c0d8c2c004a8db2d0244a923c63d"
+}
