@@ -8,18 +8,23 @@ namespace Ecos.Haunt.Fps
     public sealed class HauntFpsPerspective : MonoBehaviour
     {
         public const float TransitionDuration = .4f, ToggleCooldown = .7f, ShotHeight = 1.05f;
+        /// <summary>Path fraction where sprites replace models. Past this point the dolly
+        /// zoom has flattened the image enough for the swap to read as one continuous view.</summary>
+        public const float ArtSwapPoint = .55f;
         const float TopSize = 8.3f, TopPitch = 62, TopDistance = 14.5f;
+        // The dolly path ends on a near-orthographic lens; the final hand-off to the real
+        // orthographic projection then changes the image by less than a pixel.
+        const float DollyEndFov = 6, TransitionFarClip = 260;
         static readonly Quaternion TopRotation = Quaternion.Euler(TopPitch, 0, 0);
         static readonly Vector3 TopOffset = -(TopRotation * Vector3.forward) * TopDistance;
         HauntFpsGame game;
         HauntFpsPlayer player;
         Camera view, modelCamera;
         Transform weaponRoot;
-        Vector3 fpsLocalPosition, startOffset, focus, flatAim = Vector3.forward;
-        Quaternion fpsLocalRotation, startRotation;
-        Matrix4x4 startProjection;
+        Vector3 fpsLocalPosition, focus, flatAim = Vector3.forward;
+        Quaternion fpsLocalRotation;
         Vector2 lastMousePosition, warpedMousePosition;
-        float fpsFov, elapsed, cooldown;
+        float fpsFov, fpsNearClip, fpsFarClip, elapsed, cooldown;
         int tickSerial, warpTick;
         bool initialized, disposed, topDown, transitioning, controllerAim, pointerWarpPending;
 
@@ -28,6 +33,20 @@ namespace Ecos.Haunt.Fps
         public bool IsTransitioning => transitioning;
         public bool UsesControllerAim => topDown && controllerAim;
         public float TransitionProgress => transitioning ? Mathf.Clamp01(elapsed / TransitionDuration) : 1;
+        /// <summary>0 = first-person eye, 1 = overhead view, along the eased camera path.
+        /// Presentation (sprites, models, wall height) follows this value instead of the
+        /// requested destination, so nothing pops while the camera is still at eye level.</summary>
+        public float OverheadAmount
+        {
+            get
+            {
+                if (!transitioning) return topDown ? 1 : 0;
+                float eased = Ease(TransitionProgress);
+                return topDown ? eased : 1 - eased;
+            }
+        }
+        /// <summary>True when sprite art should be shown instead of 3D models.</summary>
+        public bool ShowsTopDownArt => OverheadAmount >= ArtSwapPoint;
         public Vector3 AimDirection => topDown ? flatAim : view ? view.transform.forward : transform.forward;
         public Ray AimRay => topDown
             ? new Ray(ShotOrigin, flatAim)
@@ -57,6 +76,7 @@ namespace Ecos.Haunt.Fps
             if (!view || !player) return;
             fpsLocalPosition = view.transform.localPosition;
             fpsLocalRotation = view.transform.localRotation; fpsFov = view.fieldOfView;
+            fpsNearClip = view.nearClipPlane; fpsFarClip = view.farClipPlane;
             focus = GroundFocus();
             flatAim = Horizontal(player.transform.forward, Vector3.forward);
             lastMousePosition = Mouse.current == null ? new Vector2(Screen.width * .5f, Screen.height * .5f)
@@ -68,9 +88,6 @@ namespace Ecos.Haunt.Fps
         public bool TryToggle()
         {
             if (!initialized || disposed || !game || !game.CanSimulate || transitioning || cooldown > 0) return false;
-            startOffset = view.transform.position - player.Position;
-            startRotation = view.transform.rotation;
-            startProjection = view.projectionMatrix;
             if (!topDown)
             {
                 // Save the FPS pose once. Top-down aim may rotate the player body
@@ -84,8 +101,9 @@ namespace Ecos.Haunt.Fps
             topDown = !topDown; transitioning = true; elapsed = 0; cooldown = ToggleCooldown;
             if (Gamepad.current != null && Gamepad.current.rightStick.ReadValue().sqrMagnitude > .05f) controllerAim = true;
             lastMousePosition = Mouse.current == null ? lastMousePosition : Mouse.current.position.ReadValue();
-            // Preserve the exact source projection until Tick blends toward its destination.
-            view.orthographic = false; view.projectionMatrix = startProjection;
+            // The dolly path is drawn with an ordinary perspective lens; Tick places it.
+            view.orthographic = false; view.ResetProjectionMatrix();
+            view.farClipPlane = Mathf.Max(fpsFarClip, TransitionFarClip);
             SetViewModel(false);
             game.Notify(topDown ? "VISAO 2D - A MESMA LUTA, OUTRA PERSPECTIVA" : "VISAO 3D - DE VOLTA AO OSSUARIO", 1.5f);
             return true;
@@ -105,13 +123,7 @@ namespace Ecos.Haunt.Fps
             if (transitioning)
             {
                 elapsed = Mathf.Min(TransitionDuration, elapsed + dt);
-                float t = Mathf.Clamp01(elapsed / TransitionDuration);
-                t = t * t * (3 - 2 * t);
-                Vector3 targetPosition = topDown ? GroundFocus() + TopOffset : player.transform.TransformPoint(fpsLocalPosition);
-                Quaternion targetRotation = topDown ? TopRotation : player.transform.rotation * fpsLocalRotation;
-                view.transform.position = Vector3.Lerp(player.Position + startOffset, targetPosition, t);
-                view.transform.rotation = Quaternion.Slerp(startRotation, targetRotation, t);
-                view.projectionMatrix = BlendProjection(startProjection, DestinationProjection(), t);
+                PlaceOnDollyPath(OverheadAmount);
                 SetViewModel(false);
                 if (elapsed >= TransitionDuration)
                 {
@@ -153,18 +165,31 @@ namespace Ecos.Haunt.Fps
             return new Vector3(position.x, .4f, position.z);
         }
 
-        Matrix4x4 DestinationProjection()
-        {
-            float aspect = Mathf.Max(.1f, view.aspect);
-            return topDown ? Matrix4x4.Ortho(-TopSize * aspect, TopSize * aspect, -TopSize, TopSize, view.nearClipPlane, view.farClipPlane)
-                : Matrix4x4.Perspective(fpsFov, aspect, view.nearClipPlane, view.farClipPlane);
-        }
+        static float Ease(float t) => t * t * (3 - 2 * t);
 
-        static Matrix4x4 BlendProjection(Matrix4x4 from, Matrix4x4 to, float t)
+        /// <summary>Dolly zoom between the eye and the overhead view. The lens narrows
+        /// from the FPS field of view to an almost orthographic one while the camera backs
+        /// away so the framed area grows to exactly the overhead frame. Amount 0 is the eye
+        /// pose and 1 matches the orthographic view, so both ends join without a jump.</summary>
+        void PlaceOnDollyPath(float amount)
         {
-            var result = new Matrix4x4();
-            for (int index = 0; index < 16; index++) result[index] = Mathf.Lerp(from[index], to[index], t);
-            return result;
+            amount = Mathf.Clamp01(amount);
+            Vector3 eye = player.transform.TransformPoint(fpsLocalPosition);
+            Quaternion eyeRotation = player.transform.rotation * fpsLocalRotation;
+            // Turning toward the overhead pitch leads the pull-back slightly, so the
+            // player sees the arena floor open up before the walls sink.
+            float turn = 1 - (1 - amount) * (1 - amount);
+            Quaternion rotation = Quaternion.Slerp(eyeRotation, TopRotation, turn);
+            float fov = Mathf.Exp(Mathf.Lerp(Mathf.Log(Mathf.Max(1, fpsFov)), Mathf.Log(DollyEndFov), amount));
+            float halfHeight = TopSize * amount;
+            float distance = halfHeight / Mathf.Tan(fov * .5f * Mathf.Deg2Rad);
+            Vector3 pivot = Vector3.Lerp(eye, GroundFocus(), amount);
+            view.transform.position = pivot - rotation * Vector3.forward * distance;
+            view.transform.rotation = rotation;
+            view.fieldOfView = fov;
+            // Keep the depth range proportional to the pull-back so distant floor
+            // decals do not shimmer while the lens is long.
+            view.nearClipPlane = Mathf.Max(fpsNearClip, distance * .1f);
         }
 
         void FinishProjection()
@@ -172,6 +197,8 @@ namespace Ecos.Haunt.Fps
             view.orthographic = topDown;
             view.orthographicSize = TopSize;
             view.fieldOfView = fpsFov;
+            view.nearClipPlane = fpsNearClip;
+            view.farClipPlane = fpsFarClip;
             view.ResetProjectionMatrix();
         }
 
@@ -244,6 +271,7 @@ namespace Ecos.Haunt.Fps
             if (view)
             {
                 view.orthographic = false; view.fieldOfView = fpsFov;
+                if (fpsFarClip > 0) { view.nearClipPlane = fpsNearClip; view.farClipPlane = fpsFarClip; }
                 view.ResetProjectionMatrix();
             }
         }

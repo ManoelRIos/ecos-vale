@@ -41,6 +41,10 @@ namespace Ecos.Haunt.Fps
         public HauntFpsPerspective Perspective => perspective;
         public bool IsTopDown => perspective && perspective.IsTopDown;
         public bool IsPerspectiveTransition => perspective && perspective.IsTransitioning;
+        /// <summary>Where the camera actually is along the 2D/FPS path (0 = eye, 1 = overhead).</summary>
+        public float OverheadAmount => perspective ? perspective.OverheadAmount : 0;
+        /// <summary>Sprites replace models once the camera is far enough along the path.</summary>
+        public bool ShowsTopDownArt => perspective && perspective.ShowsTopDownArt;
         public Vector3 Position => transform.position;
         public Vector3 MuzzlePosition => IsTopDown ? perspective.MuzzlePosition
             : weaponRoot ? weaponRoot.TransformPoint(muzzleLocal) : view ? view.transform.position : Position;

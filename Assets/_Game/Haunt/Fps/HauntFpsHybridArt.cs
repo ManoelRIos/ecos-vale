@@ -19,7 +19,7 @@ namespace Ecos.Haunt.Fps
         readonly List<HauntFpsEnemy> expired = new List<HauntFpsEnemy>();
         ActorView boss;
         MaterialPropertyBlock flash;
-        float clock, dodgeClock, shotRemaining, heroFlash;
+        float clock, dodgeClock, shotRemaining, heroFlash, wallLowering;
         int lastMagazine, lastHealth;
         bool initialized, disposed, topDown, wasDodging;
 
@@ -27,6 +27,8 @@ namespace Ecos.Haunt.Fps
         {
             public Renderer Source, Proxy;
             public bool Enabled;
+            // Full-height pose of the source, so the proxy can sink from it to the floor.
+            public float FullHeight, CenterY;
         }
         sealed class ActorView
         {
@@ -72,21 +74,47 @@ namespace Ecos.Haunt.Fps
             if (disposed || !presentation) return;
             topDown = value;
             presentation.gameObject.SetActive(value);
-            if (cutaways) cutaways.gameObject.SetActive(value);
-            foreach (var wall in walls)
-            {
-                if (wall.Source) wall.Source.enabled = value ? false : wall.Enabled;
-                if (wall.Proxy) wall.Proxy.enabled = value && wall.Enabled && wall.Source && wall.Source.gameObject.activeInHierarchy;
-            }
             foreach (var actor in actors.Values) SetActorVisible(actor, value);
             if (boss != null) SetActorVisible(boss, value);
         }
 
-        public void Tick(float dt, bool overhead, Camera camera, Vector3 aimDirection, bool moving, bool dodging)
+        /// <summary>0 = full 3D walls, 1 = low 2D cutaway. Values in between show the
+        /// walls sinking into (or rising from) the floor while the camera moves.
+        /// Colliders are never touched: only the source renderers and their proxies change.</summary>
+        public void SetWallLowering(float value)
+        {
+            if (disposed) return;
+            wallLowering = Mathf.Clamp01(value);
+            bool lowered = wallLowering > 0;
+            if (cutaways) cutaways.gameObject.SetActive(lowered);
+            float floor = FloorHeight + CutawayHeight * .5f;
+            foreach (var wall in walls)
+            {
+                if (wall.Source) wall.Source.enabled = lowered ? false : wall.Enabled;
+                if (!wall.Proxy) continue;
+                // A closed portal's source GameObject becomes inactive when opened;
+                // its cutaway follows that state without touching the seal collider.
+                wall.Proxy.enabled = lowered && wall.Enabled && wall.Source && wall.Source.gameObject.activeInHierarchy;
+                if (!wall.Proxy.enabled) continue;
+                Transform node = wall.Proxy.transform;
+                Vector3 position = node.position, scale = node.localScale;
+                scale.y = Mathf.Lerp(wall.FullHeight, CutawayHeight, wallLowering);
+                position.y = Mathf.Lerp(wall.CenterY, floor, wallLowering);
+                node.localScale = scale; node.position = position;
+                // Shadows fade out with the wall instead of vanishing at the start.
+                wall.Proxy.shadowCastingMode = wallLowering < .999f ? ShadowCastingMode.On : ShadowCastingMode.Off;
+            }
+        }
+
+        /// <param name="overhead">Show sprites instead of 3D models.</param>
+        /// <param name="lowering">Wall height blend (0 = full walls, 1 = cutaway);
+        /// a negative value follows <paramref name="overhead"/>.</param>
+        public void Tick(float dt, bool overhead, Camera camera, Vector3 aimDirection, bool moving, bool dodging, float lowering = -1)
         {
             if (!initialized || disposed || !game || !camera || float.IsNaN(dt) || float.IsInfinity(dt) || dt < 0) return;
             if (observedWorld != game.World) CaptureArchitecture();
             if (topDown != overhead) SetTopDown(overhead);
+            SetWallLowering(lowering < 0 || float.IsNaN(lowering) ? overhead ? 1 : 0 : lowering);
             float step = game.CanSimulate ? Mathf.Min(dt, .05f) : 0;
             clock += step;
             shotRemaining = Mathf.Max(0, shotRemaining - step);
@@ -127,10 +155,6 @@ namespace Ecos.Haunt.Fps
                 boss.Sprite.sprite = art.BossFrame(guardian.SpriteKey, guardian.AnimationState, frame);
                 PresentActor(boss, guardian.transform.position + Vector3.up * .07f, facingCamera, 1.25f, false, false);
             }
-            // A closed portal's source GameObject becomes inactive when opened.
-            // Its decorative cutaway must follow that state without touching the seal collider.
-            foreach (var wall in walls)
-                if (wall.Proxy) wall.Proxy.enabled = wall.Enabled && wall.Source && wall.Source.gameObject.activeInHierarchy;
         }
 
         void PresentHero(Quaternion facingCamera, Vector3 aim, bool moving, bool dodging)
@@ -259,14 +283,16 @@ namespace Ecos.Haunt.Fps
                 if (wall || pillar || portal)
                 {
                     Bounds bounds = renderer.bounds;
+                    record.FullHeight = Mathf.Max(CutawayHeight, bounds.size.y); record.CenterY = bounds.center.y;
                     var proxy = game.Box("Corte / " + name, Vector3.zero,
-                        new Vector3(Mathf.Max(.12f, bounds.size.x), .5f, Mathf.Max(.12f, bounds.size.z)), renderer.sharedMaterial, cutaways, false);
-                    proxy.transform.position = new Vector3(bounds.center.x, FloorHeight + .25f, bounds.center.z);
+                        new Vector3(Mathf.Max(.12f, bounds.size.x), CutawayHeight, Mathf.Max(.12f, bounds.size.z)), renderer.sharedMaterial, cutaways, false);
+                    proxy.transform.position = new Vector3(bounds.center.x, FloorHeight + CutawayHeight * .5f, bounds.center.z);
                     record.Proxy = proxy.GetComponent<Renderer>(); record.Proxy.shadowCastingMode = ShadowCastingMode.Off;
                 }
                 walls.Add(record);
             }
             SetTopDown(topDown);
+            SetWallLowering(wallLowering);
         }
 
         SpriteRenderer Sprite(string name, Sprite image, Transform parent)
@@ -276,6 +302,7 @@ namespace Ecos.Haunt.Fps
             renderer.sprite = image; renderer.shadowCastingMode = ShadowCastingMode.Off; renderer.receiveShadows = false;
             return renderer;
         }
+        const float CutawayHeight = .5f;
         float FloorHeight => game && game.World ? game.World.transform.position.y : 0;
         static int Depth(Vector3 position) => 1000 - Mathf.RoundToInt(position.z * 30);
         string CharacterArt() => game.State.Character == CharacterKind.Medium ? "medium"
@@ -322,7 +349,7 @@ namespace Ecos.Haunt.Fps
         public void Dispose()
         {
             if (disposed) return;
-            SetTopDown(false); disposed = true;
+            SetTopDown(false); SetWallLowering(0); disposed = true;
             foreach (var actor in actors.Values) Release(actor); actors.Clear();
             if (boss != null) Release(boss); boss = null;
             if (presentation) { presentation.gameObject.SetActive(false); DestroyOwned(presentation.gameObject); }

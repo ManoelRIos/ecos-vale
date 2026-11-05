@@ -192,6 +192,9 @@ namespace Ecos.Haunt.Fps
 
         // A single clock advances reloads, actors and effects. Pause/focus guards
         // live here as well as in Update so no caller can advance a suspended run.
+        /// <summary>World speed while the camera changes perspective.</summary>
+        public const float TransitionTimeScale = .35f;
+
         void TickSimulation(float dt)
         {
             if (!CanSimulate || !(dt > 0) || float.IsInfinity(dt)) return;
@@ -216,21 +219,25 @@ namespace Ecos.Haunt.Fps
                 || Gamepad.current != null && Gamepad.current.leftShoulder.wasPressedThisFrame;
             if (power && !player.IsPerspectiveTransition) TryPower();
             if (!CanSimulate) return;
-            world.Tick(dt);
+            // Brief bullet-time while the view changes: the player cannot fire during the
+            // transition, so creatures, projectiles and effects slow down. The player's own
+            // movement, dodge, reload and the camera keep their normal pace.
+            float worldDt = player.IsPerspectiveTransition ? dt * TransitionTimeScale : dt;
+            world.Tick(worldDt);
             for (int i = enemies.Count - 1; i >= 0; i--)
             {
                 if (!enemies[i]) enemies.RemoveAt(i);
-                else enemies[i].Tick(dt);
+                else enemies[i].Tick(worldDt);
                 if (!CanSimulate) return;
             }
-            for (int i = 0; i < barrels.Count; i++) if (barrels[i]) barrels[i].Tick(dt);
-            if (boss) boss.Tick(dt);
+            for (int i = 0; i < barrels.Count; i++) if (barrels[i]) barrels[i].Tick(worldDt);
+            if (boss) boss.Tick(worldDt);
             if (!CanSimulate) return;
-            TickProjectiles(dt); TickEffects(dt); TickWaves(dt);
+            TickProjectiles(worldDt); TickEffects(worldDt); TickWaves(worldDt);
             sound.Tick(dt, !exitReady);
             if (hybridArt)
-                hybridArt.Tick(dt, player.IsTopDown, player.View, player.Perspective.AimDirection,
-                    moving, player.IsDodging);
+                hybridArt.Tick(dt, player.ShowsTopDownArt, player.View, player.Perspective.AimDirection,
+                    moving, player.IsDodging, player.OverheadAmount);
             lastPlayerPosition = PlayerPosition;
         }
 
@@ -311,7 +318,8 @@ namespace Ecos.Haunt.Fps
             if (state.IsDead)
             {
                 mode = ScreenMode.Dead;
-                if (hybridArt) hybridArt.Tick(0, player.IsTopDown, player.View, player.Perspective.AimDirection, false, false);
+                if (hybridArt) hybridArt.Tick(0, player.ShowsTopDownArt, player.View, player.Perspective.AimDirection, false, false,
+                    player.OverheadAmount);
                 UpdateSuspension();
             }
             return true;

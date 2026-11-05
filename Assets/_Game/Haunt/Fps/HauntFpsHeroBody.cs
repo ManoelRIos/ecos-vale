@@ -102,7 +102,9 @@ namespace Ecos.Haunt.Fps
         {
             if (!game || !game.Player || !model) return;
             clock += Mathf.Max(0, dt);
-            bool topDown = game.Player.IsTopDown;
+            // Follow the camera, not the requested view: the body stays visible while the
+            // camera pulls out of the head and is replaced by the sprite mid-transition.
+            bool topDown = game.Player.ShowsTopDownArt;
             bool distant = Vector3.Distance(game.Player.View.transform.position, game.Player.Position + Vector3.up * 1.6f) > 2;
             foreach (var surface in surfaces)
             {
