@@ -42,7 +42,19 @@ namespace Ecos.Haunt.Fps
             public BossAnimationState BossState;
         }
 
+        /// <summary>Enemies and bosses use the same pixel-art sprites in both views, so each
+        /// creature reads identically from the eye and from above. Set false to bring back the
+        /// procedural voxel models in first person.</summary>
+        public static bool SpriteActorsInFirstPerson = true;
+        /// <summary>World size of the actor sprites. With the 32 px-per-unit sheets one sprite
+        /// pixel covers one rendered pixel of the overhead view (see HauntFpsGame.PixelUnit).</summary>
+        public const float ActorScale = 1.4f;
+
         public bool TopDownVisible => topDown && !disposed;
+        bool ActorSpritesShown => topDown || SpriteActorsInFirstPerson;
+        // Per-tick viewing context used to sort and shade the sprites.
+        Vector3 viewer;
+        float overheadBlend;
         public int ActorViewCount => actors.Count + (boss != null ? 1 : 0);
         public int CutawayCount => walls.Count;
 
@@ -73,9 +85,16 @@ namespace Ecos.Haunt.Fps
         {
             if (disposed || !presentation) return;
             topDown = value;
-            presentation.gameObject.SetActive(value);
-            foreach (var actor in actors.Values) SetActorVisible(actor, value);
-            if (boss != null) SetActorVisible(boss, value);
+            presentation.gameObject.SetActive(ActorSpritesShown);
+            // The hero is seen through its own eyes in first person; only actors stay sprites.
+            if (hero) hero.enabled = value;
+            if (heroShadow) heroShadow.enabled = value;
+            if (!value) { if (weapon) weapon.enabled = false; if (muzzle) muzzle.enabled = false; }
+            // Overhead, every front occluder is lowered, so sprites draw over the standing back
+            // walls like Enter the Gungeon's layered rooms. In first person walls hide them normally.
+            if (art != null) art.Material.SetFloat("_ZTest", (float)(value ? CompareFunction.Always : CompareFunction.LessEqual));
+            foreach (var actor in actors.Values) SetActorVisible(actor, ActorSpritesShown);
+            if (boss != null) SetActorVisible(boss, ActorSpritesShown);
         }
 
         /// <summary>0 = full 3D walls, 1 = low 2D cutaway. Values in between show the
@@ -126,9 +145,18 @@ namespace Ecos.Haunt.Fps
             else dodgeClock = 0;
             wasDodging = dodging;
             SynchronizeActors();
-            if (!topDown) return;
-            Quaternion facingCamera = camera.transform.rotation;
-            PresentHero(facingCamera, aimDirection, moving, dodging);
+            if (!ActorSpritesShown) return;
+            Transform eye = camera.transform;
+            viewer = eye.position;
+            overheadBlend = Mathf.Clamp01(lowering < 0 || float.IsNaN(lowering) ? overhead ? 1 : 0 : lowering);
+            Vector3 flat = eye.forward; flat.y = 0;
+            Quaternion upright = flat.sqrMagnitude > 1e-4f ? Quaternion.LookRotation(flat.normalized, Vector3.up)
+                : Quaternion.Euler(0, eye.eulerAngles.y, 0);
+            // Upright billboards in first person (Doom style), tilting with the camera into the
+            // overhead plane, so the sprites follow the dolly path without a pop.
+            Quaternion facingCamera = Quaternion.Slerp(upright, eye.rotation, overheadBlend);
+            Quaternion toView = Quaternion.Inverse(upright);
+            if (topDown) PresentHero(facingCamera, aimDirection, moving, dodging);
             foreach (var pair in actors)
             {
                 var enemy = pair.Key;
@@ -138,12 +166,13 @@ namespace Ecos.Haunt.Fps
                 if (view.EnemyState != enemy.AnimationState) { view.EnemyState = enemy.AnimationState; view.StateClock = 0; }
                 int frame = Mathf.FloorToInt(view.StateClock * (enemy.IsDead ? 12 : 8));
                 if (enemy.IsDead) frame = Mathf.Min(HauntPixelArt.ActorFrameCount - 1, frame);
-                view.Sprite.sprite = art.ActorFrame(enemy.SpriteKey, enemy.AnimationState, frame,
-                    ActorDirection(enemy.transform.forward));
-                float scale = enemy.Kind == FpsEnemyKind.Lantern ? 1.35f : 1.4f;
+                // Facing is judged from the viewer, so a creature walking away shows its back
+                // in first person exactly as it does when walking north in the overhead view.
+                Vector3 seen = toView * enemy.transform.forward;
+                view.Sprite.sprite = art.ActorFrame(enemy.SpriteKey, enemy.AnimationState, frame, ActorDirection(seen));
                 Vector3 anchor = enemy.transform.position + Vector3.up * .055f;
                 bool footPivot = HauntPixelArt.HasActorSheet(enemy.SpriteKey);
-                PresentActor(view, anchor, facingCamera, scale, footPivot, enemy.transform.forward.x < 0);
+                PresentActor(view, anchor, facingCamera, ActorScale, footPivot, seen.x < 0);
             }
             if (boss != null && game.Boss)
             {
@@ -153,7 +182,7 @@ namespace Ecos.Haunt.Fps
                 int frame = Mathf.FloorToInt(boss.StateClock * (guardian.IsDead ? 9 : 6));
                 if (guardian.IsDead) frame = Mathf.Min(3, frame);
                 boss.Sprite.sprite = art.BossFrame(guardian.SpriteKey, guardian.AnimationState, frame);
-                PresentActor(boss, guardian.transform.position + Vector3.up * .07f, facingCamera, 1.25f, false, false);
+                PresentActor(boss, guardian.transform.position + Vector3.up * .07f, facingCamera, ActorScale, false, false);
             }
         }
 
@@ -169,9 +198,10 @@ namespace Ecos.Haunt.Fps
                 : game.State.IsReloading ? Mathf.Clamp(Mathf.FloorToInt(game.State.ReloadProgress * count), 0, count - 1)
                 : Mathf.FloorToInt(clock * art.CharacterFrameRate(id, clip, direction));
             hero.sprite = art.CharacterFrame(id, clip, frame, direction);
-            hero.transform.position = game.PlayerPosition + Vector3.up * .06f;
+            hero.transform.position = Settled(game.PlayerPosition + Vector3.up * .06f);
             hero.transform.rotation = facingCamera;
-            hero.transform.localScale = Vector3.one * 1.25f;
+            // 16 px-per-unit sheet: one hero pixel spans exactly two actor pixels.
+            hero.transform.localScale = Vector3.one * ActorScale;
             hero.flipX = aim.x < -.05f;
             hero.sortingOrder = Depth(game.PlayerPosition);
             Flash(hero, heroFlash);
@@ -199,7 +229,7 @@ namespace Ecos.Haunt.Fps
             expired.Clear();
             foreach (var pair in actors) if (!pair.Key) expired.Add(pair.Key);
             foreach (var enemy in expired) { Release(actors[enemy]); actors.Remove(enemy); }
-            if (topDown)
+            if (ActorSpritesShown)
             {
                 foreach (var enemy in game.Enemies)
                 {
@@ -209,7 +239,7 @@ namespace Ecos.Haunt.Fps
                 }
             }
             if (boss != null && (!boss.Actor || boss.Actor != game.Boss)) { Release(boss); boss = null; }
-            if (topDown && game.Boss && boss == null)
+            if (ActorSpritesShown && game.Boss && boss == null)
             {
                 boss = CreateActor(game.Boss, game.Boss.Health, "Chefe / " + game.Boss.SpriteKey);
                 boss.BossState = game.Boss.AnimationState; SetActorVisible(boss, true);
@@ -241,15 +271,32 @@ namespace Ecos.Haunt.Fps
         {
             Vector3 offset = footPivot || !view.Sprite.sprite ? Vector3.zero
                 : facingCamera * Vector3.up * (view.Sprite.sprite.rect.height / view.Sprite.sprite.pixelsPerUnit * scale * .46f);
-            view.Sprite.transform.position = anchor + offset;
+            view.Sprite.transform.position = Settled(anchor + offset);
             view.Sprite.transform.rotation = facingCamera;
             float stretch = view.Flash > 0 ? .1f : 0;
             view.Sprite.transform.localScale = new Vector3(scale * (1 + stretch), scale * (1 - stretch), scale);
             view.Sprite.flipX = flip;
-            view.Sprite.sortingOrder = Depth(anchor);
+            view.Sprite.sortingOrder = topDown ? Depth(anchor) : 1000 - Mathf.RoundToInt(Vector3.Distance(viewer, anchor) * 30);
+            view.Sprite.color = Atmosphere(anchor);
             Flash(view.Sprite, view.Flash);
             view.Shadow.transform.position = new Vector3(anchor.x, FloorHeight + .03f, anchor.z);
         }
+
+        /// <summary>Sprites are unlit. In first person they take the arena's fog and a gentle
+        /// distance falloff so they sit inside the room instead of glowing over it.</summary>
+        Color Atmosphere(Vector3 position)
+        {
+            if (overheadBlend >= 1) return Color.white;
+            float distance = Vector3.Distance(viewer, position);
+            float density = RenderSettings.fog ? RenderSettings.fogDensity * distance : 0;
+            float visible = Mathf.Exp(-density * density);
+            Color lit = Color.Lerp(new Color(.7f, .68f, .78f, 1), Color.white, Mathf.Clamp01(1.3f - distance / 16));
+            Color tinted = Color.Lerp(RenderSettings.fogColor, lit, visible); tinted.a = 1;
+            return Color.Lerp(tinted, Color.white, overheadBlend);
+        }
+
+        /// <summary>Once fully overhead, sprites sit on whole pixels like the camera does.</summary>
+        Vector3 Settled(Vector3 position) => overheadBlend >= 1 ? HauntFpsPerspective.SnapToPixels(position) : position;
 
         static void Observe(ActorView view, int health, float dt)
         {
@@ -279,6 +326,11 @@ namespace Ecos.Haunt.Fps
                 bool hide = wall || pillar || portal || name.StartsWith("Coroamento ", StringComparison.Ordinal)
                     || name == "Pilar / capitel" || name == "Pilar / osso" || name == "Portal / verga";
                 if (!hide) continue;
+                // Enter the Gungeon framing: the back and side walls (and what hangs on them,
+                // like the portal) stay standing overhead. Only pieces in front of the action sink.
+                Bounds placed = renderer.bounds;
+                if (placed.center.z > HauntFpsWorld.Depth * .5f - .9f || Mathf.Abs(placed.center.x) > HauntFpsWorld.Width * .5f - .9f)
+                    continue;
                 var record = new WallView { Source = renderer, Enabled = renderer.enabled };
                 if (wall || pillar || portal)
                 {

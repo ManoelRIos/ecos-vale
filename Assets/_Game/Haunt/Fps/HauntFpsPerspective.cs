@@ -11,7 +11,12 @@ namespace Ecos.Haunt.Fps
         /// <summary>Path fraction where sprites replace models. Past this point the dolly
         /// zoom has flattened the image enough for the swap to read as one continuous view.</summary>
         public const float ArtSwapPoint = .55f;
-        const float TopSize = 8.3f, TopPitch = 62, TopDistance = 14.5f;
+        const float DefaultTopSize = 8.3f, TopPitch = 62, TopDistance = 14.5f;
+        /// <summary>Half height of the overhead frame. With the low-resolution frame on it is
+        /// sized so one rendered pixel equals one actor-sprite pixel (pixel-perfect art),
+        /// kept within a range that preserves the playable view on unusual resolutions.</summary>
+        static float TopSize => HauntFpsGame.RenderPixelHeight > 0
+            ? Mathf.Clamp(HauntFpsGame.RenderPixelHeight * HauntFpsGame.PixelUnit * .5f, 7.5f, 9.5f) : DefaultTopSize;
         // The dolly path ends on a near-orthographic lens; the final hand-off to the real
         // orthographic projection then changes the image by less than a pixel.
         const float DollyEndFov = 6, TransitionFarClip = 260;
@@ -153,9 +158,23 @@ namespace Ecos.Haunt.Fps
             float shake = player.CameraTrauma * player.CameraTrauma;
             Vector3 tremor = new Vector3((Mathf.PerlinNoise(13, Time.unscaledTime * 29) * 2 - 1) * .16f,
                 0, (Mathf.PerlinNoise(71, Time.unscaledTime * 31) * 2 - 1) * .12f) * shake;
-            view.transform.position = focus + TopOffset + tremor;
+            view.transform.position = SnapToPixels(focus + TopOffset + tremor);
             view.transform.rotation = TopRotation;
+            view.orthographicSize = TopSize;
             SetViewModel(false);
+        }
+
+        /// <summary>Moves a point onto the overhead view's pixel grid, measured in the camera
+        /// plane, so the low-resolution frame scrolls by whole pixels and the art never shimmers.</summary>
+        public static Vector3 SnapToPixels(Vector3 point)
+        {
+            int height = HauntFpsGame.RenderPixelHeight;
+            if (height <= 0) return point;
+            float unit = 2 * TopSize / height;
+            Vector3 right = TopRotation * Vector3.right, up = TopRotation * Vector3.up, forward = TopRotation * Vector3.forward;
+            float x = Mathf.Round(Vector3.Dot(point, right) / unit) * unit;
+            float y = Mathf.Round(Vector3.Dot(point, up) / unit) * unit;
+            return right * x + up * y + forward * Vector3.Dot(point, forward);
         }
 
         Vector3 GroundFocus()

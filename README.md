@@ -20,7 +20,13 @@ Para atualizar por ZIP, use uma extração nova: sobrepor pastas não remove arq
 
 ## Campanha híbrida 2D / FPS
 
-**A troca de perspectiva preserva o encontro.** Vida, munição, recarga, poderes, inimigos e projéteis continuam no mesmo estado. A visão 2D usa câmera ortográfica, personagens em sprites e paredes apresentadas em corte para melhorar a leitura. A primeira pessoa usa a câmera perspectiva e os modelos 3D. As duas consultam as mesmas colisões da sala. A transição dura 0,4 s, bloqueia disparos nesse intervalo e não concede invencibilidade adicional.
+**A troca de perspectiva preserva o encontro.** Vida, munição, recarga, poderes, inimigos e projéteis continuam no mesmo estado. A visão 2D usa câmera ortográfica e paredes da frente rebaixadas; a parede do fundo e as laterais ficam em pé, enquadrando a sala como em jogos de masmorra top-down. A primeira pessoa usa a câmera perspectiva. As duas consultam as mesmas colisões da sala.
+
+**Os inimigos e chefes usam os mesmos sprites nas duas visões**: em primeira pessoa eles ficam em pé, virados para a câmera, recebem a neblina da arena e mostram frente, lado ou costas conforme a direção em que andam em relação a você. Assim cada criatura tem a mesma silhueta e paleta de cima e dos olhos do personagem. Os modelos voxel antigos continuam no código: `HauntFpsHybridArt.SpriteActorsInFirstPerson = false` os traz de volta.
+
+**Pixel art de verdade.** A imagem é renderizada em pelo menos 360 linhas (a altura da tela dividida por um número inteiro: 360 em 1080p e 1440p) e ampliada sem suavização, de modo que cada pixel dos sprites vira um bloco nítido e uniforme; HUD e textos continuam em resolução cheia. Na visão 2D, um pixel renderizado equivale a um pixel dos sprites, e a câmera e os sprites andam pixel a pixel para a arte não tremer. `HauntFpsGame.PixelArtRendering = false` volta à resolução cheia.
+
+**A transição** é um dolly zoom: a câmera sai dos olhos do personagem, recua enquanto a lente se fecha e chega à vista ortográfica sem salto. Os sprites trocam de lugar com o corpo 3D do herói no meio do movimento, as paredes da frente afundam junto com a câmera e o mundo desacelera para 35% durante os 0,4 s. Nesse intervalo os disparos ficam bloqueados e não há invencibilidade adicional.
 
 Na primeira pessoa, o mouse e o analógico direito controlam o olhar. Na visão 2D, WASD segue os eixos da sala; o mouse aponta a posição da mira e o analógico direito mantém a direção do tiro. Mãos, armas, clarões, cápsulas e sprites acompanham o personagem selecionado.
 

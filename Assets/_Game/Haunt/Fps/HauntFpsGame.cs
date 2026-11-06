@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 
 namespace Ecos.Haunt.Fps
 {
@@ -69,6 +70,22 @@ namespace Ecos.Haunt.Fps
         public Vector3 PlayerPosition => player ? player.Position : Vector3.zero;
         public bool CanSimulate => !disposed && string.IsNullOrEmpty(failure) && mode == ScreenMode.Playing
             && !paused && !focusLost && state != null && !state.IsDead;
+        /// <summary>Minimum height, in pixels, of the low-resolution frame. It is drawn at
+        /// Screen.height / n (n a whole number) and enlarged with nearest-neighbor filtering,
+        /// like hand-made pixel-art games such as Enter the Gungeon. The HUD stays sharp.</summary>
+        public const int PixelTargetHeight = 360;
+        /// <summary>World size of one rendered pixel in the overhead view: one pixel of the
+        /// 32 px-per-unit actor sheets drawn at HauntFpsHybridArt.ActorScale.</summary>
+        public const float PixelUnit = HauntFpsHybridArt.ActorScale / 32f;
+        /// <summary>Hostile bullets render after the actor sprites so they stay readable overhead.</summary>
+        const int BulletOverlayQueue = 3100;
+        public static bool PixelArtRendering = true;
+        /// <summary>Height of the frame actually rendered; 0 while the low-resolution frame is off.</summary>
+        public static int RenderPixelHeight { get; private set; }
+        UniversalRenderPipelineAsset pixelPipeline;
+        UpscalingFilterSelection savedUpscaling;
+        float savedRenderScale = 1;
+        bool bulletsOverSprites;
         public int WaveNumber => wave + 1;
         public int KillCount => kills;
         public int ActiveProjectileCount => projectiles.Count;
@@ -86,6 +103,13 @@ namespace Ecos.Haunt.Fps
                 if (!appliedPipeline) throw new InvalidOperationException("FpsPipeline ausente. Execute Ecos > Preparar projeto no Editor.");
                 GraphicsSettings.defaultRenderPipeline = appliedPipeline;
                 QualitySettings.renderPipeline = appliedPipeline;
+                pixelPipeline = appliedPipeline as UniversalRenderPipelineAsset;
+                if (pixelPipeline)
+                {
+                    // The pipeline is a project asset: remember its values and restore them on exit.
+                    savedRenderScale = pixelPipeline.renderScale; savedUpscaling = pixelPipeline.upscalingFilter;
+                    ApplyPixelRendering();
+                }
                 sound = gameObject.AddComponent<HauntFpsAudio>();
                 BuildRun(seed);
             }
@@ -152,6 +176,7 @@ namespace Ecos.Haunt.Fps
         void Update()
         {
             if (disposed || state == null || !string.IsNullOrEmpty(failure)) return;
+            ApplyPixelRendering();
             var keyboard = Keyboard.current; var pad = Gamepad.current;
             bool confirm = keyboard != null && keyboard.enterKey.wasPressedThisFrame
                 || pad != null && pad.buttonSouth.wasPressedThisFrame;
@@ -235,6 +260,7 @@ namespace Ecos.Haunt.Fps
             if (!CanSimulate) return;
             TickProjectiles(worldDt); TickEffects(worldDt); TickWaves(worldDt);
             sound.Tick(dt, !exitReady);
+            LayerBullets(player.ShowsTopDownArt);
             if (hybridArt)
                 hybridArt.Tick(dt, player.ShowsTopDownArt, player.View, player.Perspective.AimDirection,
                     moving, player.IsDodging, player.OverheadAmount);
@@ -354,6 +380,7 @@ namespace Ecos.Haunt.Fps
             string palette = Mathf.RoundToInt(color.r * 15) + ":" + Mathf.RoundToInt(color.g * 15) + ":" + Mathf.RoundToInt(color.b * 15);
             Material material = PixelMaterial("orbe espectral " + palette, color);
             material.SetColor("_EmissionColor", color * 1.4f);
+            material.renderQueue = bulletsOverSprites ? BulletOverlayQueue : -1;
             visual.GetComponent<Renderer>().sharedMaterial = material;
             var trail = new GameObject("Rastro").AddComponent<LineRenderer>(); trail.transform.SetParent(visual.transform, false);
             SetupLine(trail, material, .065f); trail.positionCount = 2;
@@ -575,9 +602,35 @@ namespace Ecos.Haunt.Fps
             if (world != null) world.Dispose(); world = null;
             if (runRoot) Destroy(runRoot); runRoot = null; player = null; ears = null; heroBody = null;
         }
+        /// <summary>Keeps the frame at a whole fraction of the screen so every rendered pixel
+        /// becomes the same number of screen pixels (no uneven, wobbling pixel art).</summary>
+        void ApplyPixelRendering()
+        {
+            if (!pixelPipeline) { RenderPixelHeight = 0; return; }
+            int screen = Mathf.Max(1, Screen.height);
+            // Never below the target height, so a small Editor Game view keeps its detail.
+            int divisor = PixelArtRendering ? Mathf.Max(1, screen / PixelTargetHeight) : 1;
+            RenderPixelHeight = PixelArtRendering ? Mathf.Max(1, screen / divisor) : 0;
+            float scale = PixelArtRendering ? 1f / divisor : savedRenderScale;
+            if (!Mathf.Approximately(pixelPipeline.renderScale, scale)) pixelPipeline.renderScale = scale;
+            UpscalingFilterSelection filter = PixelArtRendering ? UpscalingFilterSelection.Point : savedUpscaling;
+            if (pixelPipeline.upscalingFilter != filter) pixelPipeline.upscalingFilter = filter;
+        }
+
+        void LayerBullets(bool overhead)
+        {
+            if (bulletsOverSprites == overhead) return;
+            bulletsOverSprites = overhead;
+            foreach (var pair in materials)
+                if (pair.Value && pair.Key.StartsWith("orbe espectral", StringComparison.Ordinal))
+                    pair.Value.renderQueue = overhead ? BulletOverlayQueue : -1;
+        }
+
         void OnDestroy()
         {
             if (disposed) return; disposed = true;
+            if (pixelPipeline) { pixelPipeline.renderScale = savedRenderScale; pixelPipeline.upscalingFilter = savedUpscaling; }
+            pixelPipeline = null; RenderPixelHeight = 0;
             ClearRun(); if (sound) sound.Dispose(); lettering.Dispose();
             foreach (var material in materials.Values) if (material) Destroy(material);
             foreach (var texture in textures) if (texture) Destroy(texture);

@@ -8,6 +8,9 @@ Shader "Haunt/Pixel Sprites"
         [PerRendererData] _HitFlash ("Hit flash", Range(0,1)) = 0
         [PerRendererData] _MainTex ("Sprite", 2D) = "white" {}
         _Color ("Tint", Color) = (1,1,1,1)
+        // 4 = LessEqual (default). The hybrid overhead view uses 8 = Always so actors
+        // draw over the standing back walls, as in layered top-down rooms.
+        [Enum(UnityEngine.Rendering.CompareFunction)] _ZTest ("Depth test", Float) = 4
         // As in URP's sprite shader, keep the legacy tint property for material
         // compatibility but read native per-draw sprite data in the vertex stage.
         [HideInInspector] _RendererColor ("Renderer tint", Color) = (1,1,1,1)
@@ -17,6 +20,7 @@ Shader "Haunt/Pixel Sprites"
         Tags { "Queue"="Transparent" "RenderType"="Transparent" "RenderPipeline"="UniversalPipeline" "CanUseSpriteAtlas"="True" }
         Cull Off
         ZWrite Off
+        ZTest [_ZTest]
         Blend [_SrcBlend] [_DstBlend], One OneMinusSrcAlpha
         Pass
         {
