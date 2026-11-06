@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace Ecos.Haunt.Fps
 {
@@ -53,52 +54,151 @@ namespace Ecos.Haunt.Fps
             Notify("FASE " + state.Floor + " - " + HauntFpsCampaign.ThemeName(state.Floor), 3);
         }
 
+        /// <summary>Speed of the player's bullets: fast, but visible in flight, as in twin-stick
+        /// dungeon shooters. Each soul fires its own projectile sprite.</summary>
+        public const float PlayerShotSpeed = 26;
+
+        sealed class PlayerShot
+        {
+            public Transform Visual;
+            public Renderer Orb;
+            public SpriteRenderer Sprite;
+            public LineRenderer Trail;
+            public Vector3 Position, Direction;
+            public float Life = 1.7f, Radius;
+            public int Pierces;
+            public bool Chain;
+            public Color Color;
+            public readonly HashSet<Component> Struck = new HashSet<Component>();
+        }
+        readonly List<PlayerShot> playerShots = new List<PlayerShot>();
+        public int PlayerShotCount => playerShots.Count;
+
         void FireCharacterWeapon(Ray ray)
         {
             Color color = CharacterColor(state.Character);
-            if (state.Character == CharacterKind.Medium)
+            Vector3 origin = player.MuzzlePosition;
+            Vector3 direction = ray.direction;
+            if (!player.IsTopDown)
             {
-                for (int i = -1; i <= 1; i++)
-                    FireRay(new Ray(ray.origin, Quaternion.AngleAxis(i * 5, Vector3.up) * ray.direction), color, 1, false);
+                // In first person the bullet leaves the gun but converges on what the crosshair covers.
+                int mask = ~((1 << PlayerLayer) | (1 << ViewLayer));
+                Vector3 target = ray.GetPoint(FpsPrototypeRules.ShotRange);
+                if (Physics.Raycast(ray, out RaycastHit aim, FpsPrototypeRules.ShotRange, mask, QueryTriggerInteraction.Ignore)) target = aim.point;
+                direction = (target - origin).normalized;
             }
-            else FireRay(ray, color, state.Character == CharacterKind.Reaper ? 3 : 1, state.Character == CharacterKind.Alchemist);
+            int pierces = state.Character == CharacterKind.Reaper ? 3 : 1;
+            bool chain = state.Character == CharacterKind.Alchemist;
+            if (state.Character == CharacterKind.Medium)
+                for (int i = -1; i <= 1; i++) LaunchShot(origin, Quaternion.AngleAxis(i * 6, Vector3.up) * direction, color, pierces, chain);
+            else LaunchShot(origin, direction, color, pierces, chain);
         }
 
-        void FireRay(Ray ray, Color color, int pierces, bool chain)
+        string ShotSprite() => state.Character == CharacterKind.Medium ? "shot-petal" : state.Character == CharacterKind.Reaper ? "shot-bone"
+            : state.Character == CharacterKind.Alchemist ? "shot-shock" : "shot-carbine";
+
+        void LaunchShot(Vector3 origin, Vector3 direction, Color color, int pierces, bool chain)
+        {
+            if (direction.sqrMagnitude < .001f || playerShots.Count > 64) return;
+            float size = state.ProjectileScale;
+            var visual = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            visual.name = "Bala da alma"; visual.transform.SetParent(runRoot.transform, false);
+            visual.transform.position = origin; visual.transform.localScale = Vector3.one * .14f * size;
+            var collider = visual.GetComponent<Collider>(); collider.enabled = false; Destroy(collider);
+            string palette = Mathf.RoundToInt(color.r * 15) + ":" + Mathf.RoundToInt(color.g * 15) + ":" + Mathf.RoundToInt(color.b * 15);
+            Material material = PixelMaterial("bala da alma " + palette, color);
+            material.SetColor("_EmissionColor", color * 1.6f);
+            var shot = new PlayerShot { Visual = visual.transform, Orb = visual.GetComponent<Renderer>(), Position = origin,
+                Direction = direction.normalized, Pierces = pierces, Chain = chain, Color = color, Radius = .12f * size };
+            shot.Orb.sharedMaterial = material;
+            var trail = new GameObject("Rastro").AddComponent<LineRenderer>(); trail.transform.SetParent(visual.transform, false);
+            SetupLine(trail, material, .05f * size); trail.positionCount = 2;
+            trail.SetPosition(0, origin); trail.SetPosition(1, origin);
+            shot.Trail = trail;
+            if (hybridArt && hybridArt.SpriteMaterial)
+            {
+                var image = new GameObject("Bala da alma 2D").AddComponent<SpriteRenderer>();
+                image.transform.SetParent(visual.transform, false);
+                image.sprite = hybridArt.ArtSprite(ShotSprite());
+                image.sharedMaterial = hybridArt.SpriteMaterial;
+                float extent = image.sprite ? Mathf.Max(image.sprite.rect.width, image.sprite.rect.height) / image.sprite.pixelsPerUnit : 1;
+                image.transform.localScale = Vector3.one * (.7f / Mathf.Max(.05f, extent) / .14f);
+                image.sortingOrder = 5001; image.shadowCastingMode = ShadowCastingMode.Off; image.receiveShadows = false;
+                shot.Sprite = image;
+            }
+            ShowShotStyle(shot, bulletsOverSprites);
+            playerShots.Add(shot);
+        }
+
+        void ShowShotStyle(PlayerShot shot, bool overhead)
+        {
+            if (shot.Sprite) shot.Sprite.enabled = overhead;
+            if (shot.Orb) shot.Orb.enabled = !overhead || !shot.Sprite;
+            if (shot.Trail) shot.Trail.enabled = !overhead || !shot.Sprite;
+        }
+
+        void TickPlayerShots(float dt)
         {
             int mask = ~((1 << PlayerLayer) | (1 << ViewLayer));
-            RaycastHit[] hits = Physics.RaycastAll(ray, FpsPrototypeRules.ShotRange, mask, QueryTriggerInteraction.Ignore);
-            Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
-            Vector3 end = ray.GetPoint(FpsPrototypeRules.ShotRange);
-            var struck = new HashSet<HauntFpsEnemy>();
-            foreach (RaycastHit hit in hits)
+            Transform eye = player ? player.View.transform : null;
+            for (int i = playerShots.Count - 1; i >= 0; i--)
             {
-                end = hit.point;
-                var enemy = hit.collider.GetComponentInParent<HauntFpsEnemy>();
-                var chief = hit.collider.GetComponentInParent<HauntFpsBoss>();
-                var barrel = hit.collider.GetComponentInParent<HauntFpsBarrel>();
-                if (enemy)
+                PlayerShot shot = playerShots[i];
+                float step = PlayerShotSpeed * dt;
+                bool remove = false;
+                RaycastHit[] hits = Physics.SphereCastAll(shot.Position, shot.Radius, shot.Direction, step, mask, QueryTriggerInteraction.Ignore);
+                System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+                foreach (RaycastHit hit in hits)
                 {
-                    if (enemy.IsDead || !struck.Add(enemy)) continue;
-                    enemy.TakeDamage(state.Damage + state.ProjectileDamageBonus, hit.point, ray.direction * 4);
-                    hitMarker = .12f; PlayCue(FpsCue.EnemyHit, hit.point);
-                    if (chain) ChainLightning(enemy, color);
-                    Burst(hit.point, color, 5, 2);
-                    if (--pierces > 0) continue;
+                    var enemy = hit.collider.GetComponentInParent<HauntFpsEnemy>();
+                    var chief = hit.collider.GetComponentInParent<HauntFpsBoss>();
+                    var barrel = hit.collider.GetComponentInParent<HauntFpsBarrel>();
+                    Vector3 point = hit.distance <= 0 ? shot.Position : hit.point;
+                    if (enemy)
+                    {
+                        if (enemy.IsDead || !shot.Struck.Add(enemy)) continue;
+                        enemy.TakeDamage(state.Damage + state.ProjectileDamageBonus, point, shot.Direction * 4);
+                        hitMarker = .12f; PlayCue(FpsCue.EnemyHit, point);
+                        if (shot.Chain) ChainLightning(enemy, shot.Color);
+                        Burst(point, shot.Color, 5, 2);
+                        if (--shot.Pierces > 0) continue;
+                    }
+                    else if (chief)
+                    {
+                        if (!shot.Struck.Add(chief)) continue;
+                        chief.TakeDamage(state.Damage + state.ProjectileDamageBonus, point, shot.Direction * 2);
+                        hitMarker = .12f; Burst(point, shot.Color, 6, 2.5f); PlayCue(FpsCue.EnemyHit, point);
+                    }
+                    else
+                    {
+                        if (barrel && !barrel.IsDestroyed) { barrel.TakeDamage(state.Damage, point); hitMarker = .12f; }
+                        Burst(point, new Color(1, .65f, .22f), 5, 1.8f);
+                    }
+                    shot.Position = point; remove = true; break;
                 }
-                else if (chief)
+                if (!remove) shot.Position += shot.Direction * step;
+                shot.Life -= dt;
+                if (shot.Life <= 0 || !world.IsInsideBounds(shot.Position, -.5f)) remove = true;
+                if (remove)
                 {
-                    chief.TakeDamage(state.Damage + state.ProjectileDamageBonus, hit.point, ray.direction * 2);
-                    hitMarker = .12f; Burst(hit.point, color, 6, 2.5f); PlayCue(FpsCue.EnemyHit, hit.point);
+                    if (shot.Visual) Destroy(shot.Visual.gameObject);
+                    playerShots.RemoveAt(i);
+                    continue;
                 }
-                else
+                shot.Visual.position = shot.Position;
+                if (shot.Trail && shot.Trail.enabled)
                 {
-                    if (barrel && !barrel.IsDestroyed) { barrel.TakeDamage(state.Damage, hit.point); hitMarker = .12f; }
-                    Burst(end, new Color(1, .65f, .22f), 5, 1.8f);
+                    shot.Trail.SetPosition(0, shot.Position);
+                    shot.Trail.SetPosition(1, shot.Position - shot.Direction * .45f);
                 }
-                break;
+                if (shot.Sprite && shot.Sprite.enabled && eye)
+                {
+                    // Point the sprite's long axis along the flight direction as seen on screen.
+                    Vector3 right = eye.rotation * Vector3.right, up = eye.rotation * Vector3.up;
+                    float angle = Mathf.Atan2(Vector3.Dot(shot.Direction, up), Vector3.Dot(shot.Direction, right)) * Mathf.Rad2Deg;
+                    shot.Sprite.transform.rotation = eye.rotation * Quaternion.Euler(0, 0, angle);
+                }
             }
-            AddTrace(player.MuzzlePosition, end, color);
         }
 
         void ChainLightning(HauntFpsEnemy first, Color color)

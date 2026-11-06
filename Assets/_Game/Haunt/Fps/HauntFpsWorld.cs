@@ -46,7 +46,9 @@ namespace Ecos.Haunt.Fps
     {
         /// <summary>One floor tile: 16 texels, two rendered pixels per texel overhead.</summary>
         public const float Tile = 1.4f;
-        public const float WallHeight = Tile * 2.5f;
+        /// <summary>Walls stand three and a half tiles tall, so overhead the back wall shows
+        /// about two tiles of brick face above its base, like classic top-down dungeon rooms.</summary>
+        public const float WallHeight = Tile * 3.5f;
         /// <summary>Typical combat room size, kept for older callers.</summary>
         public const float Width = 17 * Tile, Depth = 13 * Tile;
         const int PitchX = 28, PitchZ = 22, DoorTiles = 3;
@@ -357,7 +359,7 @@ namespace Ecos.Haunt.Fps
                 Point(at + new Vector3(0, .1f, -.9f), palette.Torch, 2.3f, Tile * 6.5f, flame, room.Id * 3.7f + i * 1.9f);
             }
             // A low fill light keeps the room readable between the torches.
-            Point(room.Center + Vector3.up * WallHeight * 1.4f, palette.Torch * .55f + new Color(.15f, .15f, .2f), .85f,
+            Point(room.Center + Vector3.up * WallHeight * 1.2f, palette.Torch * .55f + new Color(.15f, .15f, .2f), 1.15f,
                 Mathf.Max(room.HalfSize.x, room.HalfSize.y) * 2.1f, null, room.Id * 5.1f);
         }
 
@@ -620,7 +622,7 @@ namespace Ecos.Haunt.Fps
             }
             environmentOwner = this;
             RenderSettings.ambientMode = AmbientMode.Flat;
-            RenderSettings.ambientLight = palette.Ambient;
+            RenderSettings.ambientLight = palette.Ambient * 1.35f;
             RenderSettings.fog = true;
             RenderSettings.fogColor = palette.Fog;
             RenderSettings.fogMode = FogMode.ExponentialSquared;

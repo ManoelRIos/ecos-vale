@@ -48,7 +48,7 @@ namespace Ecos.Haunt.Fps
 
         void ResetDungeon()
         {
-            pickups.Clear(); offers.Clear();
+            pickups.Clear(); offers.Clear(); playerShots.Clear();
             currentRoom = encounterRoom = null; encounterWaves = 0; bossIntro = 0;
             chestSprite = merchantSprite = null; chestOpened = false;
         }

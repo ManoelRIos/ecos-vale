@@ -12,7 +12,7 @@ namespace Ecos.Haunt.Fps
         /// zoom has flattened the image enough for the swap to read as one continuous view.</summary>
         public const float ArtSwapPoint = .55f;
         // A wider, Gungeon-like framing: about seventeen 1.4-unit tiles of height at 1080p.
-        const float DefaultTopSize = 11.8f, TopPitch = 62, TopDistance = 24f;
+        const float DefaultTopSize = 11.8f, TopPitch = 58, TopDistance = 26f;
         /// <summary>Half height of the overhead frame. With the low-resolution frame on it is
         /// sized so one rendered pixel equals one actor-sprite pixel (pixel-perfect art),
         /// kept within a range that preserves the playable view on unusual resolutions.</summary>

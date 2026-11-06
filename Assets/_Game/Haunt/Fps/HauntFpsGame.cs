@@ -262,7 +262,7 @@ namespace Ecos.Haunt.Fps
             for (int i = 0; i < barrels.Count; i++) if (barrels[i]) barrels[i].Tick(worldDt);
             if (boss) boss.Tick(worldDt);
             if (!CanSimulate) return;
-            TickProjectiles(worldDt); TickEffects(worldDt); TickWaves(worldDt); TickPickups(worldDt);
+            TickProjectiles(worldDt); TickPlayerShots(worldDt); TickEffects(worldDt); TickWaves(worldDt); TickPickups(worldDt);
             sound.Tick(dt, !exitReady);
             LayerBullets(player.ShowsTopDownArt);
             if (hybridArt)
@@ -629,8 +629,10 @@ namespace Ecos.Haunt.Fps
             if (bulletsOverSprites == overhead) return;
             bulletsOverSprites = overhead;
             foreach (var shot in projectiles) ShowBulletStyle(shot, overhead);
+            foreach (var shot in playerShots) ShowShotStyle(shot, overhead);
             foreach (var pair in materials)
-                if (pair.Value && pair.Key.StartsWith("orbe espectral", StringComparison.Ordinal))
+                if (pair.Value && (pair.Key.StartsWith("orbe espectral", StringComparison.Ordinal)
+                    || pair.Key.StartsWith("bala da alma", StringComparison.Ordinal)))
                     pair.Value.renderQueue = overhead ? BulletOverlayQueue : -1;
         }
 
