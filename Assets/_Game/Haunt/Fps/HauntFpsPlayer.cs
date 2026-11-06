@@ -52,6 +52,23 @@ namespace Ecos.Haunt.Fps
         public bool IsInvulnerable => DodgeRules.IsInvulnerable(dodgeRemaining, DodgeDuration);
         public float DodgeCooldownRemaining => Mathf.Max(0, dodgeReady);
         public float Pitch => pitch;
+        /// <summary>Freezes movement, aim, dodge, reload and firing (boss introductions). The
+        /// camera keeps presenting, so cutscenes can steer it.</summary>
+        public bool InputLocked { get; set; }
+
+        /// <summary>Turns the first-person view toward a point (used by the boss introduction).</summary>
+        public void FaceTowards(Vector3 point, float dt)
+        {
+            if (!initialized || IsTopDown || IsPerspectiveTransition) return;
+            Vector3 delta = point - view.transform.position;
+            if (delta.sqrMagnitude < .01f) return;
+            float targetYaw = Mathf.Atan2(delta.x, delta.z) * Mathf.Rad2Deg;
+            float targetPitch = -Mathf.Atan2(delta.y, new Vector2(delta.x, delta.z).magnitude) * Mathf.Rad2Deg;
+            float blend = 1 - Mathf.Exp(-4 * dt);
+            yaw = Mathf.LerpAngle(yaw, targetYaw, blend); pitch = Mathf.Lerp(pitch, Mathf.Clamp(targetPitch, -40, 40), blend);
+            transform.rotation = Quaternion.Euler(0, yaw, 0);
+            view.transform.localRotation = Quaternion.Euler(pitch, 0, 0);
+        }
         public float CameraTrauma => trauma;
 
         public void Initialize(HauntFpsGame owner, Camera camera, CharacterController controller)
@@ -82,17 +99,18 @@ namespace Ecos.Haunt.Fps
             recoilAngle = Mathf.Lerp(recoilAngle, 0, 1 - Mathf.Exp(-15 * dt));
             gunKick = Mathf.Lerp(gunKick, 0, 1 - Mathf.Exp(-17 * dt));
             trauma = Mathf.Max(0, trauma - dt * 1.65f);
-            if (PerspectivePressed()) TryTogglePerspective();
+            bool locked = InputLocked;
+            if (!locked && PerspectivePressed()) TryTogglePerspective();
             bool wasTransitioning = IsPerspectiveTransition;
-            if (!IsTopDown && !wasTransitioning) ReadLook(dt);
-            Vector2 input = MoveInput();
+            if (!locked && !IsTopDown && !wasTransitioning) ReadLook(dt);
+            Vector2 input = locked ? Vector2.zero : MoveInput();
             Vector3 wish = perspective ? perspective.Movement(input) : transform.right * input.x + transform.forward * input.y;
-            if (ReloadPressed() && game.State.TryReload())
+            if (!locked && ReloadPressed() && game.State.TryReload())
             {
                 flashRemaining = 0;
                 game.PlayCue(FpsCue.Reload, Position);
             }
-            if (DodgePressed()) TryDodge(wish);
+            if (!locked && DodgePressed()) TryDodge(wish);
             Move(wish, input.magnitude, dt);
             if (perspective) perspective.Tick(dt);
             if (IsTopDown)
@@ -108,7 +126,7 @@ namespace Ecos.Haunt.Fps
                     view.transform.position = cameraPosition; view.transform.rotation = cameraRotation;
                 }
             }
-            bool held = FireHeld();
+            bool held = !locked && FireHeld();
             if (wasTransitioning || IsPerspectiveTransition) fireNeedsRelease = true;
             else if (!held) fireNeedsRelease = false;
             if (held && !fireNeedsRelease && shotReady <= 0 && !IsDodging && !IsPerspectiveTransition)

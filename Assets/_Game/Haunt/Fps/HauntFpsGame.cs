@@ -46,6 +46,8 @@ namespace Ecos.Haunt.Fps
         {
             public Transform Visual;
             public LineRenderer Trail;
+            public Renderer Orb;
+            public SpriteRenderer Sprite;
             public Vector3 Position, Direction;
             public float Speed, Life = 5;
             public int Damage;
@@ -70,10 +72,10 @@ namespace Ecos.Haunt.Fps
         public Vector3 PlayerPosition => player ? player.Position : Vector3.zero;
         public bool CanSimulate => !disposed && string.IsNullOrEmpty(failure) && mode == ScreenMode.Playing
             && !paused && !focusLost && state != null && !state.IsDead;
-        /// <summary>Minimum height, in pixels, of the low-resolution frame. It is drawn at
+        /// <summary>Target height, in pixels, of the low-resolution frame. It is drawn at
         /// Screen.height / n (n a whole number) and enlarged with nearest-neighbor filtering,
         /// like hand-made pixel-art games such as Enter the Gungeon. The HUD stays sharp.</summary>
-        public const int PixelTargetHeight = 360;
+        public const int PixelTargetHeight = 540;
         /// <summary>World size of one rendered pixel in the overhead view: one pixel of the
         /// 32 px-per-unit actor sheets drawn at HauntFpsHybridArt.ActorScale.</summary>
         public const float PixelUnit = HauntFpsHybridArt.ActorScale / 32f;
@@ -131,6 +133,9 @@ namespace Ecos.Haunt.Fps
                 if (practiceBoss >= 0) state.Floor = practiceTheme + 1;
                 kills = 0;
             }
+            // The merchant is one of the floor's rooms, so he trades before the boss.
+            state.ShopOpenBeforeBoss = true;
+            ResetDungeon();
             wave = spawnSerial = 0; pendingSkeletons = pendingLanterns = 0;
             bossSpawned = false;
             damageGrace = hitMarker = damageOverlay = waveDelay = spawnDelay = 0;
@@ -142,7 +147,7 @@ namespace Ecos.Haunt.Fps
             world = worldObject.AddComponent<HauntFpsWorld>(); world.Initialize(this);
             var avatar = new GameObject("Caçador • primeira pessoa");
             avatar.layer = PlayerLayer; avatar.transform.SetParent(runRoot.transform, false);
-            avatar.transform.position = world.PlayerSpawn;
+            avatar.transform.position = practiceBoss >= 0 ? world.BossDoorSpawn : world.PlayerSpawn;
             var body = avatar.AddComponent<CharacterController>();
             var cameraObject = new GameObject("Câmera FPS");
             cameraObject.transform.SetParent(avatar.transform, false);
@@ -159,6 +164,7 @@ namespace Ecos.Haunt.Fps
                 SetLayer(obj.transform, BarrelLayer); barrels.Add(barrel);
             }
             hybridArt = runRoot.AddComponent<HauntFpsHybridArt>(); hybridArt.Initialize(this);
+            FurnishFloor();
             lastPlayerPosition = PlayerPosition;
             Physics.SyncTransforms();
             sound.Initialize(ears); sound.SetSuspended(true);
@@ -169,7 +175,7 @@ namespace Ecos.Haunt.Fps
         {
             if (disposed || !string.IsNullOrEmpty(failure)) return;
             BuildRun(newSeed); mode = ScreenMode.Playing;
-            if (practiceBoss >= 0) SpawnBoss(); else StartWave(0);
+            Notify("FASE " + state.Floor + " - " + HauntFpsCampaign.ThemeName(state.Floor), 3);
             player.SuspendInput(); UpdateSuspension();
         }
 
@@ -207,12 +213,9 @@ namespace Ecos.Haunt.Fps
             if (!CanSimulate) return;
             TickSimulation(Time.unscaledDeltaTime);
             if (!CanSimulate) return;
-            bool interact = keyboard != null && keyboard.eKey.wasPressedThisFrame
-                || pad != null && pad.buttonWest.wasPressedThisFrame;
-            if (exitReady && interact && Vector3.Distance(PlayerPosition, world.ExitPosition) < 2.8f)
-            {
-                AdvanceFloor();
-            }
+            if (!InteractPressed() || InBossIntro) return;
+            if (exitReady && Vector3.Distance(PlayerPosition, world.ExitPosition) < 2.8f) AdvanceFloor();
+            else TryInteract();
         }
 
         // A single clock advances reloads, actors and effects. Pause/focus guards
@@ -232,6 +235,7 @@ namespace Ecos.Haunt.Fps
             state.TickPower(dt);
             if (reloading && !state.IsReloading) PlayCue(FpsCue.ReloadEnd, PlayerPosition);
             player.Tick(dt);
+            UpdateRooms(dt);
             bool moving = (PlayerPosition - lastPlayerPosition).sqrMagnitude > .00001f;
             if (heroBody) heroBody.Tick(dt, moving);
             if (ears)
@@ -258,7 +262,7 @@ namespace Ecos.Haunt.Fps
             for (int i = 0; i < barrels.Count; i++) if (barrels[i]) barrels[i].Tick(worldDt);
             if (boss) boss.Tick(worldDt);
             if (!CanSimulate) return;
-            TickProjectiles(worldDt); TickEffects(worldDt); TickWaves(worldDt);
+            TickProjectiles(worldDt); TickEffects(worldDt); TickWaves(worldDt); TickPickups(worldDt);
             sound.Tick(dt, !exitReady);
             LayerBullets(player.ShowsTopDownArt);
             if (hybridArt)
@@ -271,22 +275,23 @@ namespace Ecos.Haunt.Fps
         {
             wave = index;
             FpsWaveSpec spec = FpsPrototypeRules.Wave(index, seed);
-            pendingSkeletons = spec.Skeletons; pendingLanterns = spec.Lanterns;
-            waveDelay = 0; spawnDelay = .75f;
-            Notify("ONDA " + (wave + 1) + " / " + FpsPrototypeRules.WaveCount, 2.1f);
+            // Deeper floors bring one more creature per wave.
+            pendingSkeletons = spec.Skeletons + Mathf.Min(2, (state.Floor - 1) / 2); pendingLanterns = spec.Lanterns;
+            waveDelay = 0; spawnDelay = .6f;
+            if (index > 0) Notify("ONDA " + (wave + 1) + " / " + encounterWaves, 1.6f);
         }
 
         void TickWaves(float dt)
         {
-            if (exitReady || bossSpawned) return;
+            if (encounterRoom == null || encounterRoom.Role != FpsRoomRole.Combat) return;
             if (pendingSkeletons + pendingLanterns > 0)
             {
                 spawnDelay -= dt;
                 if (spawnDelay > 0) return;
-                int total = FpsPrototypeRules.Wave(wave, seed).Total;
-                int index = total - pendingSkeletons - pendingLanterns;
-                FpsEnemyKind kind = HauntFpsCampaign.EnemyForWave(state.Floor, wave, index);
-                if (!TrySpawn(kind)) { spawnDelay = .25f; return; }
+                int index = spawnSerial;
+                // The room id varies the roster, so neighbouring rooms field different creatures.
+                FpsEnemyKind kind = HauntFpsCampaign.EnemyForWave(state.Floor, wave, index + encounterRoom.Id * 3);
+                if (!TrySpawnInRoom(kind)) { spawnDelay = .25f; return; }
                 if (pendingSkeletons > 0) pendingSkeletons--; else pendingLanterns--;
                 spawnDelay = FpsPrototypeRules.Wave(wave, seed).SpawnInterval;
                 return;
@@ -295,30 +300,8 @@ namespace Ecos.Haunt.Fps
             waveDelay += dt;
             if (waveDelay < 1.5f) return;
             ClearProjectiles();
-            if (wave + 1 < FpsPrototypeRules.WaveCount) StartWave(wave + 1);
-            else SpawnBoss();
-        }
-
-        bool TrySpawn(FpsEnemyKind kind)
-        {
-            Vector3[] bases = (spawnSerial & 1) == 0 ? world.MeleeSpawns : world.RangedSpawns;
-            for (int attempt = 0; attempt < 24; attempt++)
-            {
-                float angle = (spawnSerial * 2.39996f + attempt * .65f);
-                float radius = attempt == 0 ? 0 : .65f + attempt * .18f;
-                Vector3 position = bases[(spawnSerial + attempt) % bases.Length]
-                    + new Vector3(Mathf.Cos(angle) * radius, .06f, Mathf.Sin(angle) * radius);
-                if (!world.IsInsideBounds(position, 1.3f) || Vector3.Distance(position, PlayerPosition) < 4) continue;
-                if (Physics.CheckCapsule(position + Vector3.up * .4f, position + Vector3.up * 1.45f,
-                    .38f, ~(1 << ViewLayer), QueryTriggerInteraction.Ignore)) continue;
-                var obj = new GameObject(kind == FpsEnemyKind.Skeleton ? "Esqueleto" : "Lanterna errante");
-                obj.transform.SetParent(runRoot.transform, false); obj.layer = EnemyLayer;
-                var enemy = obj.AddComponent<HauntFpsEnemy>(); enemy.Initialize(this, kind, position);
-                SetLayer(obj.transform, EnemyLayer); enemies.Add(enemy); spawnSerial++;
-                Burst(position + Vector3.up * .3f, new Color(.4f, .85f, .72f), 10, 2);
-                Physics.SyncTransforms(); return true;
-            }
-            return false;
+            if (wave + 1 < Mathf.Min(encounterWaves, FpsPrototypeRules.WaveCount)) StartWave(wave + 1);
+            else FinishEncounter();
         }
 
         public bool TryFire(Ray ray)
@@ -385,8 +368,22 @@ namespace Ecos.Haunt.Fps
             var trail = new GameObject("Rastro").AddComponent<LineRenderer>(); trail.transform.SetParent(visual.transform, false);
             SetupLine(trail, material, .065f); trail.positionCount = 2;
             trail.SetPosition(0, origin); trail.SetPosition(1, origin);
-            var shot = new Hostile { Visual = visual.transform, Trail = trail, Position = origin,
+            var shot = new Hostile { Visual = visual.transform, Trail = trail, Position = origin, Orb = visual.GetComponent<Renderer>(),
                 Direction = direction.normalized, Speed = Mathf.Min(speed, 40), Damage = Mathf.Max(1, damage), Color = color };
+            // Overhead, bullets are crisp outlined pixel orbs drawn above everything, one sprite
+            // pixel per rendered pixel; in first person the glowing sphere and trail remain.
+            if (hybridArt && hybridArt.SpriteMaterial)
+            {
+                var image = new GameObject("Bala 2D").AddComponent<SpriteRenderer>();
+                image.transform.SetParent(visual.transform, false);
+                image.sprite = hybridArt.ArtSprite("bullet-enemy");
+                image.sharedMaterial = hybridArt.SpriteMaterial;
+                image.transform.localScale = Vector3.one * (HauntFpsHybridArt.ActorScale * .5f / .23f);
+                image.sortingOrder = 5000; image.shadowCastingMode = ShadowCastingMode.Off; image.receiveShadows = false;
+                image.color = Color.Lerp(Color.white, color, .25f);
+                shot.Sprite = image;
+                ShowBulletStyle(shot, bulletsOverSprites);
+            }
             projectiles.Add(shot);
             PlayCue(FpsCue.HostileShot, origin);
             return shot;
@@ -433,6 +430,7 @@ namespace Ecos.Haunt.Fps
                 else
                 {
                     shot.Visual.position = shot.Position;
+                    if (shot.Sprite && shot.Sprite.enabled) shot.Sprite.transform.rotation = player.View.transform.rotation;
                     shot.Trail.SetPosition(0, shot.Position);
                     shot.Trail.SetPosition(1, shot.Position - shot.Direction * .6f);
                 }
@@ -442,7 +440,9 @@ namespace Ecos.Haunt.Fps
         public void OnEnemyKilled(HauntFpsEnemy enemy)
         {
             if (!enemy || !enemies.Contains(enemy)) return;
-            kills++; state.Coins += 5;
+            kills++;
+            // Fallen creatures scatter souls, the currency spent at the merchant.
+            for (int i = 0; i < 2; i++) DropPickup(PickupKind.Soul, enemy.transform.position + Vector3.up * .6f, 2, kills * 3 + i);
             PlayCue(FpsCue.EnemyDeath, enemy.transform.position);
             Burst(enemy.AimPosition, new Color(.55f, .84f, .7f), 12, 2.8f);
         }
@@ -608,8 +608,8 @@ namespace Ecos.Haunt.Fps
         {
             if (!pixelPipeline) { RenderPixelHeight = 0; return; }
             int screen = Mathf.Max(1, Screen.height);
-            // Never below the target height, so a small Editor Game view keeps its detail.
-            int divisor = PixelArtRendering ? Mathf.Max(1, screen / PixelTargetHeight) : 1;
+            // Nearest whole fraction of the screen: 540 lines at 1080p, 480 at 1440p, 540 at 4K.
+            int divisor = PixelArtRendering ? Mathf.Max(1, Mathf.RoundToInt(screen / (float)PixelTargetHeight)) : 1;
             RenderPixelHeight = PixelArtRendering ? Mathf.Max(1, screen / divisor) : 0;
             float scale = PixelArtRendering ? 1f / divisor : savedRenderScale;
             if (!Mathf.Approximately(pixelPipeline.renderScale, scale)) pixelPipeline.renderScale = scale;
@@ -617,10 +617,18 @@ namespace Ecos.Haunt.Fps
             if (pixelPipeline.upscalingFilter != filter) pixelPipeline.upscalingFilter = filter;
         }
 
+        void ShowBulletStyle(Hostile shot, bool overhead)
+        {
+            if (shot.Sprite) shot.Sprite.enabled = overhead;
+            if (shot.Orb) shot.Orb.enabled = !overhead || !shot.Sprite;
+            if (shot.Trail) shot.Trail.enabled = !overhead || !shot.Sprite;
+        }
+
         void LayerBullets(bool overhead)
         {
             if (bulletsOverSprites == overhead) return;
             bulletsOverSprites = overhead;
+            foreach (var shot in projectiles) ShowBulletStyle(shot, overhead);
             foreach (var pair in materials)
                 if (pair.Value && pair.Key.StartsWith("orbe espectral", StringComparison.Ordinal))
                     pair.Value.renderQueue = overhead ? BulletOverlayQueue : -1;

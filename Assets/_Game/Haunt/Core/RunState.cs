@@ -312,15 +312,24 @@ namespace Ecos.Haunt
 
         public bool Sold(ShopItem item) => sold.Contains(item);
 
-        public bool TryBuy(ShopItem item, out string message)
+        /// <summary>When true the merchant trades before the floor's boss falls, as in a
+        /// dungeon whose shop is one of the rooms. The classic roguelike keeps it false.</summary>
+        public bool ShopOpenBeforeBoss { get; set; }
+
+        /// <summary>Gives a non-weapon item for free (a chest reward). Returns false when the
+        /// item would have no effect; the shop's stock and prices are not touched.</summary>
+        public bool Grant(ShopItem item, out string message)
         {
-            if (!Enum.IsDefined(typeof(ShopItem), item)) { message = "ITEM DESCONHECIDO."; return false; }
+            if (!Enum.IsDefined(typeof(ShopItem), item) || TryWeaponForItem(item, out _)) { message = "ITEM DESCONHECIDO."; return false; }
             if (IsDead) { message = "A JORNADA TERMINOU."; return false; }
-            if (!BossDefeated) { message = "MERCADO FECHADO."; return false; }
-            bool weaponItem = TryWeaponForItem(item, out WeaponKind purchasedWeapon);
-            if (weaponItem && Owns(purchasedWeapon)) { message = "ARMA JA ADQUIRIDA."; return false; }
-            if (weaponItem && !IsOffered(item)) { message = "ARMA FORA DESTA VISITA."; return false; }
-            if (Sold(item)) { message = "ESGOTADO NESTA VISITA."; return false; }
+            if (!CanApply(item, out message)) return false;
+            message = Apply(item, default);
+            return true;
+        }
+
+        bool CanApply(ShopItem item, out string message)
+        {
+            message = null;
             if (item == ShopItem.Heal && Health >= MaxHealth) { message = "VIDA COMPLETA."; return false; }
             if (item == ShopItem.Damage && Damage >= 10) { message = "DANO MAXIMO."; return false; }
             if (item == ShopItem.FireRate && ShotInterval <= .0701f) { message = "CADENCIA MAXIMA."; return false; }
@@ -328,11 +337,31 @@ namespace Ecos.Haunt
             if (item == ShopItem.GiantRounds && ProjectileScale >= 1.5999f) { message = "BALAS NO TAMANHO MAXIMO."; return false; }
             if (item == ShopItem.CharacterRelic && HasCharacterRelic) { message = "RELIQUIA JA ADQUIRIDA."; return false; }
             if (item == ShopItem.QuickBoots && MoveSpeedMultiplier >= 1.2499f) { message = "PASSOS NO MAXIMO."; return false; }
+            return true;
+        }
+
+        public bool TryBuy(ShopItem item, out string message)
+        {
+            if (!Enum.IsDefined(typeof(ShopItem), item)) { message = "ITEM DESCONHECIDO."; return false; }
+            if (IsDead) { message = "A JORNADA TERMINOU."; return false; }
+            if (!BossDefeated && !ShopOpenBeforeBoss) { message = "MERCADO FECHADO."; return false; }
+            bool weaponItem = TryWeaponForItem(item, out WeaponKind purchasedWeapon);
+            if (weaponItem && Owns(purchasedWeapon)) { message = "ARMA JA ADQUIRIDA."; return false; }
+            if (weaponItem && !IsOffered(item)) { message = "ARMA FORA DESTA VISITA."; return false; }
+            if (Sold(item)) { message = "ESGOTADO NESTA VISITA."; return false; }
+            if (!CanApply(item, out message)) return false;
             int price = Price(item);
             if (Coins < price) { message = "FALTAM ALMAS."; return false; }
 
             Coins -= price;
             sold.Add(item);
+            message = Apply(item, purchasedWeapon);
+            return true;
+        }
+
+        string Apply(ShopItem item, WeaponKind purchasedWeapon)
+        {
+            string message;
             switch (item)
             {
                 case ShopItem.Heal:
@@ -372,7 +401,7 @@ namespace Ecos.Haunt
                     message = WeaponName(Weapon) + " EQUIPADO.";
                     break;
             }
-            return true;
+            return message;
         }
 
         public void NextFloor()

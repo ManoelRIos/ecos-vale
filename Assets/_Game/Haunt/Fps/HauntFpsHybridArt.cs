@@ -50,6 +50,14 @@ namespace Ecos.Haunt.Fps
         /// pixel covers one rendered pixel of the overhead view (see HauntFpsGame.PixelUnit).</summary>
         public const float ActorScale = 1.4f;
 
+        sealed class PropView
+        {
+            public SpriteRenderer Sprite, Shadow;
+            public Vector3 Anchor;
+            public float Scale, Bob, Phase;
+        }
+        readonly List<PropView> props = new List<PropView>();
+
         public bool TopDownVisible => topDown && !disposed;
         bool ActorSpritesShown => topDown || SpriteActorsInFirstPerson;
         // Per-tick viewing context used to sort and shade the sprites.
@@ -85,7 +93,7 @@ namespace Ecos.Haunt.Fps
         {
             if (disposed || !presentation) return;
             topDown = value;
-            presentation.gameObject.SetActive(ActorSpritesShown);
+            presentation.gameObject.SetActive(true);
             // The hero is seen through its own eyes in first person; only actors stay sprites.
             if (hero) hero.enabled = value;
             if (heroShadow) heroShadow.enabled = value;
@@ -145,7 +153,6 @@ namespace Ecos.Haunt.Fps
             else dodgeClock = 0;
             wasDodging = dodging;
             SynchronizeActors();
-            if (!ActorSpritesShown) return;
             Transform eye = camera.transform;
             viewer = eye.position;
             overheadBlend = Mathf.Clamp01(lowering < 0 || float.IsNaN(lowering) ? overhead ? 1 : 0 : lowering);
@@ -157,6 +164,8 @@ namespace Ecos.Haunt.Fps
             Quaternion facingCamera = Quaternion.Slerp(upright, eye.rotation, overheadBlend);
             Quaternion toView = Quaternion.Inverse(upright);
             if (topDown) PresentHero(facingCamera, aimDirection, moving, dodging);
+            PresentProps(facingCamera);
+            if (!ActorSpritesShown) return;
             foreach (var pair in actors)
             {
                 var enemy = pair.Key;
@@ -295,6 +304,66 @@ namespace Ecos.Haunt.Fps
             return Color.Lerp(tinted, Color.white, overheadBlend);
         }
 
+        // ------------------------------------------------------------------ props
+
+        /// <summary>A world sprite (merchant, goods, pickups) presented like the actors in both
+        /// views: standing billboard in first person, camera-facing overhead.</summary>
+        public SpriteRenderer AddProp(string name, Sprite image, Vector3 anchor, float scale, bool shadow = true, float bob = 0)
+        {
+            if (!initialized || disposed || !image) return null;
+            var view = new PropView { Sprite = Sprite(name, image, presentation), Anchor = anchor, Scale = scale, Bob = bob, Phase = props.Count * 1.7f };
+            if (shadow)
+            {
+                view.Shadow = Sprite(name + " / sombra", art.Get("shadow"), presentation);
+                view.Shadow.transform.rotation = Quaternion.Euler(90, 0, 0);
+                view.Shadow.transform.localScale = Vector3.one * Mathf.Clamp(image.rect.width / image.pixelsPerUnit * scale * .32f, .2f, 1.2f);
+                view.Shadow.sortingOrder = -6000;
+            }
+            props.Add(view);
+            return view.Sprite;
+        }
+
+        public void MoveProp(SpriteRenderer sprite, Vector3 anchor)
+        {
+            foreach (var view in props) if (view.Sprite == sprite) { view.Anchor = anchor; return; }
+        }
+
+        public void RemoveProp(SpriteRenderer sprite)
+        {
+            for (int i = props.Count - 1; i >= 0; i--)
+            {
+                if (props[i].Sprite != sprite) continue;
+                if (props[i].Sprite) DestroyOwned(props[i].Sprite.gameObject);
+                if (props[i].Shadow) DestroyOwned(props[i].Shadow.gameObject);
+                props.RemoveAt(i);
+            }
+        }
+
+        public Sprite ArtSprite(string id) => art != null ? art.Get(id) : null;
+        /// <summary>The sprite material, whose depth test follows the active view.</summary>
+        public Material SpriteMaterial => art != null ? art.Material : null;
+        public Sprite ChestSprite(int stage) => art != null ? art.PropFrame("decrepit-chest", Mathf.Clamp(stage, 0, 3)) : null;
+
+        void PresentProps(Quaternion facingCamera)
+        {
+            for (int i = props.Count - 1; i >= 0; i--)
+            {
+                var view = props[i];
+                if (!view.Sprite) { props.RemoveAt(i); continue; }
+                Sprite image = view.Sprite.sprite;
+                float lift = view.Bob > 0 ? (Mathf.Sin(clock * 3 + view.Phase) * .5f + .5f) * view.Bob : 0;
+                Vector3 anchor = view.Anchor + Vector3.up * (.04f + lift);
+                // The sprite's own pivot decides how high its center sits above the ground.
+                float raise = image ? image.pivot.y / image.pixelsPerUnit * view.Scale : 0;
+                view.Sprite.transform.position = Settled(anchor + facingCamera * Vector3.up * raise);
+                view.Sprite.transform.rotation = facingCamera;
+                view.Sprite.transform.localScale = Vector3.one * view.Scale;
+                view.Sprite.sortingOrder = topDown ? Depth(view.Anchor) : 1000 - Mathf.RoundToInt(Vector3.Distance(viewer, view.Anchor) * 30);
+                view.Sprite.color = Atmosphere(anchor);
+                if (view.Shadow) view.Shadow.transform.position = new Vector3(view.Anchor.x, FloorHeight + .025f, view.Anchor.z);
+            }
+        }
+
         /// <summary>Once fully overhead, sprites sit on whole pixels like the camera does.</summary>
         Vector3 Settled(Vector3 position) => overheadBlend >= 1 ? HauntFpsPerspective.SnapToPixels(position) : position;
 
@@ -320,24 +389,23 @@ namespace Ecos.Haunt.Fps
             foreach (var renderer in observedWorld.GetComponentsInChildren<Renderer>(true))
             {
                 string name = renderer.gameObject.name;
-                bool wall = name.StartsWith("Parede ", StringComparison.Ordinal);
+                // Layered top-down rooms: back and side walls keep their brick faces overhead.
+                // Only what stands between the camera and the action sinks: front walls, their
+                // rims and pillars. Colliders are never touched.
+                bool front = name.StartsWith("Parede frente", StringComparison.Ordinal);
                 bool pillar = name == "Pilar / corpo";
-                bool portal = name.StartsWith("Portal / pilar", StringComparison.Ordinal) || name == "Selo fechado";
-                bool hide = wall || pillar || portal || name.StartsWith("Coroamento ", StringComparison.Ordinal)
-                    || name == "Pilar / capitel" || name == "Pilar / osso" || name == "Portal / verga";
+                bool hide = front || pillar || name == "Coroamento frente" || name == "Pilar / capitel";
                 if (!hide) continue;
-                // Enter the Gungeon framing: the back and side walls (and what hangs on them,
-                // like the portal) stay standing overhead. Only pieces in front of the action sink.
-                Bounds placed = renderer.bounds;
-                if (placed.center.z > HauntFpsWorld.Depth * .5f - .9f || Mathf.Abs(placed.center.x) > HauntFpsWorld.Width * .5f - .9f)
-                    continue;
                 var record = new WallView { Source = renderer, Enabled = renderer.enabled };
-                if (wall || pillar || portal)
+                if (front || pillar)
                 {
                     Bounds bounds = renderer.bounds;
                     record.FullHeight = Mathf.Max(CutawayHeight, bounds.size.y); record.CenterY = bounds.center.y;
+                    // The stub shows the dark wall top, like the thin front edge of a top-down room.
+                    Material[] shared = renderer.sharedMaterials;
+                    Material stubMaterial = shared.Length > 1 && shared[shared.Length - 1] ? shared[shared.Length - 1] : renderer.sharedMaterial;
                     var proxy = game.Box("Corte / " + name, Vector3.zero,
-                        new Vector3(Mathf.Max(.12f, bounds.size.x), CutawayHeight, Mathf.Max(.12f, bounds.size.z)), renderer.sharedMaterial, cutaways, false);
+                        new Vector3(Mathf.Max(.12f, bounds.size.x), CutawayHeight, Mathf.Max(.12f, bounds.size.z)), stubMaterial, cutaways, false);
                     proxy.transform.position = new Vector3(bounds.center.x, FloorHeight + CutawayHeight * .5f, bounds.center.z);
                     record.Proxy = proxy.GetComponent<Renderer>(); record.Proxy.shadowCastingMode = ShadowCastingMode.Off;
                 }
@@ -403,6 +471,12 @@ namespace Ecos.Haunt.Fps
             if (disposed) return;
             SetTopDown(false); SetWallLowering(0); disposed = true;
             foreach (var actor in actors.Values) Release(actor); actors.Clear();
+            foreach (var view in props)
+            {
+                if (view.Sprite) DestroyOwned(view.Sprite.gameObject);
+                if (view.Shadow) DestroyOwned(view.Shadow.gameObject);
+            }
+            props.Clear();
             if (boss != null) Release(boss); boss = null;
             if (presentation) { presentation.gameObject.SetActive(false); DestroyOwned(presentation.gameObject); }
             if (cutaways) { cutaways.gameObject.SetActive(false); DestroyOwned(cutaways.gameObject); }

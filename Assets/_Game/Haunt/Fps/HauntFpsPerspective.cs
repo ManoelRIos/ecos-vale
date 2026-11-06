@@ -11,15 +11,16 @@ namespace Ecos.Haunt.Fps
         /// <summary>Path fraction where sprites replace models. Past this point the dolly
         /// zoom has flattened the image enough for the swap to read as one continuous view.</summary>
         public const float ArtSwapPoint = .55f;
-        const float DefaultTopSize = 8.3f, TopPitch = 62, TopDistance = 14.5f;
+        // A wider, Gungeon-like framing: about seventeen 1.4-unit tiles of height at 1080p.
+        const float DefaultTopSize = 11.8f, TopPitch = 62, TopDistance = 24f;
         /// <summary>Half height of the overhead frame. With the low-resolution frame on it is
         /// sized so one rendered pixel equals one actor-sprite pixel (pixel-perfect art),
         /// kept within a range that preserves the playable view on unusual resolutions.</summary>
         static float TopSize => HauntFpsGame.RenderPixelHeight > 0
-            ? Mathf.Clamp(HauntFpsGame.RenderPixelHeight * HauntFpsGame.PixelUnit * .5f, 7.5f, 9.5f) : DefaultTopSize;
+            ? Mathf.Clamp(HauntFpsGame.RenderPixelHeight * HauntFpsGame.PixelUnit * .5f, 9.5f, 13f) : DefaultTopSize;
         // The dolly path ends on a near-orthographic lens; the final hand-off to the real
         // orthographic projection then changes the image by less than a pixel.
-        const float DollyEndFov = 6, TransitionFarClip = 260;
+        const float DollyEndFov = 6, TransitionFarClip = 340;
         static readonly Quaternion TopRotation = Quaternion.Euler(TopPitch, 0, 0);
         static readonly Vector3 TopOffset = -(TopRotation * Vector3.forward) * TopDistance;
         HauntFpsGame game;
@@ -35,6 +36,8 @@ namespace Ecos.Haunt.Fps
 
         /// <summary>The requested destination, including while a transition runs.</summary>
         public bool IsTopDown => topDown;
+        /// <summary>While set, the overhead camera glides toward this point (boss introductions).</summary>
+        public Vector3? FocusOverride { get; set; }
         public bool IsTransitioning => transitioning;
         public bool UsesControllerAim => topDown && controllerAim;
         public float TransitionProgress => transitioning ? Mathf.Clamp01(elapsed / TransitionDuration) : 1;
@@ -154,7 +157,9 @@ namespace Ecos.Haunt.Fps
 
         void PresentTopDown(float dt, bool snap)
         {
-            focus = snap ? GroundFocus() : Vector3.Lerp(focus, GroundFocus(), 1 - Mathf.Exp(-12 * dt));
+            Vector3 target = FocusOverride.HasValue ? new Vector3(FocusOverride.Value.x, .4f, FocusOverride.Value.z) : GroundFocus();
+            float rate = FocusOverride.HasValue ? 3.2f : 12;
+            focus = snap ? target : Vector3.Lerp(focus, target, 1 - Mathf.Exp(-rate * dt));
             float shake = player.CameraTrauma * player.CameraTrauma;
             Vector3 tremor = new Vector3((Mathf.PerlinNoise(13, Time.unscaledTime * 29) * 2 - 1) * .16f,
                 0, (Mathf.PerlinNoise(71, Time.unscaledTime * 31) * 2 - 1) * .12f) * shake;
@@ -246,10 +251,7 @@ namespace Ecos.Haunt.Fps
             var plane = new Plane(Vector3.up, ShotOrigin);
             if (!plane.Raycast(ray, out float distance) || distance < 0 || float.IsInfinity(distance) || float.IsNaN(distance)) return;
             Vector3 point = ray.GetPoint(distance);
-            // A pointer beyond the room still aims toward its nearest boundary;
-            // cover and enemies are resolved by the shared physical firing ray.
-            point.x = Mathf.Clamp(point.x, -HauntFpsWorld.Width * .5f, HauntFpsWorld.Width * .5f);
-            point.z = Mathf.Clamp(point.z, -HauntFpsWorld.Depth * .5f, HauntFpsWorld.Depth * .5f);
+            // Cover and enemies are resolved by the shared physical firing ray.
             flatAim = Horizontal(point - ShotOrigin, flatAim);
         }
 

@@ -25,9 +25,12 @@ namespace Ecos.Haunt.Fps
                 if (state == null) return;
                 if (mode == ScreenMode.Playing)
                 {
-                    Text(new Rect(24, 20, 360, 22), CharacterName(state.Character) + "  VIDA " + state.Health + "/" + state.MaxHealth, 2, Ivory);
-                    Text(new Rect(width - 420, 20, 396, 22), "FASE " + state.Floor + "/5  " + HauntFpsCampaign.ThemeName(state.Floor), 1, Ivory, TextAnchor.UpperRight);
-                    Text(new Rect(width - 250, 44, 226, 22), bossSpawned ? "GUARDIAO" : "ONDA " + (wave + 1) + "/3", 2, Gold, TextAnchor.UpperRight);
+                    DrawHearts(20, 16);
+                    DrawSouls(20, 44);
+                    DrawMinimap(width);
+                    Text(new Rect(width - 420, 134, 396, 16), "FASE " + state.Floor + "/5  " + HauntFpsCampaign.ThemeName(state.Floor), 1, Ivory, TextAnchor.UpperRight);
+                    if (encounterRoom != null && !bossSpawned)
+                        Text(new Rect(width - 250, 152, 226, 18), "ONDA " + (wave + 1) + "/" + encounterWaves, 1, Gold, TextAnchor.UpperRight);
                     int capacity = WeaponAmmo.Stats(state.Weapon).MagazineSize;
                     Text(new Rect(width - 290, height - 60, 266, 24), state.Magazine + "/" + capacity + "  RESERVA INF.", 2, Ivory, TextAnchor.UpperRight);
                     Text(new Rect(width - 300, height - 32, 276, 18), RunState.WeaponName(state.Weapon), 1, CharacterColor(state.Character), TextAnchor.UpperRight);
@@ -62,6 +65,11 @@ namespace Ecos.Haunt.Fps
                         Text(new Rect(80, 70, width - 160, 48), notice, 2, Ivory, TextAnchor.MiddleCenter);
                     if (exitReady && world != null && Vector3.Distance(PlayerPosition, world.ExitPosition) < 2.8f)
                         Text(new Rect(width * .5f - 260, height - 115, 520, 28), "E / QUADRADO - " + (state.Floor < 5 && practiceBoss < 0 ? "PROXIMA FASE" : "ATRAVESSAR"), 2, Gold, TextAnchor.MiddleCenter);
+                    else
+                    {
+                        string prompt = InteractionPrompt();
+                        if (prompt != null) Text(new Rect(width * .5f - 300, height - 115, 600, 28), prompt, 2, Gold, TextAnchor.MiddleCenter);
+                    }
                     DrawBossHud(width, height);
                     if (!player.IsTopDown) DrawIncomingWarnings(width, height);
                     if (!paused && !focusLost) return;
@@ -75,11 +83,18 @@ namespace Ecos.Haunt.Fps
         {
             if (!boss || boss.IsDead) return;
             Color accent = CharacterColor((CharacterKind)(boss.Archetype % 4));
-            if (boss.IntroRemaining > 0)
+            if (boss.IntroRemaining > 0 || InBossIntro)
             {
-                Fill(new Rect(0, 0, width, 60), Color.black); Fill(new Rect(0, height - 90, width, 90), Color.black);
-                Text(new Rect(30, height - 73, width - 60, 32), boss.DisplayName, 3, accent, TextAnchor.MiddleCenter);
-                Text(new Rect(30, height - 35, width - 60, 20), "GUARDIAO DOS ECOS DA MEIA-NOITE", 1, Ivory, TextAnchor.MiddleCenter);
+                // Letterbox bars slide in, then the name card sweeps across the screen.
+                float elapsed = BossIntroDuration - bossIntro;
+                float bars = Mathf.Clamp01(elapsed / .35f) * Mathf.Clamp01(bossIntro / .3f + (bossIntro > 0 ? 0 : 1));
+                Fill(new Rect(0, 0, width, 64 * bars), Color.black); Fill(new Rect(0, height - 96 * bars, width, 96 * bars), Color.black);
+                float sweep = Mathf.Clamp01((elapsed - .4f) / .45f);
+                float slide = (1 - sweep) * (1 - sweep) * width * .6f;
+                Fill(new Rect(-slide, height * .56f, width * .62f, 54), new Color(0, 0, 0, .78f));
+                Fill(new Rect(-slide, height * .56f + 54, width * .62f, 3), accent);
+                Text(new Rect(28 - slide, height * .56f + 6, width * .6f, 30), boss.DisplayName, 3, accent);
+                Text(new Rect(30 - slide, height * .56f + 36, width * .6f, 16), "GUARDIAO DOS ECOS DA MEIA-NOITE", 1, Ivory);
                 return;
             }
             float left = width * .5f - 220, y = height - 79;
@@ -88,6 +103,95 @@ namespace Ecos.Haunt.Fps
             Fill(new Rect(left, y, 440 * Mathf.Clamp01(boss.Health / (float)boss.MaxHealth), 6), accent);
             for (int i = 1; i < 10; i++) Fill(new Rect(left + i * 44, y, 1, 6), new Color(.05f, .03f, .07f, .6f));
             Fill(new Rect(left - 7, y - 5, 4, 16), accent); Fill(new Rect(left + 443, y - 5, 4, 16), accent);
+        }
+
+        // ------------------------------------------------------------------ dungeon HUD
+
+        Texture2D heartFull, heartHalf, heartEmpty, soulIcon;
+
+        static Texture2D IconTexture(string[] rows, Color[] colors)
+        {
+            int h = rows.Length, w = rows[0].Length;
+            var texture = new Texture2D(w, h, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp };
+            for (int y = 0; y < h; y++) for (int x = 0; x < w; x++)
+            {
+                char c = rows[h - 1 - y][x];
+                texture.SetPixel(x, y, c == '.' ? Color.clear : colors[c - '0']);
+            }
+            texture.Apply(false, true);
+            return texture;
+        }
+
+        void EnsureIcons()
+        {
+            if (heartFull) return;
+            string[] heart = { ".00.00.", "0110110", "0122110", "0111110", ".01110.", "..010..", "...0..." };
+            string[] half = { ".00.00.", "0110330", "0122330", "0111330", ".01330.", "..030..", "...0..." };
+            string[] empty = { ".00.00.", "0330330", "0333330", "0333330", ".03330.", "..030..", "...0..." };
+            string[] soul = { "..00..", ".0110.", "011210", "011110", ".0110.", "..00.." };
+            var heartColors = new[] { new Color(.08f, .03f, .05f), new Color(.86f, .14f, .2f), new Color(1, .7f, .7f), new Color(.24f, .12f, .16f) };
+            heartFull = IconTexture(heart, heartColors); heartHalf = IconTexture(half, heartColors); heartEmpty = IconTexture(empty, heartColors);
+            soulIcon = IconTexture(soul, new[] { new Color(.06f, .05f, .1f), new Color(.45f, .95f, .85f), new Color(1, 1, 1) });
+            textures.Add(heartFull); textures.Add(heartHalf); textures.Add(heartEmpty); textures.Add(soulIcon);
+        }
+
+        /// <summary>Two health points per heart, drawn as chunky pixel hearts.</summary>
+        void DrawHearts(float x, float y)
+        {
+            EnsureIcons();
+            int hearts = (state.MaxHealth + 1) / 2;
+            for (int i = 0; i < hearts; i++)
+            {
+                int points = state.Health - i * 2;
+                Texture2D icon = points >= 2 ? heartFull : points == 1 ? heartHalf : heartEmpty;
+                GUI.DrawTexture(new Rect(x + i * 24, y, 21, 21), icon);
+            }
+        }
+
+        void DrawSouls(float x, float y)
+        {
+            EnsureIcons();
+            GUI.DrawTexture(new Rect(x, y, 15, 15), soulIcon);
+            Text(new Rect(x + 21, y + 1, 160, 16), state.Coins.ToString(), 2, new Color(.6f, 1, .9f));
+        }
+
+        /// <summary>Rooms seen so far, linked like the floor's tree; the boss, merchant and
+        /// treasure rooms are marked once they are visited or next to a visited room.</summary>
+        void DrawMinimap(float width)
+        {
+            if (world == null || world.Rooms.Count == 0) return;
+            const float cell = 15, gap = 4;
+            int minX = int.MaxValue, maxX = int.MinValue, minY = int.MaxValue, maxY = int.MinValue;
+            foreach (var room in world.Rooms)
+            {
+                minX = Mathf.Min(minX, room.Cell.X); maxX = Mathf.Max(maxX, room.Cell.X);
+                minY = Mathf.Min(minY, room.Cell.Y); maxY = Mathf.Max(maxY, room.Cell.Y);
+            }
+            float mapWidth = (maxX - minX + 1) * (cell + gap), mapHeight = (maxY - minY + 1) * (cell + gap);
+            float scale = Mathf.Min(1, 150 / Mathf.Max(mapWidth, mapHeight));
+            float c = cell * scale, step = (cell + gap) * scale;
+            float left = width - 24 - (maxX - minX + 1) * step, top = 18;
+            Fill(new Rect(left - 6, top - 6, (maxX - minX + 1) * step + 8, (maxY - minY + 1) * step + 8), new Color(0, 0, 0, .45f));
+            foreach (var room in world.Rooms)
+            {
+                bool known = room.Visited;
+                if (!known) foreach (int id in room.Neighbors) if (world.GetRoom(id).Visited) { known = true; break; }
+                if (!known) continue;
+                float x = left + (room.Cell.X - minX) * step, y = top + (maxY - room.Cell.Y) * step;
+                foreach (int id in room.Neighbors)
+                {
+                    var other = world.GetRoom(id);
+                    if (other.Id < room.Id || !(room.Visited || other.Visited)) continue;
+                    float ox = left + (other.Cell.X - minX) * step, oy = top + (maxY - other.Cell.Y) * step;
+                    Fill(new Rect(Mathf.Min(x, ox) + c * .4f, Mathf.Min(y, oy) + c * .4f, Mathf.Abs(ox - x) + c * .2f, Mathf.Abs(oy - y) + c * .2f), new Color(.55f, .5f, .45f, .8f));
+                }
+                Color fill = room == currentRoom ? Gold : room.Visited ? new Color(.62f, .56f, .52f) : new Color(.22f, .2f, .22f);
+                Fill(new Rect(x, y, c, c), new Color(.05f, .03f, .05f));
+                Fill(new Rect(x + 1, y + 1, c - 2, c - 2), fill);
+                Color mark = room.Role == FpsRoomRole.Boss ? new Color(.95f, .2f, .25f) : room.Role == FpsRoomRole.Shop ? new Color(.45f, .95f, .85f)
+                    : room.Role == FpsRoomRole.Treasure ? new Color(1, .82f, .3f) : Color.clear;
+                if (mark.a > 0) Fill(new Rect(x + c * .3f, y + c * .3f, c * .4f, c * .4f), mark);
+            }
         }
 
         void DrawIncomingWarnings(float width, float height)

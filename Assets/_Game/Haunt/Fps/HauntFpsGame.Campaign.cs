@@ -22,7 +22,7 @@ namespace Ecos.Haunt.Fps
             int archetype = practiceBoss >= 0 ? practiceBoss : HauntFpsCampaign.BossForFloor(seed, state.Floor);
             var obj = new GameObject("Guardião da fase"); obj.transform.SetParent(runRoot.transform, false);
             boss = obj.AddComponent<HauntFpsBoss>();
-            Vector3 position = new Vector3(0, .05f, PlayerPosition.z > 0 ? -5.5f : 5.5f);
+            Vector3 position = world.BossSpawn;
             boss.Initialize(this, archetype, position, state.Floor);
             SetLayer(obj.transform, EnemyLayer); Physics.SyncTransforms();
             PlayCue(FpsCue.Explosion, position); AddShake(.35f);
@@ -33,7 +33,7 @@ namespace Ecos.Haunt.Fps
         {
             if (!defeated || defeated != boss || exitReady) return;
             state.RewardRoom(true); kills++; exitReady = true;
-            ClearProjectiles(); world.SetExitOpen(true);
+            ClearProjectiles(); world.SetExitOpen(true); OpenBossRoom();
             state.Health = Mathf.Min(state.MaxHealth, state.Health + 2);
             Notify("GUARDIAO DERROTADO. E / QUADRADO NO PORTAL.", 5);
             PlayCue(FpsCue.Victory, defeated.transform.position); AddShake(.55f);
@@ -49,7 +49,7 @@ namespace Ecos.Haunt.Fps
             bool topDown = player.IsTopDown;
             state.NextFloor();
             BuildRun(seed, true, topDown);
-            mode = ScreenMode.Playing; StartWave(0); player.SuspendInput(); UpdateSuspension();
+            mode = ScreenMode.Playing; player.SuspendInput(); UpdateSuspension();
             Notify("FASE " + state.Floor + " - " + HauntFpsCampaign.ThemeName(state.Floor), 3);
         }
 
