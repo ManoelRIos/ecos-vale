@@ -131,9 +131,17 @@ namespace Ecos.Haunt.Tests
                     "Small decorative details must not unexpectedly block movement or shots.");
                 Assert.IsTrue(world.IsInsideBounds(world.PlayerSpawn, .4f));
                 Assert.IsTrue(world.IsInsideBounds(world.ExitPosition, .4f));
-                Assert.IsTrue(world.MeleeSpawns.Concat(world.RangedSpawns).Concat(world.BarrelSpawns)
-                    .All(p => world.IsInsideBounds(p, .6f)));
-                Assert.IsFalse(world.IsInsideBounds(new Vector3(HauntFpsWorld.Width, 0, 0)));
+                Assert.IsTrue(world.BarrelSpawns.All(p => world.IsInsideBounds(p, .6f)));
+                Assert.IsNotNull(world.EntranceRoom); Assert.IsNotNull(world.BossRoom);
+                Assert.AreSame(world.EntranceRoom, world.RoomAt(world.PlayerSpawn));
+                Assert.AreSame(world.BossRoom, world.RoomAt(world.ExitPosition));
+                // Inside the entrance's east wall, beside its doorway: neither a room nor a corridor.
+                var entrance = world.EntranceRoom;
+                Assert.IsFalse(world.IsInsideBounds(entrance.Center + new Vector3(entrance.HalfSize.x + HauntFpsWorld.Tile * .5f, 0, entrance.HalfSize.y * .5f)));
+                // Every room is reachable through doors from the entrance.
+                var seen = new HashSet<int> { entrance.Id }; var open = new Queue<FpsRoom>(); open.Enqueue(entrance);
+                while (open.Count > 0) foreach (int id in open.Dequeue().Neighbors) if (seen.Add(id)) open.Enqueue(world.GetRoom(id));
+                Assert.AreEqual(world.Rooms.Count, seen.Count);
             }
             finally { UnityEngine.Object.DestroyImmediate(root); }
         }

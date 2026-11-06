@@ -2182,7 +2182,7 @@ namespace Ecos.Haunt.Tests
                 var type = typeof(Ecos.Haunt.Fps.HauntFpsGame);
                 object FpsCall(string name, params object[] args) => type.GetMethod(name, PrivateInstance).Invoke(game, args);
                 game.BeginRun(42);
-                Assert.IsTrue((bool)FpsCall("TrySpawn", Ecos.Haunt.Fps.FpsEnemyKind.Skeleton));
+                Assert.IsTrue((bool)FpsCall("TrySpawnInRoom", Ecos.Haunt.Fps.FpsEnemyKind.Skeleton));
                 var state = game.State;
                 state.Health = 4; Assert.IsTrue(state.TryConsumeShot()); Assert.IsTrue(state.TryReload());
                 var actor = game.Enemies[0];

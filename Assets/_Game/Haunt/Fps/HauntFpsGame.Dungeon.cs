@@ -163,7 +163,7 @@ namespace Ecos.Haunt.Fps
         /// <summary>Picks a spawn point inside the active room, away from the player and props.</summary>
         bool TrySpawnInRoom(FpsEnemyKind kind)
         {
-            FpsRoom room = encounterRoom ?? currentRoom;
+            FpsRoom room = encounterRoom ?? currentRoom ?? world.EntranceRoom;
             if (room == null) return false;
             for (int attempt = 0; attempt < 24; attempt++)
             {
