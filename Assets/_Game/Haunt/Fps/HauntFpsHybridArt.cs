@@ -393,8 +393,9 @@ namespace Ecos.Haunt.Fps
                 // Only what stands between the camera and the action sinks: front walls, their
                 // rims and pillars. Colliders are never touched.
                 bool front = name.StartsWith("Parede frente", StringComparison.Ordinal);
-                bool pillar = name == "Pilar / corpo";
-                bool hide = front || pillar || name == "Coroamento frente" || name == "Pilar / capitel";
+                // Pillars stay standing: actors are drawn over them overhead anyway.
+                bool pillar = false;
+                bool hide = front || name == "Coroamento frente";
                 if (!hide) continue;
                 var record = new WallView { Source = renderer, Enabled = renderer.enabled };
                 if (front || pillar)

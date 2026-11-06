@@ -696,7 +696,8 @@ namespace Ecos.Haunt.Fps
             stoneMat = Surface("pedra", Color.white, StoneTexture(false), 1);
             stoneTopMat = Surface("pedra / topo", Color.white, StoneTexture(true), 1);
             goldMat = Surface("ouro", Color.white, SolidTexture("ouro", palette.Accent, Hex(0xa07028), 6), 1, new Color(.3f, .2f, .05f));
-            flameMat = Surface("chama", palette.Torch, null, 1, palette.Torch * 2.4f);
+            // Flames keep their hue: a bright core texture with a warm edge, moderate emission.
+            flameMat = Surface("chama", Color.white, SolidTexture("chama", Hex(0xffd27a), Hex(0xff8a2a), 7), 1, palette.Torch * 1.1f);
             exitMaterial = Surface("selo da saída", new Color(.33f, .16f, .5f), null, 1, new Color(.3f, .08f, .5f));
         }
 
