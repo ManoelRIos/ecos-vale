@@ -78,6 +78,8 @@ class PilotSheetImportTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             crop_original(image, {'rect': [0, 0, 48, 48], 'pivot': [48, 48]}, {(0, 0, 0)})
 
+    @unittest.skip('The runtime sheets are now original art drawn by generate_original_heroes.py; '
+                   'this importer only documents the retired Pilot conversion.')
     def test_outputs_match_checked_in_assets_and_source_is_unchanged(self):
         for path, data in self.outputs.items():
             self.assertEqual(data, path.read_bytes(), str(path.relative_to(ROOT)))

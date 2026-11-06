@@ -11,7 +11,7 @@ Campanha de ação com alternância entre **visão 2D e primeira pessoa na mesma
 1. Instale **Unity 6000.0.85f1** pelo Unity Hub; acrescente Windows Build Support para gerar um executável Windows.
 2. Extraia todo o ZIP em uma **pasta nova e curta**, por exemplo `C:\Dev\EcosDaMeiaNoite`. Preserve suas alterações da cópia anterior. A raiz deve conter `Assets`, `Packages` e `ProjectSettings`.
 3. No Hub, use **Add / Add project from disk** e selecione essa raiz. Aguarde os pacotes e a compilação. Com Play parado, use **Ecos → Abrir protótipo FPS** para abrir `Assets/_Game/Scenes/HauntFps.unity`.
-4. Pressione **Play**, escolha um dos quatro personagens e inicie a campanha. **Tab / R1** alterna a perspectiva durante o combate. Vença as três ondas e o chefe de cada fase; **E / Quadrado** no portal aberto leva à próxima, até a quinta fase.
+4. Pressione **Play**, escolha um dos quatro personagens e inicie a campanha. **Tab / R1** alterna a perspectiva a qualquer momento. Explore as salas do andar, limpe os combates, compre no mercador e vença o chefe; **E / Quadrado** no portal aberto leva à próxima fase, até a quinta.
 5. O menu também oferece **treino de chefe**, com seleção dos sete chefes e dos cinco temas. **Esc / Options** pausa e libera o cursor.
 
 O atalho opcional `ABRIR_ECOS_DA_MEIA_NOITE.cmd` abre essa mesma cena. `/check` confere a pasta e o log fica em `Logs/MeiaNoite-Editor.log`. Abrir pelo Hub dispensa o atalho. O atalho não foi executado no Windows neste ambiente.
@@ -20,11 +20,13 @@ Para atualizar por ZIP, use uma extração nova: sobrepor pastas não remove arq
 
 ## Campanha híbrida 2D / FPS
 
-**A troca de perspectiva preserva o encontro.** Vida, munição, recarga, poderes, inimigos e projéteis continuam no mesmo estado. A visão 2D usa câmera ortográfica e paredes da frente rebaixadas; a parede do fundo e as laterais ficam em pé, enquadrando a sala como em jogos de masmorra top-down. A primeira pessoa usa a câmera perspectiva. As duas consultam as mesmas colisões da sala.
+**Masmorra de salas, no molde dos dungeon crawlers top-down.** Cada andar é uma árvore de 7 a 15 salas ligadas por corredores: entrada, salas de combate de tamanhos variados, um **mercador**, uma **câmara do tesouro** e a **sala do chefe**, sempre a mais distante. Ao entrar numa sala de combate as grades sobem e trancam as portas; duas ondas (três nas salas com mini-chefe) precisam ser vencidas para reabri-las. Criaturas soltam **almas** (a moeda) que voam até você, e salas limpas podem deixar corações. O mercador vende três itens do andar (**E** para comprar), o baú dá um item grátis e uma chuva de almas, e a sala do chefe abre com uma apresentação: barras de cinema, câmera indo até o guardião, cartão com o nome e controle travado por 3 s. O minimapa mostra as salas visitadas e vizinhas, com marcas para chefe, loja e tesouro.
 
-**Os inimigos e chefes usam os mesmos sprites nas duas visões**: em primeira pessoa eles ficam em pé, virados para a câmera, recebem a neblina da arena e mostram frente, lado ou costas conforme a direção em que andam em relação a você. Assim cada criatura tem a mesma silhueta e paleta de cima e dos olhos do personagem. Os modelos voxel antigos continuam no código: `HauntFpsHybridArt.SpriteActorsInFirstPerson = false` os traz de volta.
+**A troca de perspectiva preserva o encontro.** Vida, munição, recarga, poderes, inimigos e projéteis continuam no mesmo estado, e as duas visões consultam as mesmas colisões. A visão 2D usa uma câmera ortográfica inclinada a 58° em visual 2.5D: paredes de tijolo com base e cornija, topo escuro com borda clara, piso de ladrilhos com bisel e rachaduras, tochas e braseiros com luz tremulante, sombras para baixo e à direita, tapetes, estantes, estandartes, caixas, mesas, vasos e pilares. A parede do fundo e as laterais ficam em pé; só as da frente afundam. Balas inimigas são orbes rosa contornados e as do jogador usam o projétil de cada alma, sempre desenhados por cima de tudo.
 
-**Pixel art de verdade.** A imagem é renderizada em pelo menos 360 linhas (a altura da tela dividida por um número inteiro: 360 em 1080p e 1440p) e ampliada sem suavização, de modo que cada pixel dos sprites vira um bloco nítido e uniforme; HUD e textos continuam em resolução cheia. Na visão 2D, um pixel renderizado equivale a um pixel dos sprites, e a câmera e os sprites andam pixel a pixel para a arte não tremer. `HauntFpsGame.PixelArtRendering = false` volta à resolução cheia.
+**As criaturas são 3D de verdade na primeira pessoa.** Cada sprite é esculpido num corpo com volume: a silhueta é inflada (mais grossa no centro, fina nas bordas), a frente é pintada com a pose de frente e as costas com a pose de costas. Assim cada criatura mantém a forma, a paleta e os detalhes do desenho 2D, recebe a luz das tochas, projeta sombra e é animada quadro a quadro. As malhas são geradas no primeiro uso. `HauntFpsHybridArt.FirstPersonStyle` também oferece os sprites planos (`Sprite`) ou os modelos voxel antigos (`Voxel`).
+
+**Pixel art de verdade.** A imagem é renderizada perto de 540 linhas (a altura da tela dividida por um número inteiro: 540 em 1080p, 480 em 1440p) e ampliada sem suavização. HUD e textos continuam em resolução cheia. Na visão 2D o enquadramento mostra cerca de 17 ladrilhos de altura, um pixel renderizado equivale a um pixel das criaturas (dois para os heróis e o cenário) e câmera e sprites andam pixel a pixel. `HauntFpsGame.PixelArtRendering = false` volta à resolução cheia.
 
 **A transição** é um dolly zoom: a câmera sai dos olhos do personagem, recua enquanto a lente se fecha e chega à vista ortográfica sem salto. Os sprites trocam de lugar com o corpo 3D do herói no meio do movimento, as paredes da frente afundam junto com a câmera e o mundo desacelera para 35% durante os 0,4 s. Nesse intervalo os disparos ficam bloqueados e não há invencibilidade adicional.
 
@@ -39,7 +41,7 @@ Na primeira pessoa, o mouse e o analógico direito controlam o olhar. Na visão 
 
 As armas iniciais têm reserva infinita e exigem **recarga manual com R / Triângulo**. A carabina dispara em linha, a varinha abre um leque, os ossos podem atravessar criaturas e a bobina pode encadear um alvo próximo. A esquiva protege nos primeiros 60% de sua duração e termina com recuperação vulnerável.
 
-A campanha atravessa **Jardins da Colheita, Galeria dos Véus, Catedral das Cinzas, Ninho da Peste e Abismo dos Sinos**. Cada tema tem paleta, materiais, iluminação, neblina, decoração e disposição de cobertura próprias. As arenas medem 28 × 24 unidades e mantêm uma passagem central. Os encontros distribuem **17 tipos de criatura** entre três ondas e terminam com um chefe sorteado do grupo daquele tema.
+A campanha atravessa **Jardins da Colheita, Galeria dos Véus, Catedral das Cinzas, Ninho da Peste e Abismo dos Sinos**. Cada tema tem paleta de tijolo, piso, madeira e tecido, cor das tochas, neblina e luz próprias; cada sala de combate sorteia um entre cinco arranjos de cobertura. Os encontros distribuem **17 tipos de criatura**, variando o elenco de sala para sala, e o andar termina com um chefe sorteado do grupo daquele tema.
 
 Os sete chefes possuem modelos 3D e apresentação em sprites na visão 2D: **Rei das Abóboras, Viúva do Véu, Bispo das Cinzas, Matriarca da Peste, Sino do Abismo, Carrasco de Ferro e Oráculo do Brejo**. Têm introdução, preparação de ataque, padrões próprios, fúria abaixo de metade da vida e morte. Barris explosivos, cobertura, efeitos, som e dano usam a mesma simulação nas duas perspectivas. O portal só abre depois do chefe; avançar conserva a progressão da incursão.
 
@@ -52,32 +54,30 @@ Os sete chefes possuem modelos 3D e apresentação em sprites na visão 2D: **Re
 | Usar poder | Q | L1 |
 | Esquivar | Alt esquerdo, Ctrl esquerdo ou botão direito | Círculo |
 | Saltar | Espaço | X |
-| Usar portal | E | Quadrado |
+| Comprar / abrir baú / usar portal | E | Quadrado |
 | Pausar / liberar cursor | Esc | Options |
 | Confirmar início / reiniciar | Enter | X |
 | Ligar / desligar som | M ou botão do menu | Botão do menu |
 
 Os menus têm cursor livre. Depois de retomar ou alternar a perspectiva, solte o gatilho antes de voltar a disparar. O Input System faz o mapeamento; o funcionamento com o DualShock 4 físico e seus drivers ainda precisa ser testado no PC.
 
-A campanha híbrida usa cinco arenas temáticas. A rede de salas procedurais, a loja e o catálogo completo de armas do roguelike anterior continuam na cena `Haunt.unity`; esses sistemas ainda não foram todos migrados para a campanha híbrida. **Ecos → Abrir roguelike** e o botão do menu dão acesso a essa versão preservada. O build começa em `HauntFps` e inclui `Haunt` como segunda cena.
+O catálogo completo de 17 armas do roguelike anterior ainda não foi levado à campanha híbrida, que usa a arma de cada alma. **Ecos → Abrir roguelike** e o botão do menu dão acesso à versão 2D preservada. O build começa em `HauntFps` e inclui `Haunt` como segunda cena.
 
-Veja [PROTOTIPO_FPS.md](Documentation/PROTOTIPO_FPS.md) para módulos e roteiro de teste. **Esta expansão híbrida ainda não foi executada no Editor Unity deste ambiente**; importação, compilação no motor, resultado renderizado, física, áudio reproduzido e controle físico precisam dessa validação.
+Veja [PROTOTIPO_FPS.md](Documentation/PROTOTIPO_FPS.md) para módulos e roteiro de teste. A masmorra foi compilada e jogada no Editor Unity 6000.0.85f1 (salas, portas, ondas, loja, chefe com apresentação, as duas visões e as criaturas esculpidas). Build Windows, áudio e controle físico ainda precisam de validação.
 
 ## Roguelike 2D preservado
 
 As seções seguintes descrevem `Assets/_Game/Scenes/Haunt.unity`. Nessa cena, Play abre a seleção das quatro almas. Uma semente numérica repete a planta, os encontros, o chefe e as ofertas daquela versão; vazia gera outra incursão.
 
-### Personagens no modelo da folha original
+### Personagens originais
 
-O primeiro personagem aparece como **PILOTO** e usa os pixels da folha de *The Pilot*, de *Enter the Gungeon*, enviada pelo usuário. O PNG original permanece intacto em [PilotOriginal.png](Assets/_Game/ArtSources/PilotOriginal.png). O importador recorta as poses, conserva suas cores RGB e remove apenas as cores de fundo indicadas para cada recorte, sem ampliar ou redesenhar o personagem.
+As quatro almas são desenhos originais gerados por [`Tools/generate_original_heroes.py`](Tools/generate_original_heroes.py): proporções chibi (cabeça grande, corpo curto), contorno escuro e luz do alto à esquerda. O **Caçador** usa chapéu de aba larga, casaco turquesa e cachecol vermelho; a **Médium**, capuz violeta, trança prateada e amuleto dourado; o **Ceifador**, capuz escuro e máscara de osso; a **Alquimista**, óculos de latão, cabelo laranja e jaleco com avental azul. Cada uma tem frente, diagonal, perfil, costas, caminhada, rolamento em bola, queda e as demais poses do catálogo, sem nenhum pixel de terceiros. O arquivo `Assets/_Game/ArtSources/PilotOriginal.png` e o importador antigo ficaram apenas como histórico e não são usados pelo jogo; remova-os antes de publicar o projeto.
 
-**Médium, Ceifador e Alquimista** são variantes desse mesmo modelo, com paletas e acessórios próprios. Compartilham a organização, as direções e as sequências de poses da fonte. O catálogo distingue poses sem arma, com uma mão e com duas mãos, além do traje alternativo. Cada animação usa sua quantidade de quadros e seu tempo; o jogador deixou de depender do limite de quatro poses dos protótipos anteriores.
+O catálogo distingue poses sem arma, com uma mão e com duas mãos, além do traje alternativo. Cada animação usa sua quantidade de quadros e seu tempo.
 
 Os personagens ativos ficam em [CharacterSheets](Assets/_Game/Resources/CharacterSheets), com filtro Point e **16 pixels por unidade**, preservando o desenho nativo. A célula interna de 48×48 inclui espaço transparente e não representa um redimensionamento da arte. A arma equipada continua em um renderer separado; tiros, recarga e poderes usam a pose original adequada e os efeitos do combate.
 
-![Pilot original e variantes no mesmo modelo](Documentation/CHARACTER_MODEL.png)
-
-Veja [CHARACTER_MODEL.md](Documentation/CHARACTER_MODEL.md) para a fonte, o catálogo completo e a importação. As poses de mesa, baú, voo, fantasma e reviver estão disponíveis na biblioteca; sua presença na folha não adiciona essas mecânicas nem multiplayer ao jogo.
+As poses de mesa, baú, voo, fantasma e reviver estão disponíveis na biblioteca; sua presença na folha não adiciona essas mecânicas nem multiplayer ao jogo.
 
 ### Mobs, bosses, objetos e munição
 
@@ -141,7 +141,7 @@ A prévia abaixo mostra os pixels gerados pelos métodos C# com tipos auxiliares
 
 | Alma | Arma inicial | Poder |
 | --- | --- | --- |
-| Piloto | Carabina da Aurora, cápsula turquesa | Limpa tiros próximos e concede proteção breve |
+| Caçador | Carabina da Aurora, cápsula turquesa | Limpa tiros próximos e concede proteção breve |
 | Médium do Véu | Varinha do Véu, pétalas em leque | Rajada espectral ampla |
 | Ceifador Errante | Ceifador de Ossos, dano duplo | Disparo radial e proteção breve |
 | Alquimista de Cinzas | Bobina Voltaica, raio contínuo | Recupera vida |
