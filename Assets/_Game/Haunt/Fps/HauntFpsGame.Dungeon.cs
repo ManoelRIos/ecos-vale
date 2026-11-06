@@ -112,7 +112,7 @@ namespace Ecos.Haunt.Fps
             encounterRoom = room;
             encounterWaves = room.HasMiniBoss ? 3 : 2;
             world.SetRoomLocked(room, true);
-            PlayCue(FpsCue.Reload, PlayerPosition); AddShake(.12f);
+            PlayCue(FpsCue.DoorSlam, PlayerPosition); AddShake(.14f);
             StartWave(0);
         }
 
@@ -129,13 +129,14 @@ namespace Ecos.Haunt.Fps
             for (int i = 0; i < souls; i++) DropPickup(PickupKind.Soul, room.Center + Vector3.up * .3f, 1, i);
             if (Hash01(room.Id * 7 + seed) < .3f) DropPickup(PickupKind.Heart, room.Center + Vector3.up * .3f, 2, souls);
             Notify("SALA PURIFICADA", 1.8f);
-            PlayCue(FpsCue.ReloadEnd, PlayerPosition);
+            PlayCue(FpsCue.RoomClear, PlayerPosition);
         }
 
         void BeginBossRoom(FpsRoom room)
         {
             encounterRoom = room;
             world.SetRoomLocked(room, true);
+            PlayCue(FpsCue.DoorSlam, PlayerPosition); PlayCue(FpsCue.BossSting, PlayerPosition);
             SpawnBoss();
             bossIntro = BossIntroDuration;
             player.InputLocked = true;
@@ -155,6 +156,7 @@ namespace Ecos.Haunt.Fps
             world.BossRoom.Cleared = true;
             world.SetRoomLocked(world.BossRoom, false);
             encounterRoom = null;
+            PlayCue(FpsCue.RoomClear, PlayerPosition);
             Vector3 center = world.BossRoom.Center + Vector3.up * .3f;
             for (int i = 0; i < 10 + state.Floor * 2; i++) DropPickup(PickupKind.Soul, center, 2, i);
             DropPickup(PickupKind.Heart, center, 2, 99);
@@ -234,7 +236,7 @@ namespace Ecos.Haunt.Fps
                 {
                     if (pickup.Kind == PickupKind.Soul) state.Coins += pickup.Value;
                     else state.Health = Mathf.Min(state.MaxHealth, state.Health + pickup.Value);
-                    PlayCue(pickup.Kind == PickupKind.Soul ? FpsCue.ReloadEnd : FpsCue.Victory, pickup.Position);
+                    PlayCue(pickup.Kind == PickupKind.Soul ? FpsCue.Coin : FpsCue.Purchase, pickup.Position);
                     if (hybridArt && pickup.Sprite) hybridArt.RemoveProp(pickup.Sprite);
                     pickups.RemoveAt(i);
                 }
@@ -272,7 +274,7 @@ namespace Ecos.Haunt.Fps
                     offer.Sold = true;
                     if (offer.Icon) hybridArt.RemoveProp(offer.Icon);
                     Burst(offer.Position + Vector3.up, Gold, 18, 3);
-                    PlayCue(FpsCue.Victory, offer.Position);
+                    PlayCue(FpsCue.Purchase, offer.Position);
                 }
                 else PlayCue(FpsCue.DryFire, offer.Position);
                 Notify(message, 2);
@@ -287,7 +289,7 @@ namespace Ecos.Haunt.Fps
                 DropPickup(PickupKind.Heart, at, 2, 70);
                 ShopItem reward = ChestRewards[(int)(Hash01(seed + state.Floor * 17) * ChestRewards.Length) % ChestRewards.Length];
                 Notify(state.Grant(reward, out string message) ? "TESOURO: " + message : "O BAU ESTAVA CHEIO DE ALMAS.", 3);
-                Burst(at, Gold, 30, 4); AddShake(.25f); PlayCue(FpsCue.Victory, at);
+                Burst(at, Gold, 30, 4); AddShake(.25f); PlayCue(FpsCue.Chest, at);
                 return true;
             }
             return false;

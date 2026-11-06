@@ -228,7 +228,8 @@ namespace Ecos.Haunt.Fps
                 // Four souls as cards: each idles in its frame; the chosen one walks toward you.
                 float cardHeight = Mathf.Clamp(height * .25f, 118, 230), cardWidth = Mathf.Clamp(cardHeight * .82f, 100, 186);
                 float gap = 14, start = cx - (cardWidth * 4 + gap * 3) * .5f, cardTop = top + 84;
-                int zoom = Mathf.Max(2, Mathf.FloorToInt((cardHeight - 34) / 40));
+                // The souls stand about 22 px tall inside their frames.
+                int zoom = Mathf.Max(2, Mathf.FloorToInt((cardHeight - 46) / 24f));
                 for (int i = 0; i < 4; i++)
                 {
                     CharacterKind character = (CharacterKind)i;
@@ -308,8 +309,7 @@ namespace Ecos.Haunt.Fps
             float w = source.width * zoom, h = source.height * zoom;
             // Feet on a fixed line near the bottom of the area, whatever the frame height.
             float footX = area.center.x, footY = area.yMax - 8;
-            var target = new Rect(Mathf.Round(footX - sprite.pivot.x * zoom), Mathf.Round(footY - (source.height - sprite.pivot.y) * zoom), w, h);
-            target.y = Mathf.Round(footY - h + sprite.pivot.y * zoom);
+            var target = new Rect(Mathf.Round(footX - sprite.pivot.x * zoom), Mathf.Round(footY - h + sprite.pivot.y * zoom), w, h);
             GUI.DrawTextureWithTexCoords(target, texture,
                 new Rect(source.x / texture.width, source.y / texture.height, source.width / texture.width, source.height / texture.height), true);
         }

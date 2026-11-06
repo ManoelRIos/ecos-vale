@@ -6,13 +6,16 @@ namespace Ecos.Haunt.Fps
     public enum FpsCue
     {
         Shot, Reload, ReloadEnd, DryFire, PlayerHit, EnemyHit,
-        EnemyDeath, Explosion, Dodge, Victory, Step, HostileShot
+        EnemyDeath, Explosion, Dodge, Victory, Step, HostileShot,
+        // Dungeon cues: a soul picked up, an iron grate slamming, a room cleared, a purchase,
+        // a chest opening and the low sting that announces a guardian.
+        Coin, DoorSlam, RoomClear, Purchase, Chest, BossSting
     }
 
     /// <summary>Original cached PCM sounds, positional voices and two aligned ambient layers.</summary>
     public sealed class HauntFpsAudio : MonoBehaviour
     {
-        const int SampleRate = 22050, VoiceCount = 10, CueCount = 12;
+        const int SampleRate = 22050, VoiceCount = 12, CueCount = 18;
         const float MasterGain = .7f, VoiceGain = .24f, LoopSeconds = 8;
         readonly AudioSource[] voices = new AudioSource[VoiceCount];
         readonly float[] voiceStarted = new float[VoiceCount];
@@ -162,6 +165,8 @@ namespace Ecos.Haunt.Fps
                 case FpsCue.HostileShot: return .75f;
                 case FpsCue.Shot: return .9f;
                 case FpsCue.Dodge: return .65f;
+                case FpsCue.Coin: return .45f;
+                case FpsCue.Purchase: return .8f;
                 default: return 1;
             }
         }
@@ -194,7 +199,9 @@ namespace Ecos.Haunt.Fps
                 : cue == FpsCue.Victory ? .72f : cue == FpsCue.Reload ? .3f
                 : cue == FpsCue.ReloadEnd ? .16f : cue == FpsCue.PlayerHit ? .25f
                 : cue == FpsCue.HostileShot ? .2f : cue == FpsCue.Dodge ? .18f
-                : cue == FpsCue.Step ? .09f : cue == FpsCue.DryFire ? .065f : .11f;
+                : cue == FpsCue.Step ? .09f : cue == FpsCue.DryFire ? .065f
+                : cue == FpsCue.Coin ? .13f : cue == FpsCue.DoorSlam ? .42f : cue == FpsCue.RoomClear ? .7f
+                : cue == FpsCue.Purchase ? .32f : cue == FpsCue.Chest ? .55f : cue == FpsCue.BossSting ? 1.4f : .11f;
             int length = (int)(duration * SampleRate);
             var result = new float[length];
             uint seed = 0xA31F927Bu + (uint)cue * 7919u;
@@ -229,11 +236,27 @@ namespace Ecos.Haunt.Fps
                         tone = .8f; hiss = .02f; decay = 5; break;
                     case FpsCue.Step:
                         frequency = 65 - p * 20; tone = .4f; hiss = .75f; decay = 30; break;
+                    case FpsCue.Coin:
+                        frequency = p < .35f ? 987.77f : 1318.51f; tone = 1; hiss = 0; decay = 13; break;
+                    case FpsCue.DoorSlam:
+                        frequency = 92 + 40 * (float)Math.Exp(-t * 40); tone = .75f; hiss = .9f; decay = 9; break;
+                    case FpsCue.RoomClear:
+                        frequency = p < .22f ? 523.25f : p < .44f ? 659.26f : p < .66f ? 783.99f : 1046.5f;
+                        tone = .85f; hiss = .01f; decay = 3.5f; break;
+                    case FpsCue.Purchase:
+                        frequency = p < .3f ? 783.99f : 1174.66f; tone = .9f; hiss = .05f; decay = 6; break;
+                    case FpsCue.Chest:
+                        frequency = 180 + 820 * p * p; tone = .55f; hiss = .35f; decay = 3; break;
+                    case FpsCue.BossSting:
+                        frequency = p < .5f ? 55 : 51.91f; tone = .9f; hiss = .4f * (1 - p); decay = 1.6f; break;
                     default:
                         frequency = 240 + 300 * (1 - p); tone = .65f; hiss = .22f; decay = 14; break;
                 }
                 phase += Math.PI * 2 * frequency / SampleRate;
-                double harmonic = Math.Sin(phase) + .2 * Math.Sin(phase * 2.71);
+                // Metal rings with inharmonic partials; the boss sting adds a fifth and an octave.
+            double harmonic = cue == FpsCue.DoorSlam ? Math.Sin(phase) + .6 * Math.Sin(phase * 2.76) + .35 * Math.Sin(phase * 5.4)
+                : cue == FpsCue.BossSting ? Math.Sin(phase) + .55 * Math.Sin(phase * 1.5) + .4 * Math.Sin(phase * 2)
+                : Math.Sin(phase) + .2 * Math.Sin(phase * 2.71);
                 float attack = Math.Min(1, t / (cue == FpsCue.Dodge ? .025f : .004f));
                 float tail = Math.Min(1, (duration - t) / .025f);
                 result[i] = attack * tail * tail * (float)Math.Exp(-t * decay)
