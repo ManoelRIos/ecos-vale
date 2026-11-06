@@ -35,6 +35,8 @@ namespace Ecos.Haunt.Fps
             public Component Actor;
             public SpriteRenderer Sprite, Shadow;
             public Renderer[] Model;
+            public MeshFilter Sculpt;
+            public MeshRenderer SculptRenderer;
             public bool[] Enabled;
             public int Health;
             public float StateClock, Flash;
@@ -42,10 +44,11 @@ namespace Ecos.Haunt.Fps
             public BossAnimationState BossState;
         }
 
-        /// <summary>Enemies and bosses use the same pixel-art sprites in both views, so each
-        /// creature reads identically from the eye and from above. Set false to bring back the
-        /// procedural voxel models in first person.</summary>
-        public static bool SpriteActorsInFirstPerson = true;
+        /// <summary>How creatures appear in first person. Sculpted (default): a real 3D body
+        /// inflated from the creature's own 2D drawing, lit and shadowed, animated frame by frame.
+        /// Sprite: the flat 2D drawing as an upright billboard. Voxel: the old block models.</summary>
+        public enum FirstPersonActorStyle { Sculpted, Sprite, Voxel }
+        public static FirstPersonActorStyle FirstPersonStyle = FirstPersonActorStyle.Sculpted;
         /// <summary>World size of the actor sprites. With the 32 px-per-unit sheets one sprite
         /// pixel covers one rendered pixel of the overhead view (see HauntFpsGame.PixelUnit).</summary>
         public const float ActorScale = 1.4f;
@@ -59,7 +62,10 @@ namespace Ecos.Haunt.Fps
         readonly List<PropView> props = new List<PropView>();
 
         public bool TopDownVisible => topDown && !disposed;
-        bool ActorSpritesShown => topDown || SpriteActorsInFirstPerson;
+        bool ActorSpritesShown => topDown || FirstPersonStyle == FirstPersonActorStyle.Sprite;
+        bool SculpturesShown => !topDown && FirstPersonStyle == FirstPersonActorStyle.Sculpted;
+        HauntFpsSculpture sculpture;
+        public int SculptureMeshCount => sculpture != null ? sculpture.MeshCount : 0;
         // Per-tick viewing context used to sort and shade the sprites.
         Vector3 viewer;
         float overheadBlend;
@@ -71,7 +77,7 @@ namespace Ecos.Haunt.Fps
             if (initialized) throw new InvalidOperationException("A apresentação híbrida já foi criada.");
             if (disposed) throw new ObjectDisposedException(nameof(HauntFpsHybridArt));
             if (!owner) throw new ArgumentNullException(nameof(owner));
-            game = owner; art = new HauntPixelArt(); flash = new MaterialPropertyBlock();
+            game = owner; art = new HauntPixelArt(); flash = new MaterialPropertyBlock(); sculpture = new HauntFpsSculpture();
             presentation = new GameObject("Visão 2D / sprites compartilhados").transform;
             presentation.SetParent(transform, false);
             heroShadow = Sprite("Sombra da alma", art.Get("shadow"), presentation);
@@ -101,8 +107,8 @@ namespace Ecos.Haunt.Fps
             // Overhead, every front occluder is lowered, so sprites draw over the standing back
             // walls like Enter the Gungeon's layered rooms. In first person walls hide them normally.
             if (art != null) art.Material.SetFloat("_ZTest", (float)(value ? CompareFunction.Always : CompareFunction.LessEqual));
-            foreach (var actor in actors.Values) SetActorVisible(actor, ActorSpritesShown);
-            if (boss != null) SetActorVisible(boss, ActorSpritesShown);
+            foreach (var actor in actors.Values) ApplyVisibility(actor);
+            if (boss != null) ApplyVisibility(boss);
         }
 
         /// <summary>0 = full 3D walls, 1 = low 2D cutaway. Values in between show the
@@ -165,7 +171,7 @@ namespace Ecos.Haunt.Fps
             Quaternion toView = Quaternion.Inverse(upright);
             if (topDown) PresentHero(facingCamera, aimDirection, moving, dodging);
             PresentProps(facingCamera);
-            if (!ActorSpritesShown) return;
+            if (!ActorSpritesShown && !SculpturesShown) return;
             foreach (var pair in actors)
             {
                 var enemy = pair.Key;
@@ -182,6 +188,9 @@ namespace Ecos.Haunt.Fps
                 Vector3 anchor = enemy.transform.position + Vector3.up * .055f;
                 bool footPivot = HauntPixelArt.HasActorSheet(enemy.SpriteKey);
                 PresentActor(view, anchor, facingCamera, ActorScale, footPivot, seen.x < 0);
+                if (SculpturesShown)
+                    PresentSculpture(view, art.ActorFrame(enemy.SpriteKey, enemy.AnimationState, frame, ActorFacing.Down),
+                        footPivot ? art.ActorFrame(enemy.SpriteKey, enemy.AnimationState, frame, ActorFacing.Up) : null, footPivot);
             }
             if (boss != null && game.Boss)
             {
@@ -192,6 +201,7 @@ namespace Ecos.Haunt.Fps
                 if (guardian.IsDead) frame = Mathf.Min(3, frame);
                 boss.Sprite.sprite = art.BossFrame(guardian.SpriteKey, guardian.AnimationState, frame);
                 PresentActor(boss, guardian.transform.position + Vector3.up * .07f, facingCamera, ActorScale, false, false);
+                if (SculpturesShown) PresentSculpture(boss, boss.Sprite.sprite, null, false);
             }
         }
 
@@ -238,20 +248,17 @@ namespace Ecos.Haunt.Fps
             expired.Clear();
             foreach (var pair in actors) if (!pair.Key) expired.Add(pair.Key);
             foreach (var enemy in expired) { Release(actors[enemy]); actors.Remove(enemy); }
-            if (ActorSpritesShown)
+            foreach (var enemy in game.Enemies)
             {
-                foreach (var enemy in game.Enemies)
-                {
-                    if (!enemy || actors.ContainsKey(enemy)) continue;
-                    var view = CreateActor(enemy, enemy.Health, "Inimigo / " + enemy.SpriteKey);
-                    view.EnemyState = enemy.AnimationState; actors.Add(enemy, view); SetActorVisible(view, true);
-                }
+                if (!enemy || actors.ContainsKey(enemy)) continue;
+                var view = CreateActor(enemy, enemy.Health, "Inimigo / " + enemy.SpriteKey);
+                view.EnemyState = enemy.AnimationState; actors.Add(enemy, view); ApplyVisibility(view);
             }
             if (boss != null && (!boss.Actor || boss.Actor != game.Boss)) { Release(boss); boss = null; }
-            if (ActorSpritesShown && game.Boss && boss == null)
+            if (game.Boss && boss == null)
             {
                 boss = CreateActor(game.Boss, game.Boss.Health, "Chefe / " + game.Boss.SpriteKey);
-                boss.BossState = game.Boss.AnimationState; SetActorVisible(boss, true);
+                boss.BossState = game.Boss.AnimationState; ApplyVisibility(boss);
             }
         }
 
@@ -266,14 +273,40 @@ namespace Ecos.Haunt.Fps
             view.Shadow.transform.rotation = Quaternion.Euler(90, 0, 0);
             view.Shadow.transform.localScale = Vector3.one * (actor is HauntFpsBoss ? 1.15f : .62f);
             view.Shadow.sortingOrder = -6000;
+            // The 3D body rides on the actor itself, so it turns with the creature.
+            var body = new GameObject("Escultura 3D"); body.transform.SetParent(actor.transform, false);
+            view.Sculpt = body.AddComponent<MeshFilter>();
+            view.SculptRenderer = body.AddComponent<MeshRenderer>();
+            view.SculptRenderer.shadowCastingMode = ShadowCastingMode.On; view.SculptRenderer.receiveShadows = true;
             return view;
         }
 
-        static void SetActorVisible(ActorView actor, bool overhead)
+        void ApplyVisibility(ActorView actor)
         {
-            if (actor.Sprite) actor.Sprite.enabled = overhead;
-            if (actor.Shadow) actor.Shadow.enabled = overhead;
-            for (int i = 0; i < actor.Model.Length; i++) if (actor.Model[i]) actor.Model[i].enabled = overhead ? false : actor.Enabled[i];
+            bool sprites = ActorSpritesShown, sculpted = SculpturesShown, voxels = !sprites && !sculpted;
+            if (actor.Sprite) actor.Sprite.enabled = sprites;
+            if (actor.Shadow) actor.Shadow.enabled = sprites;
+            if (actor.SculptRenderer) actor.SculptRenderer.enabled = sculpted && actor.Sculpt && actor.Sculpt.sharedMesh;
+            for (int i = 0; i < actor.Model.Length; i++) if (actor.Model[i]) actor.Model[i].enabled = voxels && actor.Enabled[i];
+        }
+
+        /// <summary>Shows the creature's current animation frame as its sculpted 3D body.</summary>
+        void PresentSculpture(ActorView view, Sprite front, Sprite back, bool footPivot)
+        {
+            if (!view.Sculpt || sculpture == null || !front) return;
+            Mesh mesh = sculpture.Build(front, back, ActorScale);
+            if (view.Sculpt.sharedMesh != mesh) view.Sculpt.sharedMesh = mesh;
+            Material material = sculpture.MaterialFor(front);
+            if (material && view.SculptRenderer.sharedMaterial != material) view.SculptRenderer.sharedMaterial = material;
+            view.SculptRenderer.enabled = mesh && material;
+            // Same ground placement as the flat drawing: feet on the floor.
+            float lift = .055f + (footPivot ? 0 : front.rect.height / front.pixelsPerUnit * ActorScale * .46f);
+            Transform node = view.Sculpt.transform;
+            node.localPosition = new Vector3(0, lift, 0);
+            node.localRotation = Quaternion.identity;
+            float stretch = view.Flash > 0 ? .1f : 0;
+            node.localScale = new Vector3(1 + stretch, 1 - stretch, 1 + stretch);
+            flash.Clear(); flash.SetFloat("_HitFlash", view.Flash > 0 ? 1 : 0); view.SculptRenderer.SetPropertyBlock(flash);
         }
 
         void PresentActor(ActorView view, Vector3 anchor, Quaternion facingCamera, float scale, bool footPivot, bool flip)
@@ -463,9 +496,11 @@ namespace Ecos.Haunt.Fps
         }
         static void Release(ActorView view)
         {
-            SetActorVisible(view, false);
+            // Hand the actor back with its original renderers.
+            for (int i = 0; i < view.Model.Length; i++) if (view.Model[i]) view.Model[i].enabled = view.Enabled[i];
             if (view.Sprite) DestroyOwned(view.Sprite.gameObject);
             if (view.Shadow) DestroyOwned(view.Shadow.gameObject);
+            if (view.Sculpt) DestroyOwned(view.Sculpt.gameObject);
         }
         public void Dispose()
         {
@@ -482,6 +517,7 @@ namespace Ecos.Haunt.Fps
             if (presentation) { presentation.gameObject.SetActive(false); DestroyOwned(presentation.gameObject); }
             if (cutaways) { cutaways.gameObject.SetActive(false); DestroyOwned(cutaways.gameObject); }
             walls.Clear();
+            if (sculpture != null) sculpture.Dispose(); sculpture = null;
             if (art != null) art.Dispose(); art = null;
         }
         static void DestroyOwned(UnityEngine.Object value)
