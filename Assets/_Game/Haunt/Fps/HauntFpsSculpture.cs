@@ -12,10 +12,12 @@ namespace Ecos.Haunt.Fps
     public sealed class HauntFpsSculpture : IDisposable
     {
         /// <summary>Half thickness, in sprite pixels, reached by the thickest parts.</summary>
-        public const float MaxBulge = 11;
+        public const float MaxBulge = 15;
         readonly Dictionary<Texture2D, Color32[]> texels = new Dictionary<Texture2D, Color32[]>();
         readonly Dictionary<long, Mesh> meshes = new Dictionary<long, Mesh>();
         readonly Dictionary<Texture2D, Material> materials = new Dictionary<Texture2D, Material>();
+        // Smooth copies of the sheets: in 3D the drawing is painted on, not shown as hard pixels.
+        readonly Dictionary<Texture2D, Texture2D> painted = new Dictionary<Texture2D, Texture2D>();
         bool disposed;
 
         public int MeshCount => meshes.Count;
@@ -28,7 +30,7 @@ namespace Ecos.Haunt.Fps
             var template = Resources.Load<Material>("FpsPalette");
             if (!template) return null;
             var material = new Material(template) { name = "Escultura / " + sprite.texture.name };
-            material.SetTexture("_BaseMap", sprite.texture);
+            material.SetTexture("_BaseMap", Painted(sprite.texture));
             material.SetTextureScale("_BaseMap", Vector2.one);
             material.SetColor("_BaseColor", Color.white);
             material.SetColor("_EmissionColor", new Color(.05f, .045f, .06f));
@@ -48,6 +50,34 @@ namespace Ecos.Haunt.Fps
             var mesh = Sculpt(front, back && back.texture == front.texture && back.rect.size == front.rect.size ? back : null, scale);
             meshes[key] = mesh;
             return mesh;
+        }
+
+        Texture2D Painted(Texture2D texture)
+        {
+            if (painted.TryGetValue(texture, out var smooth) && smooth) return smooth;
+            Color32[] pixels = Texels(texture);
+            // Bleed opaque colors into transparent neighbours so smooth filtering never
+            // pulls black from empty texels onto the body's edge.
+            var filled = (Color32[])pixels.Clone();
+            int w = texture.width, h = texture.height;
+            for (int pass = 0; pass < 2; pass++)
+            {
+                var source = (Color32[])filled.Clone();
+                for (int y = 0; y < h; y++) for (int x = 0; x < w; x++)
+                {
+                    int i = y * w + x; if (source[i].a > 96) continue;
+                    for (int k = 0; k < 4; k++)
+                    {
+                        int nx = x + (k == 0 ? 1 : k == 1 ? -1 : 0), ny = y + (k == 2 ? 1 : k == 3 ? -1 : 0);
+                        if (nx < 0 || ny < 0 || nx >= w || ny >= h || source[ny * w + nx].a <= 96) continue;
+                        Color32 c = source[ny * w + nx]; filled[i] = new Color32(c.r, c.g, c.b, 0); break;
+                    }
+                }
+            }
+            smooth = new Texture2D(w, h, TextureFormat.RGBA32, true) { name = texture.name + " / pintura", filterMode = FilterMode.Trilinear, wrapMode = TextureWrapMode.Clamp, anisoLevel = 4 };
+            smooth.SetPixels32(filled); smooth.Apply(true, true);
+            painted[texture] = smooth;
+            return smooth;
         }
 
         Color32[] Texels(Texture2D texture)
@@ -179,7 +209,8 @@ namespace Ecos.Haunt.Fps
             if (disposed) return; disposed = true;
             foreach (var mesh in meshes.Values) Destroy(mesh);
             foreach (var material in materials.Values) Destroy(material);
-            meshes.Clear(); materials.Clear(); texels.Clear();
+            foreach (var texture in painted.Values) Destroy(texture);
+            meshes.Clear(); materials.Clear(); texels.Clear(); painted.Clear();
         }
     }
 }
