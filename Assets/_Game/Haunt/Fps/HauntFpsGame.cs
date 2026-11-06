@@ -644,6 +644,7 @@ namespace Ecos.Haunt.Fps
             ClearRun(); if (sound) sound.Dispose(); lettering.Dispose();
             foreach (var material in materials.Values) if (material) Destroy(material);
             foreach (var texture in textures) if (texture) Destroy(texture);
+            if (menuArt != null) { menuArt.Dispose(); menuArt = null; }
             materials.Clear(); textures.Clear();
             if (appliedPipeline && GraphicsSettings.defaultRenderPipeline == appliedPipeline) GraphicsSettings.defaultRenderPipeline = savedGraphicsPipeline;
             if (appliedPipeline && QualitySettings.renderPipeline == appliedPipeline) QualitySettings.renderPipeline = savedQualityPipeline;

@@ -225,20 +225,40 @@ namespace Ecos.Haunt.Fps
             float y;
             if (mode == ScreenMode.Menu)
             {
-                float start = cx - 360;
+                // Four souls as cards: each idles in its frame; the chosen one walks toward you.
+                float cardHeight = Mathf.Clamp(height * .25f, 118, 230), cardWidth = Mathf.Clamp(cardHeight * .82f, 100, 186);
+                float gap = 14, start = cx - (cardWidth * 4 + gap * 3) * .5f, cardTop = top + 84;
+                int zoom = Mathf.Max(2, Mathf.FloorToInt((cardHeight - 34) / 40));
                 for (int i = 0; i < 4; i++)
                 {
                     CharacterKind character = (CharacterKind)i;
-                    if (Button(new Rect(start + i * 182, top + 90, 174, 30), CharacterName(character), 1, selectedCharacter == character)) selectedCharacter = character;
+                    var card = new Rect(start + i * (cardWidth + gap), cardTop, cardWidth, cardHeight);
+                    bool chosen = selectedCharacter == character, hover = card.Contains(Event.current.mousePosition);
+                    Fill(card, chosen ? new Color(.2f, .13f, .2f, .96f) : hover ? new Color(.15f, .1f, .16f, .95f) : new Color(.08f, .06f, .1f, .92f));
+                    Color edge = chosen ? Gold : hover ? new Color(.62f, .5f, .4f) : new Color(.3f, .22f, .28f);
+                    Fill(new Rect(card.x, card.y, card.width, 2), edge); Fill(new Rect(card.x, card.yMax - 2, card.width, 2), edge);
+                    Fill(new Rect(card.x, card.y, 2, card.height), edge); Fill(new Rect(card.xMax - 2, card.y, 2, card.height), edge);
+                    // Floor glow under the hero.
+                    Fill(new Rect(card.x + card.width * .2f, card.yMax - 40, card.width * .6f, 6), new Color(0, 0, 0, .35f));
+                    DrawHeroPortrait(new Rect(card.x, card.y + 6, card.width, card.height - 34), character, chosen, zoom);
+                    Text(new Rect(card.x, card.yMax - 26, card.width, 18), CharacterName(character), 1, chosen ? Gold : Ivory, TextAnchor.MiddleCenter);
+                    if (hover && Event.current.type == EventType.MouseDown && Event.current.button == 0) { selectedCharacter = character; Event.current.Use(); }
                 }
-                Text(new Rect(cx - 360, top + 132, 720, 38), RunState.WeaponName(RunState.StartingWeaponFor(selectedCharacter)) + " | "
+                float info = cardTop + cardHeight + 10;
+                Text(new Rect(cx - 400, info, 800, 18), RunState.WeaponName(RunState.StartingWeaponFor(selectedCharacter)) + " | "
                     + (selectedCharacter == CharacterKind.Hunter ? "TIRO PRECISO / PULSO" : selectedCharacter == CharacterKind.Medium ? "LEQUE ARCANO / VEU" : selectedCharacter == CharacterKind.Reaper ? "OSSOS PERFURANTES / COLHEITA" : "CHOQUE EM CADEIA / ELIXIR"), 1, CharacterColor(selectedCharacter), TextAnchor.MiddleCenter);
-                if (Button(new Rect(cx - 350, top + 177, 700, 30), practiceBoss < 0 ? "MODO: CAMPANHA - CINCO FASES" : "TREINO: " + HauntFpsBoss.NameFor(practiceBoss), 1))
+                Text(new Rect(cx - 400, info + 20, 800, 16), CharacterLore(selectedCharacter), 1, new Color(.72f, .68f, .74f), TextAnchor.MiddleCenter);
+                float modeTop = info + 46;
+                if (Button(new Rect(cx - 350, modeTop, 700, 28), practiceBoss < 0 ? "MODO: CAMPANHA - CINCO FASES" : "TREINO: " + HauntFpsBoss.NameFor(practiceBoss), 1))
                     practiceBoss = practiceBoss < 6 ? practiceBoss + 1 : -1;
-                if (practiceBoss >= 0 && Button(new Rect(cx - 350, top + 214, 700, 26), "CENARIO: " + HauntFpsCampaign.ThemeName(practiceTheme + 1), 1)) practiceTheme = (practiceTheme + 1) % 5;
-                Text(new Rect(cx - 400, top + 250, 800, 42), "TAB / R1 ALTERNA 2D E 3D | WASD / STICK MOVER | MOUSE / STICK MIRAR\nTIRO: ESQUERDO / R2 | RECARGA: R / TRIANGULO | PODER: Q / L1\nEVASAO: DIREITO / CIRCULO | SALTO: ESPACO / X | SOM: M", 1, Ivory, TextAnchor.MiddleCenter);
-                Text(new Rect(cx - 400, top + 294, 800, 10), "MENU: L1/R1 PERSONAGEM | TRIANGULO TREINO | SHARE CENARIO", 1, new Color(.6f, .65f, .69f), TextAnchor.MiddleCenter);
-                y = top + 305;
+                float next = modeTop + 34;
+                if (practiceBoss >= 0)
+                {
+                    if (Button(new Rect(cx - 350, next, 700, 24), "CENARIO: " + HauntFpsCampaign.ThemeName(practiceTheme + 1), 1)) practiceTheme = (practiceTheme + 1) % 5;
+                    next += 30;
+                }
+                Text(new Rect(20, height - 46, width - 40, 30), "TAB / R1 ALTERNA 2D E 3D | WASD MOVER | MOUSE MIRAR | ESQUERDO ATIRAR | R RECARGA | Q PODER\nDIREITO / CIRCULO ROLAR | E COMPRAR E ABRIR | ESPACO SALTO | M SOM | L1/R1 PERSONAGEM | TRIANGULO TREINO", 1, new Color(.6f, .62f, .68f), TextAnchor.MiddleCenter);
+                y = next + 4;
             }
             else
             {
@@ -258,6 +278,40 @@ namespace Ecos.Haunt.Fps
             { mode = ScreenMode.Menu; paused = false; UpdateSuspension(); }
             float legacyY = y + (mode == ScreenMode.Menu ? 79 : 115);
             if (Button(new Rect(cx - 235, legacyY, 470, 28), "ABRIR O ROGUELIKE 2D ORIGINAL", 1)) SceneManager.LoadScene("Haunt");
+        }
+
+        HauntPixelArt menuArt;
+
+        static string CharacterLore(CharacterKind character)
+        {
+            switch (character)
+            {
+                case CharacterKind.Medium: return "OUVE OS MORTOS E RESPONDE COM LEQUES DE LUZ.";
+                case CharacterKind.Reaper: return "COLHE ALMAS PERDIDAS COM OSSOS AFIADOS.";
+                case CharacterKind.Alchemist: return "DESTILA RAIOS EM FRASCOS INSTAVEIS.";
+                default: return "RASTREIA ECOS NA ESCURIDAO COM A CARABINA DA AURORA.";
+            }
+        }
+
+        /// <summary>The soul drawn large with whole-pixel zoom: idling, or walking when chosen.</summary>
+        void DrawHeroPortrait(Rect area, CharacterKind character, bool chosen, int zoom)
+        {
+            if (Event.current.type != EventType.Repaint) return;
+            if (menuArt == null) menuArt = new HauntPixelArt();
+            string id = character == CharacterKind.Medium ? "medium" : character == CharacterKind.Reaper ? "reaper"
+                : character == CharacterKind.Alchemist ? "alchemist" : "player";
+            CharacterClip clip = chosen ? CharacterClip.Walk : CharacterClip.Idle;
+            float rate = menuArt.CharacterFrameRate(id, clip, CharacterFacing.Front, CharacterWeaponPose.Empty);
+            Sprite sprite = menuArt.CharacterFrame(id, clip, Mathf.FloorToInt(Time.unscaledTime * Mathf.Max(1, rate)), CharacterFacing.Front, CharacterWeaponPose.Empty);
+            if (!sprite || !sprite.texture) return;
+            Rect source = sprite.textureRect; Texture texture = sprite.texture;
+            float w = source.width * zoom, h = source.height * zoom;
+            // Feet on a fixed line near the bottom of the area, whatever the frame height.
+            float footX = area.center.x, footY = area.yMax - 8;
+            var target = new Rect(Mathf.Round(footX - sprite.pivot.x * zoom), Mathf.Round(footY - (source.height - sprite.pivot.y) * zoom), w, h);
+            target.y = Mathf.Round(footY - h + sprite.pivot.y * zoom);
+            GUI.DrawTextureWithTexCoords(target, texture,
+                new Rect(source.x / texture.width, source.y / texture.height, source.width / texture.width, source.height / texture.height), true);
         }
 
         bool Button(Rect rect, string label, int size = 2, bool selected = false)
