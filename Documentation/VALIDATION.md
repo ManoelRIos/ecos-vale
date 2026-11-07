@@ -1,8 +1,17 @@
 # Validação de Ecos da Meia-Noite
 
-## Verificações da expansão híbrida
+## Nova base low poly — estado da validação
 
-- **32 testes Python passaram**, cobrindo versões, atalho, importação das folhas e entrega. O novo teste recusa um pacote sem componentes híbridos ou seus metadados e conserva o ZIP anterior. O build deve manter a campanha como primeira cena e o roguelike anterior como segunda, ambas habilitadas.
+- **34 testes Python passaram**, incluindo exigência da cena low poly como primeira entrada, preservação das duas cenas anteriores e recusa de pacotes sem fontes, shader, material ou metadados da nova base, ou com o perfil low poly desativado na entrada. Configurações inválidas conservam o ZIP anterior.
+- O helper de geometria passou **1.177 asserções** sobre a fábrica real com armazenamento de meshes simulado: limites, faces, normais, orientação, fechamento das malhas, cache, colisores e descarte. Isso não executa renderização ou física do Unity.
+- `lowpoly-smoke` confere a importação da cena, seu perfil low poly, o material, o shader e o renderer 3D. `smoke` inclui também as duas cenas preservadas. Esses comandos e os novos testes nativos precisam de execução em um Editor licenciado.
+- Na rodada final, o helper integrado passou **851 verificações** compilando os módulos de produção FPS, LowPoly, Core e Art: 435 checks do perfil híbrido preservado e 416 do novo perfil. Cobriu câmera FPS/TPS, conservação do estado, consultas de cobertura, rotas pelos cinco andares, bloqueio e liberação das salas, chefes, compras atômicas, munição, 17 modelos e padrões de arma, colisão dos mobs baixos, orientação nas portas, reinício da descoberta do mapa, foco da loja, coleta de munição sem duplicação, barris nas revisitas e descarte. As consultas de física e as APIs Unity/URP/Input System são simuladas; isso não é compilação contra as DLLs do Unity nem execução em Play Mode.
+- Helpers isolados registraram **21.829 verificações de salas e portas low poly** sobre 550 salas geradas, **259 de personagens/arsenal** e **58 de câmera/jogador**. São checks de lógica e geometria com armazenamento e APIs simulados; não certificam resultado visual, colisão real, áudio reproduzido ou controle físico.
+- A revisão estática também corrigiu o mapa que mantinha descobertas do andar anterior, a chegada voltada à parede, a loja sobreposta à cobertura e a altura de colisão/mira dos mobs baixos. Os testes nativos de Editor incluem bootstrap, recursos e continuidade de câmera/salas; sua execução no motor está pendente.
+
+## Histórico da expansão híbrida
+
+- **32 testes Python passaram**, cobrindo versões, atalho, importação das folhas e entrega. O novo teste recusa um pacote sem componentes híbridos ou seus metadados e conserva o ZIP anterior. Naquela revisão, o build mantinha a campanha híbrida como primeira cena e o roguelike anterior como segunda, ambas habilitadas.
 - O validador estático verifica sintaxe C#, referências, metadados, dependências e presença dos módulos de perspectiva, arte híbrida, campanha, catálogo, modelos e chefes. Ele não compila contra as DLLs do Unity.
 - Um helper externo compilou todos os módulos FPS, Core e Art reais e passou **435 verificações integradas**: troca e continuidade de estado/projéteis, mira, cobertura, quatro corpos e equipamentos, armas e poderes, menus pelo controle, sprites dos 17 mobs e sete chefes, seus modelos 3D, cinco fases, portal, pausa, morte, reinício e descarte. Usa tipos Unity/URP/Input System e consultas de física simulados, com arquivos reais de atlas e catálogo; não é Play Mode.
 - Helpers isolados passaram **4.007 verificações** de temas/catálogo/cenário, **319** de mobs/chefes e **29** de apresentação/descarte. Esses resultados verificam lógica com APIs simuladas, sem validar pixels renderizados, colisões reais ou áudio reproduzido.
@@ -46,25 +55,26 @@ python3 Tools/export_sprite_sheets.py --check
 python3 Tools/import_pilot_sheet.py --check
 ```
 
-O ambiente configurado por `bash Tools/setup-cloud.sh` executa a instalação e esses checks. Para gerar o ZIP, rastreie arquivos novos e use `python3 Tools/package_project.py`. O pacote exige as duas cenas, os módulos de `Haunt/Fps`, `Core/FpsPrototypeRules.cs`, o shader e `FpsPalette.mat`, com seus metadados, além dos arquivos obrigatórios do roguelike 2D, recursos e versões. Os pipelines são gerados pelo Editor na preparação.
+O ambiente configurado por `bash Tools/setup-cloud.sh` executa a instalação e esses checks. Para gerar o ZIP, rastreie arquivos novos e use `python3 Tools/package_project.py`. O pacote exige as três cenas na ordem LowPoly/Fps/Haunt, os módulos de `Haunt/Fps` e `Haunt/LowPoly`, a configuração Editor, os dois shaders e materiais 3D, com seus metadados, além dos arquivos obrigatórios dos perfis anteriores, recursos e versões. Os pipelines são gerados pelo Editor na preparação.
 
 ## Verificação necessária no Unity
 
-Abra uma extração nova pelo Hub com Unity 6000.0.85f1. Aguarde os pacotes URP 17.0.4, Input System 1.11.2, Test Framework 1.4.5 e o módulo Physics 1.0.0. Com Play parado, use **Ecos → Abrir protótipo FPS**. Execute os testes de Editor pelo Test Runner e procure erros de compilação, shader ou referências no Console. Abra também a cena 2D por **Ecos → Abrir roguelike**.
+Abra uma extração nova pelo Hub com Unity 6000.0.85f1. Aguarde os pacotes URP 17.0.4, Input System 1.11.2, Test Framework 1.4.5 e o módulo Physics 1.0.0. Com Play parado, use **Ecos → Abrir jogo low poly**. Execute os testes de Editor pelo Test Runner e procure erros de compilação, shader ou referências no Console. Abra também a cena 2D por **Ecos → Abrir roguelike**.
 
 Com Editor licenciado e `UNITY_EDITOR_PATH` definido, também é possível usar:
 
 ```bash
 bash Tools/unity-check.sh import
+bash Tools/unity-check.sh lowpoly-smoke
 bash Tools/unity-check.sh fps-smoke
 bash Tools/unity-check.sh smoke
 bash Tools/unity-check.sh tests
 bash Tools/unity-check.sh build
 ```
 
-`fps-smoke` confere a importação da cena FPS, seu único bootstrap, material e renderer 3D; `smoke` acrescenta a cena 2D. Ambos verificam recursos sem entrar em Play Mode. O build solicitado fica em `Builds/Windows/EcosDaMeiaNoite.exe`, iniciando em `HauntFps` e incluindo `Haunt` em segundo lugar. Teste a execução em Windows; o atalho opcional também precisa de validação nesse sistema.
+`lowpoly-smoke` confere a nova cena e seu perfil/material/renderer. `fps-smoke` confere o híbrido preservado; `smoke` reúne as três cenas. Eles verificam recursos sem entrar em Play Mode. O build solicitado fica em `Builds/Windows/EcosDaMeiaNoite.exe`, iniciando em `HauntLowPoly` e incluindo `HauntFps` e `Haunt` em seguida. Teste a execução em Windows; o atalho opcional também precisa de validação nesse sistema.
 
-## Roteiro pendente da campanha híbrida
+## Roteiro pendente da campanha híbrida preservada
 
 1. Inicie com cada um dos quatro personagens e confira arma, mãos/modelo, sprite e poder. Esvazie os carregadores de 12/6/6/30 tiros e confirme R/Triângulo manual com reserva infinita. Pause durante a recarga; alternar perspectiva não pode completá-la, cancelá-la ou cobrar outra bala.
 2. Alterne Tab/R1 durante movimento, tiro, esquiva, dano, recarga e projéteis próximos. Vida, munição, posições, inimigos, chefe, tiros e cooldowns devem continuar. A transição de 0,4 s bloqueia o disparo e não acrescenta invencibilidade. Pressões repetidas respeitam o intervalo; pausa e perda de foco congelam a transição.

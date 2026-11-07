@@ -27,6 +27,7 @@ REQUIRED_FILES = {
     'ABRIR_ECOS_DA_MEIA_NOITE.cmd',
     'Assets/_Game/Scenes/Haunt.unity', 'Assets/_Game/Scenes/Haunt.unity.meta',
     'Assets/_Game/Scenes/HauntFps.unity', 'Assets/_Game/Scenes/HauntFps.unity.meta',
+    'Assets/_Game/Scenes/HauntLowPoly.unity', 'Assets/_Game/Scenes/HauntLowPoly.unity.meta',
     'Assets/_Game/Haunt/Runtime/HauntGame.cs', 'Assets/_Game/Haunt/Runtime/HauntGame.cs.meta',
     'Assets/_Game/Haunt/Runtime/HauntGame.UI.cs', 'Assets/_Game/Haunt/Runtime/HauntGame.UI.cs.meta',
     'Assets/_Game/Haunt/Runtime/HauntGame.Visuals.cs', 'Assets/_Game/Haunt/Runtime/HauntGame.Visuals.cs.meta',
@@ -90,7 +91,7 @@ REQUIRED_FILES.update({'Assets/_Game/Resources/CharacterSheets/catalog.json',
                        'Assets/_Game/ArtSources/PilotOriginal.png', 'Assets/_Game/ArtSources/PilotOriginal.png.meta',
                        'Tools/Pilot/source-clips.json', 'Tools/import_pilot_sheet.py', 'Tools/requirements-sprite-import.txt'})
 REQUIRED_FILES.update('Assets/_Game/Haunt/Fps/' + name + suffix
-                      for name in ('HauntFpsGame.cs', 'HauntFpsGame.UI.cs', 'HauntFpsGame.Campaign.cs',
+                      for name in ('HauntFpsGame.cs', 'HauntFpsGame.UI.cs', 'HauntFpsGame.Campaign.cs', 'HauntFpsGame.LowPoly.cs', 'HauntFpsGame.LowPolyUI.cs',
                                    'HauntFpsPlayer.cs', 'HauntFpsPerspective.cs', 'HauntFpsHybridArt.cs', 'HauntFpsHeroBody.cs',
                                    'HauntFpsWorld.cs', 'HauntFpsCampaign.cs', 'HauntFpsEnemy.cs',
                                    'HauntFpsEnemy.Models.cs', 'HauntFpsBoss.cs', 'HauntFpsBarrel.cs',
@@ -99,6 +100,13 @@ REQUIRED_FILES.update('Assets/_Game/Haunt/Fps/' + name + suffix
 REQUIRED_FILES.update({'Assets/_Game/Resources/FpsPalette.mat', 'Assets/_Game/Resources/FpsPalette.mat.meta'})
 REQUIRED_FILES.update({'Assets/_Game/Haunt/Core/FpsPrototypeRules.cs',
                        'Assets/_Game/Haunt/Core/FpsPrototypeRules.cs.meta'})
+REQUIRED_FILES.update('Assets/_Game/Haunt/LowPoly/' + name + suffix
+                      for name in ('HauntLowPolyCamera.cs', 'HauntLowPolyPrimitives.cs', 'HauntLowPolyDoors.cs',
+                                   'HauntLowPolyArsenal.cs', 'HauntLowPolyToon.shader')
+                      for suffix in ('', '.meta'))
+REQUIRED_FILES.update({'Assets/_Game/Haunt/Editor/HauntLowPolyProject.cs',
+                       'Assets/_Game/Haunt/Editor/HauntLowPolyProject.cs.meta',
+                       'Assets/_Game/Resources/LowPolyPalette.mat', 'Assets/_Game/Resources/LowPolyPalette.mat.meta'})
 
 
 class PackagingError(ValueError):
@@ -199,10 +207,13 @@ def _validate_project(root):
             raise PackagingError(f'The delivery must declare {package} {version}.')
     build = (root / 'ProjectSettings/EditorBuildSettings.asset').read_text()
     scenes = re.findall(r'^    path: (.+)$', build, re.M)
-    if scenes != ['Assets/_Game/Scenes/HauntFps.unity', 'Assets/_Game/Scenes/Haunt.unity']:
-        raise PackagingError('The delivery must contain the FPS entry followed by the preserved Haunt scene.')
-    if re.findall(r'^  - enabled: (\d+)$', build, re.M) != ['1', '1']:
-        raise PackagingError('Both game scenes must be enabled in the delivery.')
+    if scenes != ['Assets/_Game/Scenes/HauntLowPoly.unity', 'Assets/_Game/Scenes/HauntFps.unity', 'Assets/_Game/Scenes/Haunt.unity']:
+        raise PackagingError('The delivery must contain the low-poly entry followed by both preserved scenes.')
+    if re.findall(r'^  - enabled: (\d+)$', build, re.M) != ['1', '1', '1']:
+        raise PackagingError('All three game scenes must be enabled in the delivery.')
+    lowpoly_scene = (root / 'Assets/_Game/Scenes/HauntLowPoly.unity').read_text()
+    if re.search(r'^  lowPolyMode: 1$', lowpoly_scene, re.M) is None:
+        raise PackagingError('The low-poly entry scene must enable its lowPolyMode profile.')
     version = (root / 'ProjectSettings/ProjectVersion.txt').read_text()
     if not re.search(r'^m_EditorVersion: ' + re.escape(EDITOR_VERSION) + r'$', version, re.M):
         raise PackagingError(f'The delivery must pin Unity {EDITOR_VERSION}.')

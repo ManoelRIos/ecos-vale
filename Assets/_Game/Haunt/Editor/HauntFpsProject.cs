@@ -70,9 +70,8 @@ namespace Ecos.Haunt.Editor
             HauntSetup.CreateDefaults();
             if (!AssetDatabase.LoadAssetAtPath<SceneAsset>(ScenePath))
                 throw new InvalidOperationException("A cena do protótipo FPS não foi importada.");
-            var entry = EditorBuildSettings.scenes.FirstOrDefault(s => s.enabled);
-            if (entry == null || entry.path != ScenePath)
-                throw new InvalidOperationException("HauntFps deve ser a primeira cena habilitada no build.");
+            if (!EditorBuildSettings.scenes.Any(s => s.enabled && s.path == ScenePath))
+                throw new InvalidOperationException("A cena híbrida preservada HauntFps deve continuar habilitada no build.");
             var pipeline = AssetDatabase.LoadAssetAtPath<UniversalRenderPipelineAsset>(PipelinePath);
             if (!pipeline || pipeline.rendererDataList.Length == 0 || !(pipeline.rendererDataList[0] is UniversalRendererData))
                 throw new InvalidOperationException("O FPS exige um renderer URP 3D válido.");
@@ -88,9 +87,9 @@ namespace Ecos.Haunt.Editor
             try
             {
                 var games = scene.GetRootGameObjects().SelectMany(r => r.GetComponentsInChildren<HauntFpsGame>(true)).ToArray();
-                if (games.Length != 1 || !games[0].enabled)
+                if (games.Length != 1 || !games[0].enabled || games[0].LowPolyMode)
                     throw new InvalidOperationException("A cena FPS deve conter exatamente um HauntFpsGame habilitado.");
-                Debug.Log("Haunt FPS import smoke: separate scene, 3D renderer and first build entry PASS. Play Mode, physics, rendering and controller remain separate checks.");
+                Debug.Log("Haunt hybrid import smoke: preserved scene, separate bootstrap and 3D renderer PASS. Play Mode, physics, rendering and controller remain separate checks.");
             }
             finally
             {

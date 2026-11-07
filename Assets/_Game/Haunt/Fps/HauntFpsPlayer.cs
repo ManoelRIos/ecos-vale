@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
+using Ecos.Haunt.LowPoly;
 
 namespace Ecos.Haunt.Fps
 {
@@ -21,6 +22,8 @@ namespace Ecos.Haunt.Fps
         Transform weaponRoot, flashRoot, worldFlashRoot;
         Light flashLight, worldFlashLight;
         Material casingMaterial;
+        GameObject lowPolyWeapon;
+        WeaponKind displayedWeapon;
         Vector3 muzzleLocal = new Vector3(0, .025f, .62f);
         Color muzzleTint;
         int originalCullingMask;
@@ -40,9 +43,10 @@ namespace Ecos.Haunt.Fps
         public Camera View => view;
         public HauntFpsPerspective Perspective => perspective;
         public bool IsTopDown => perspective && perspective.IsTopDown;
+        public bool IsThirdPerson => perspective && perspective.IsThirdPerson;
         public bool IsPerspectiveTransition => perspective && perspective.IsTransitioning;
         public Vector3 Position => transform.position;
-        public Vector3 MuzzlePosition => IsTopDown ? perspective.MuzzlePosition
+        public Vector3 MuzzlePosition => IsTopDown || IsThirdPerson ? perspective.MuzzlePosition
             : weaponRoot ? weaponRoot.TransformPoint(muzzleLocal) : view ? view.transform.position : Position;
         public bool IsDodging => dodgeRemaining > 0;
         public bool IsInvulnerable => DodgeRules.IsInvulnerable(dodgeRemaining, DodgeDuration);
@@ -78,9 +82,10 @@ namespace Ecos.Haunt.Fps
             recoilAngle = Mathf.Lerp(recoilAngle, 0, 1 - Mathf.Exp(-15 * dt));
             gunKick = Mathf.Lerp(gunKick, 0, 1 - Mathf.Exp(-17 * dt));
             trauma = Mathf.Max(0, trauma - dt * 1.65f);
+            if (game.LowPolyMode && displayedWeapon != game.State.Weapon) RefreshLowPolyWeapon();
             if (PerspectivePressed()) TryTogglePerspective();
             bool wasTransitioning = IsPerspectiveTransition;
-            if (!IsTopDown && !wasTransitioning) ReadLook(dt);
+            if (!IsTopDown && (!wasTransitioning || game.LowPolyMode)) ReadLook(dt);
             Vector2 input = MoveInput();
             Vector3 wish = perspective ? perspective.Movement(input) : transform.right * input.x + transform.forward * input.y;
             if (ReloadPressed() && game.State.TryReload())
@@ -170,7 +175,8 @@ namespace Ecos.Haunt.Fps
             || (Gamepad.current != null && Gamepad.current.buttonSouth.wasPressedThisFrame);
         static bool FireHeld() => (Mouse.current != null && Mouse.current.leftButton.isPressed)
             || (Gamepad.current != null && Gamepad.current.rightTrigger.ReadValue() > .2f);
-        static bool PerspectivePressed() => (Keyboard.current != null && Keyboard.current.tabKey.wasPressedThisFrame)
+        bool PerspectivePressed() => (Keyboard.current != null && (game.LowPolyMode
+                ? Keyboard.current.vKey.wasPressedThisFrame : Keyboard.current.tabKey.wasPressedThisFrame))
             || (Gamepad.current != null && Gamepad.current.rightShoulder.wasPressedThisFrame);
 
         public bool TryTogglePerspective()
@@ -228,7 +234,7 @@ namespace Ecos.Haunt.Fps
                 EyeHeight + bob + (Mathf.PerlinNoise(71, clock * 31) * 2 - 1) * .024f * shake, 0);
             // The perspective component owns the world camera during the switch
             // and in top-down view; weapon animation continues on its own clock.
-            if (!IsTopDown && !IsPerspectiveTransition)
+            if (!IsTopDown && !IsThirdPerson && !IsPerspectiveTransition)
             {
                 view.transform.localPosition = offset;
                 view.transform.localRotation = Quaternion.Euler(pitch - recoilAngle, 0, roll);
@@ -240,18 +246,19 @@ namespace Ecos.Haunt.Fps
                 -.225f - reload * .15f - (IsDodging ? .08f : 0) + bob * .35f, .42f - gunKick - reload * .045f);
             weaponRoot.localRotation = Quaternion.Euler(reload * 18 + gunKick * -85, 0, reload * -48);
             bool flashing = flashRemaining > 0 && !game.State.IsReloading && !IsDodging && !IsPerspectiveTransition;
-            flashRoot.gameObject.SetActive(flashing && !IsTopDown);
-            if (flashLight) flashLight.enabled = flashing && !IsTopDown;
+            bool worldMuzzle = IsTopDown || IsThirdPerson;
+            flashRoot.gameObject.SetActive(flashing && !worldMuzzle);
+            if (flashLight) flashLight.enabled = flashing && !worldMuzzle;
             if (worldFlashRoot)
             {
-                worldFlashRoot.gameObject.SetActive(flashing && IsTopDown);
-                if (flashing && IsTopDown)
+                worldFlashRoot.gameObject.SetActive(flashing && worldMuzzle);
+                if (flashing && worldMuzzle)
                 {
                     worldFlashRoot.position = MuzzlePosition;
                     worldFlashRoot.rotation = Quaternion.LookRotation(perspective.AimDirection, Vector3.up);
                 }
             }
-            if (worldFlashLight) worldFlashLight.enabled = flashing && IsTopDown;
+            if (worldFlashLight) worldFlashLight.enabled = flashing && worldMuzzle;
         }
 
         public void AddTrauma(float amount)
@@ -339,7 +346,8 @@ namespace Ecos.Haunt.Fps
             Material energy = game.PixelMaterial("fps-gun-energy-" + characterId, muzzleTint);
             energy.SetColor("_EmissionColor", muzzleTint * .7f);
             casingMaterial = character == CharacterKind.Hunter ? trim : character == CharacterKind.Reaper ? bone : energy;
-            if (character == CharacterKind.Medium) BuildVeilWand(dark, trim, energy);
+            if (game.LowPolyMode) RefreshLowPolyWeapon();
+            else if (character == CharacterKind.Medium) BuildVeilWand(dark, trim, energy);
             else if (character == CharacterKind.Reaper) BuildBoneScythe(dark, metal, bone, energy);
             else if (character == CharacterKind.Alchemist) BuildArcCoil(dark, metal, trim, energy);
             else BuildHunterCarbine(metal, dark, trim, bone, energy);
@@ -449,6 +457,22 @@ namespace Ecos.Haunt.Fps
             if (renderer) { renderer.shadowCastingMode = ShadowCastingMode.Off; renderer.receiveShadows = false; }
         }
 
+        void RefreshLowPolyWeapon()
+        {
+            if (lowPolyWeapon) { lowPolyWeapon.SetActive(false); Destroy(lowPolyWeapon); }
+            displayedWeapon = game.State.Weapon;
+            lowPolyWeapon = HauntLowPolyArsenal.Build(displayedWeapon, weaponRoot, game);
+            SetLayer(lowPolyWeapon, ViewModelLayer);
+            foreach (var renderer in lowPolyWeapon.GetComponentsInChildren<Renderer>())
+            {
+                renderer.shadowCastingMode = ShadowCastingMode.Off;
+                renderer.receiveShadows = false;
+            }
+            weaponRoot.name = "Primeira pessoa / " + RunState.WeaponName(displayedWeapon);
+            muzzleLocal = HauntLowPolyArsenal.MuzzleFor(displayedWeapon);
+            if (flashRoot) flashRoot.localPosition = muzzleLocal;
+        }
+
         static void SetLayer(GameObject root, int layer)
         {
             root.layer = layer;
@@ -462,12 +486,13 @@ namespace Ecos.Haunt.Fps
                 if (casings[0].Transform) Destroy(casings[0].Transform.gameObject);
                 casings.RemoveAt(0);
             }
-            Vector3 position = IsTopDown ? MuzzlePosition : weaponRoot.TransformPoint(new Vector3(.14f, .04f, .08f));
+            bool worldMuzzle = IsTopDown || IsThirdPerson;
+            Vector3 position = worldMuzzle ? MuzzlePosition : weaponRoot.TransformPoint(new Vector3(.14f, .04f, .08f));
             var shell = game.Box("Spent brass", Vector3.zero, new Vector3(.025f, .045f, .025f), casingMaterial, game.transform, false);
             shell.transform.position = position;
             float variation = Mathf.Sin(clock * 31) * .25f;
-            Vector3 forward = IsTopDown ? perspective.AimDirection : view.transform.forward;
-            Vector3 right = IsTopDown ? Vector3.Cross(Vector3.up, forward).normalized : view.transform.right;
+            Vector3 forward = worldMuzzle ? perspective.AimDirection : view.transform.forward;
+            Vector3 right = worldMuzzle ? Vector3.Cross(Vector3.up, forward).normalized : view.transform.right;
             casings.Add(new Casing { Transform = shell.transform, Position = position,
                 Velocity = right * (1.6f + variation) + Vector3.up * 1.8f + forward * .4f,
                 Spin = 270 + variation * 180 });

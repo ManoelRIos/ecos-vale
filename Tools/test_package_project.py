@@ -27,7 +27,10 @@ class PackageProjectTests(unittest.TestCase):
         self.write('Assets/_Game/Scenes/Haunt.unity.meta', 'fileFormatVersion: 2\nguid: abc\n')
         self.write('Assets/_Game/Scenes/HauntFps.unity', 'first person entry scene\n')
         self.write('Assets/_Game/Scenes/HauntFps.unity.meta', 'fileFormatVersion: 2\nguid: fps-fixture\n')
+        self.write('Assets/_Game/Scenes/HauntLowPoly.unity', 'low poly entry scene\n  lowPolyMode: 1\n')
+        self.write('Assets/_Game/Scenes/HauntLowPoly.unity.meta', 'fileFormatVersion: 2\nguid: lowpoly-fixture\n')
         self.write('ProjectSettings/EditorBuildSettings.asset',
+                   '  - enabled: 1\n    path: Assets/_Game/Scenes/HauntLowPoly.unity\n'
                    '  - enabled: 1\n    path: Assets/_Game/Scenes/HauntFps.unity\n'
                    '  - enabled: 1\n    path: Assets/_Game/Scenes/Haunt.unity\n')
         self.write('ABRIR_ECOS_DA_MEIA_NOITE.cmd', '@echo off\n')
@@ -96,7 +99,7 @@ class PackageProjectTests(unittest.TestCase):
         for name in ('Tools/export_sprite_sheets.py', 'Tools/SpriteSheetExport/Program.cs',
                      'Tools/SpriteSheetExport/UnityPixelStubs.cs', 'Tools/SpriteSheetExport/SpriteSheetExport.csproj'):
             self.write(name, 'exporter fixture\n')
-        for name in ('HauntFpsGame.cs', 'HauntFpsGame.UI.cs', 'HauntFpsGame.Campaign.cs',
+        for name in ('HauntFpsGame.cs', 'HauntFpsGame.UI.cs', 'HauntFpsGame.Campaign.cs', 'HauntFpsGame.LowPoly.cs', 'HauntFpsGame.LowPolyUI.cs',
                      'HauntFpsPlayer.cs', 'HauntFpsPerspective.cs', 'HauntFpsHybridArt.cs', 'HauntFpsHeroBody.cs',
                      'HauntFpsWorld.cs', 'HauntFpsCampaign.cs', 'HauntFpsEnemy.cs',
                      'HauntFpsEnemy.Models.cs', 'HauntFpsBoss.cs', 'HauntFpsBarrel.cs',
@@ -105,6 +108,13 @@ class PackageProjectTests(unittest.TestCase):
             self.write('Assets/_Game/Haunt/Fps/' + name + '.meta', 'fps metadata fixture\n')
         self.write('Assets/_Game/Resources/FpsPalette.mat', 'fps material fixture\n')
         self.write('Assets/_Game/Resources/FpsPalette.mat.meta', 'fps material metadata\n')
+        for name in ('HauntLowPolyCamera.cs', 'HauntLowPolyPrimitives.cs', 'HauntLowPolyDoors.cs',
+                     'HauntLowPolyArsenal.cs', 'HauntLowPolyToon.shader'):
+            self.write('Assets/_Game/Haunt/LowPoly/' + name, 'low poly source fixture\n')
+            self.write('Assets/_Game/Haunt/LowPoly/' + name + '.meta', 'low poly metadata fixture\n')
+        for name in ('Assets/_Game/Haunt/Editor/HauntLowPolyProject.cs', 'Assets/_Game/Resources/LowPolyPalette.mat'):
+            self.write(name, 'low poly resource fixture\n')
+            self.write(name + '.meta', 'low poly resource metadata fixture\n')
         self.git('add', '--all')
 
     def git(self, *args):
@@ -128,6 +138,7 @@ class PackageProjectTests(unittest.TestCase):
             self.assertIn('EcosDaMeiaNoite/Tools/HauntChecks.csproj', names)
             self.assertIn('EcosDaMeiaNoite/Tools/package_project.py', names)
             self.assertIn('EcosDaMeiaNoite/Assets/_Game/Scenes/HauntFps.unity', names)
+            self.assertIn('EcosDaMeiaNoite/Assets/_Game/Scenes/HauntLowPoly.unity', names)
             self.assertIn('EcosDaMeiaNoite/Assets/_Game/Haunt/Fps/HauntFpsGame.cs', names)
             self.assertEqual(b'working scene update\n', archive.read('EcosDaMeiaNoite/Assets/_Game/Scenes/Haunt.unity'))
             self.assertEqual(b'fileFormatVersion: 2\nguid: abc\n', archive.read('EcosDaMeiaNoite/Assets/_Game/Scenes/Haunt.unity.meta'))
@@ -215,26 +226,58 @@ class PackageProjectTests(unittest.TestCase):
 
     def test_extra_build_scene_rejects_delivery(self):
         self.write('ProjectSettings/EditorBuildSettings.asset',
+                   '  - enabled: 1\n    path: Assets/_Game/Scenes/HauntLowPoly.unity\n'
                    '  - enabled: 1\n    path: Assets/_Game/Scenes/HauntFps.unity\n'
                    '  - enabled: 1\n    path: Assets/_Game/Scenes/Haunt.unity\n'
                    '  - enabled: 0\n    path: Assets/OtherScene.unity\n')
-        with self.assertRaisesRegex(PackagingError, 'FPS entry followed'):
+        with self.assertRaisesRegex(PackagingError, 'low-poly entry followed'):
             create_archive(self.root)
 
-    def test_fps_must_remain_the_enabled_entry_and_preserve_the_roguelike(self):
+    def test_lowpoly_sources_material_and_metadata_cannot_be_omitted(self):
+        output = create_archive(self.root)
+        previous = output.read_bytes()
+        for name in ('Assets/_Game/Haunt/LowPoly/HauntLowPolyCamera.cs',
+                     'Assets/_Game/Haunt/LowPoly/HauntLowPolyPrimitives.cs',
+                     'Assets/_Game/Haunt/LowPoly/HauntLowPolyDoors.cs',
+                     'Assets/_Game/Haunt/LowPoly/HauntLowPolyArsenal.cs',
+                     'Assets/_Game/Haunt/LowPoly/HauntLowPolyToon.shader',
+                     'Assets/_Game/Haunt/Fps/HauntFpsGame.LowPoly.cs',
+                     'Assets/_Game/Haunt/Editor/HauntLowPolyProject.cs',
+                     'Assets/_Game/Resources/LowPolyPalette.mat',
+                     'Assets/_Game/Scenes/HauntLowPoly.unity'):
+            for suffix in ('', '.meta'):
+                with self.subTest(missing=name + suffix):
+                    self.git('rm', '--cached', name + suffix)
+                    with self.assertRaisesRegex(PackagingError, 'must be tracked'):
+                        create_archive(self.root)
+                    self.assertEqual(previous, output.read_bytes())
+                    self.git('add', name + suffix)
+
+    def test_lowpoly_must_remain_the_enabled_entry_and_preserve_both_earlier_scenes(self):
         output = create_archive(self.root)
         previous = output.read_bytes()
         for paths, enabled, error in [
-            (['Haunt', 'HauntFps'], [1, 1], 'FPS entry followed'),
-            (['HauntFps'], [1], 'FPS entry followed'),
-            (['HauntFps', 'Haunt'], [0, 1], 'Both game scenes'),
-            (['HauntFps', 'Haunt'], [1, 0], 'Both game scenes'),
+            (['HauntFps', 'HauntLowPoly', 'Haunt'], [1, 1, 1], 'low-poly entry followed'),
+            (['HauntLowPoly'], [1], 'low-poly entry followed'),
+            (['HauntLowPoly', 'HauntFps', 'Haunt'], [0, 1, 1], 'All three game scenes'),
+            (['HauntLowPoly', 'HauntFps', 'Haunt'], [1, 0, 1], 'All three game scenes'),
+            (['HauntLowPoly', 'HauntFps', 'Haunt'], [1, 1, 0], 'All three game scenes'),
         ]:
             with self.subTest(paths=paths, enabled=enabled):
                 self.write('ProjectSettings/EditorBuildSettings.asset', ''.join(
                     f'  - enabled: {flag}\n    path: Assets/_Game/Scenes/{name}.unity\n'
                     for name, flag in zip(paths, enabled)))
                 with self.assertRaisesRegex(PackagingError, error):
+                    create_archive(self.root)
+                self.assertEqual(previous, output.read_bytes())
+
+    def test_lowpoly_entry_cannot_silently_start_the_legacy_profile(self):
+        output = create_archive(self.root)
+        previous = output.read_bytes()
+        for contents in ('low poly entry scene\n', 'low poly entry scene\n  lowPolyMode: 0\n'):
+            with self.subTest(contents=contents):
+                self.write('Assets/_Game/Scenes/HauntLowPoly.unity', contents)
+                with self.assertRaisesRegex(PackagingError, 'lowPolyMode profile'):
                     create_archive(self.root)
                 self.assertEqual(previous, output.read_bytes())
 

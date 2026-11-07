@@ -1,74 +1,51 @@
-ECOS DA MEIA-NOITE - CAMPANHA HIBRIDA 2D / FPS - UNITY
+ECOS DA MEIA-NOITE - NOVA BASE LOW POLY / FPS + TERCEIRA PESSOA
 
+ABRIR
 1. Instale Unity 6000.0.85f1 pelo Unity Hub.
-2. Extraia TODO o ZIP em uma pasta nova e curta, como C:\Dev\EcosDaMeiaNoite.
-   Preserve sua copia anterior e alteracoes proprias.
-3. No Unity Hub, use Add / Add project from disk e selecione a pasta
-   que contem Assets, Packages e ProjectSettings.
-4. Aguarde os pacotes e a compilacao. Com Play parado, use
-   Ecos > Abrir prototipo FPS para abrir Assets/_Game/Scenes/HauntFps.unity.
-5. Pressione Play, escolha um personagem e inicie. Tab / R1 alterna
-   entre visao 2D e primeira pessoa durante o combate.
-6. Venca tres ondas e o chefe de cada fase. Use E / Quadrado no portal
-   para avancar pelas cinco fases. O menu tambem oferece treino de chefe.
+2. Extraia todo o ZIP em uma pasta nova e curta, como C:\Dev\EcosDaMeiaNoite.
+   Preserve a copia anterior e alteracoes proprias.
+3. No Hub, selecione a raiz que contem Assets, Packages e ProjectSettings.
+4. Aguarde pacotes e compilacao. Com Play parado, use
+   Ecos > Abrir jogo low poly para abrir Assets/_Game/Scenes/HauntLowPoly.unity.
+5. Pressione Play, escolha uma alma e inicie. V / R1 alterna FPS e terceira pessoa.
+6. Explore salas, venca as ondas, encontre o chefe e use o portal para avancar.
 
 O atalho ABRIR_ECOS_DA_MEIA_NOITE.cmd e opcional e abre a mesma cena.
-A abertura pelo Hub nao precisa dele. Log: Logs/MeiaNoite-Editor.log.
+O Hub dispensa o atalho. Log: Logs/MeiaNoite-Editor.log.
+Este ZIP contem o projeto Unity; nao e um executavel Windows validado.
 
-CONTROLES DA CAMPANHA HIBRIDA
-WASD/setas mover; mouse olhar no FPS ou apontar a mira no 2D;
-Tab alternar perspectiva; esquerdo atirar; R recarregar; Q usar poder;
-Alt esquerdo/Ctrl esquerdo/direito esquivar; Espaco saltar;
-E usar portal; Esc pausar/liberar cursor; M alternar som.
-Enter inicia e reinicia apos morte/vitoria. Menus tem botoes com cursor livre.
-Solte o gatilho depois de retomar ou trocar a visao para voltar a atirar.
+CONTROLES
+WASD/setas mover; mouse olhar/mirar; V alternar primeira/terceira pessoa;
+esquerdo atirar; R recarregar; Q poder; direito/Alt/Ctrl esquivar;
+Espaco saltar; E porta/atendente/portal; roda do mouse trocar arma;
+Tab mapa; Esc pausar/liberar cursor; M som; Enter iniciar/reiniciar.
 
-CONTROLE PS4 RECONHECIDO PELO INPUT SYSTEM
-Analogico esquerdo mover; direito olhar/mirar; R1 alternar perspectiva;
-R2 atirar; Triangulo recarregar; L1 poder; Circulo esquivar;
-X saltar ou confirmar inicio/reinicio; Quadrado portal; Options pausa.
-No menu: L1/R1 personagem; Triangulo modo/chefe; Share cenario de treino.
-Na pausa, Triangulo volta a selecao.
-A compatibilidade do controle/driver precisa ser testada no PC.
+CONTROLE RECONHECIDO PELO INPUT SYSTEM
+Analogico esquerdo mover; direito mirar; R1 perspectiva; R2 tiro;
+Triangulo recarga; L1 poder; Circulo evasao; X salto/confirmacao;
+Quadrado interacao; direcional armas; Options pausa; Share mapa.
+A compatibilidade de controle/driver e camera ainda precisa de teste fisico.
 
-PERSONAGENS
-Cacador: Carabina da Aurora, 12 tiros, pulso de dano.
-Medium: Varinha do Veu, 6 tiros, leque e lamento contra tiros hostis.
-Ceifador: Ceifador de Ossos, 6 tiros, penetracao e colheita proxima.
-Alquimista: Bobina Voltaica, 30 tiros, choque encadeado e elixir vital.
-As quatro armas iniciais tem reserva infinita e recarga manual.
-Os quatro herois tem corpos 3D, maos/armas proprias no FPS e sprites no 2D.
+CONTEUDO
+Quatro personagens: Cacador, Medium, Ceifador e Alquimista.
+Cinco temas macabros, salas conectadas por portas, 17 tipos de mob e sete chefes.
+Duas ondas por sala de combate; o chefe fica em sua propria sala.
+Mercado das Almas depois do chefe, arsenal do nucleo, municao e recarga manual.
+Malhas facetadas e materiais toon; sem troca para sprites na nova cena.
+Vida, municao, recarga, poderes e inimigos continuam ao trocar de perspectiva.
+A troca nao concede i-frames extras; a esquiva mantem protecao inicial e recuperacao.
+Cameras e tiros respeitam paredes e cobertura.
+Musica e efeitos sao sintetizados localmente. O jogo permanece solo.
 
-CONTEUDO DA CAMPANHA
-Cinco arenas de 28 x 24 unidades, com temas, materiais, iluminacao,
-neblina, decoracao e cobertura distintos. Tres ondas e um chefe por fase.
-17 tipos de mob e sete chefes, com modelos 3D e apresentacao 2D.
-Chefes: Rei das Aboboras, Viuva do Veu, Bispo das Cinzas, Matriarca da Peste,
-Sino do Abismo, Carrasco de Ferro e Oraculo do Brejo.
-O treino permite selecionar os chefes e temas pelo menu.
-Tab / R1 preserva vida, municao, recarga, poderes, inimigos e projeteis.
-Durante os 0,4 s da transicao, tiros do jogador ficam bloqueados;
-a troca nao acrescenta invencibilidade. A esquiva conserva a regra 60/40.
-O portal abre apos o chefe e conserva a progressao para a fase seguinte.
-Barris explosivos podem atingir jogador e criaturas e reagir em cadeia.
-Musica e efeitos originais sao sintetizados pelo jogo.
-Veja Documentation/PROTOTIPO_FPS.md para detalhes e roteiro de teste.
-
-ROGUELIKE 2D PRESERVADO
-Com Play parado: Ecos > Abrir roguelike abre Assets/_Game/Scenes/Haunt.unity.
-O menu da campanha tambem permite abrir essa versao.
-O build inicia em HauntFps e inclui Haunt em segundo lugar.
-O 2D anterior conserva sua rede de salas procedurais, quatro personagens,
-arsenal completo, loja, bosses e folhas de personagem.
-A campanha hibrida usa cinco arenas tematicas; rede de salas, loja e
-arsenal completo ainda nao foram todos migrados. O jogo permanece solo.
+VERSOES ANTERIORES
+A branch nova e codex/ecos-lowpoly-fps-tps.
+A branch codex/ecos-do-vale-vertical-slice preserva o prototipo anterior.
+Com Play parado, Ecos > Abrir prototipo FPS abre HauntFps.unity (hibrido anterior).
+Ecos > Abrir roguelike abre Haunt.unity (2D original).
+O build inicia em HauntLowPoly e mantem as duas cenas anteriores em seguida.
 
 VALIDACAO
 O Editor Unity nao esta instalado no ambiente desta revisao.
-Checks C# e Python nao substituem importacao, compilacao no Unity,
-Play Mode, renderizacao, fisica, audicao ou teste com controle fisico.
-Nao ha executavel Windows validado desta revisao.
-Veja Documentation/VALIDATION.md e Documentation/UNITY_TROUBLESHOOTING.md.
-
-GitHub:
-https://github.com/ManoelRIos/ecos-vale/tree/codex/ecos-do-vale-vertical-slice
+Checks de fonte e helpers com APIs simuladas nao validam importacao, shaders,
+renderizacao, fisica, reproducao de audio, controle fisico ou build Windows.
+Veja Documentation/LOW_POLY_REBOOT.md e Documentation/VALIDATION.md.

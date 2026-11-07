@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
+using Ecos.Haunt.LowPoly;
 
 namespace Ecos.Haunt.Fps
 {
@@ -11,7 +12,7 @@ namespace Ecos.Haunt.Fps
     {
         public const float Width = 28, Depth = 24;
         public Vector3 PlayerSpawn => new Vector3(0, 0, -8);
-        public Vector3 ExitPosition => new Vector3(0, 0, 10.55f);
+        public Vector3 ExitPosition => new Vector3(0, 0, lowPoly ? 8.5f : 10.55f);
         public Vector3 BossSpawn => new Vector3(0, 0, 5.5f);
         public Vector3[] MeleeSpawns => new[] { new Vector3(-5.5f, 0, 5.5f), new Vector3(5.5f, 0, -.5f), new Vector3(-5.5f, 0, -.5f) };
         public Vector3[] RangedSpawns => new[] { new Vector3(6, 0, 6.5f), new Vector3(-6, 0, 7.5f), new Vector3(5.5f, 0, -4.5f) };
@@ -24,6 +25,8 @@ namespace Ecos.Haunt.Fps
         public bool ExitOpen { get; private set; }
         public int GeneratedTextureCount => textures.Count;
         public int OwnedMaterialCount => materials.Count;
+        public bool RoomDoorsOpen => roomDoors != null && roomDoors.IsOpen;
+        public int ConnectedDoorCount => roomDoors == null ? 0 : roomDoors.Count;
 
         sealed class Flame
         {
@@ -37,6 +40,9 @@ namespace Ecos.Haunt.Fps
         readonly List<Texture2D> textures = new List<Texture2D>();
         readonly List<Flame> flames = new List<Flame>();
         Transform geometry;
+        HauntFpsGame owner;
+        HauntLowPolyDoors roomDoors;
+        bool lowPoly;
         GameObject seal;
         Material exitMaterial;
         Light exitLight;
@@ -53,13 +59,26 @@ namespace Ecos.Haunt.Fps
             if (initialized) throw new InvalidOperationException("A arena FPS já foi construída.");
             if (disposed) throw new ObjectDisposedException(nameof(HauntFpsWorld));
             initialized = true;
+            owner = game; lowPoly = game && game.LowPolyMode;
             FloorNumber = game && game.State != null ? Mathf.Max(1, game.State.Floor) : 1;
             ThemeIndex = HauntFpsCampaign.ThemeIndex(FloorNumber);
             geometry = new GameObject(ThemeName + " / geometria e luzes").transform;
             geometry.SetParent(transform, false);
             ConfigureAtmosphere();
-            BuildArena();
+            if (lowPoly) BuildLowPolyArena(); else BuildArena();
             SetExitOpen(false);
+            SetRoomDoorsOpen(lowPoly && game.LowPolyRoom != null && game.LowPolyRoom.Cleared);
+        }
+
+        public void SetRoomDoorsOpen(bool open)
+        {
+            if (roomDoors != null) roomDoors.SetOpen(open);
+        }
+
+        public bool TryGetNearbyDoor(Vector3 player, float distance, out int roomId, out Vector3 returnSpawn)
+        {
+            roomId = -1; returnSpawn = Vector3.zero;
+            return roomDoors != null && roomDoors.TryGetNearby(player, distance, out roomId, out returnSpawn);
         }
 
         public bool IsInsideBounds(Vector3 position, float margin = 0)
@@ -106,7 +125,170 @@ namespace Ecos.Haunt.Fps
             RenderSettings.fogDensity = ThemeIndex == 0 ? .018f : ThemeIndex == 1 ? .025f : ThemeIndex == 2 ? .02f : ThemeIndex == 3 ? .029f : .032f;
             RenderSettings.fogStartDistance = 10;
             RenderSettings.fogEndDistance = 45;
+            if (lowPoly)
+            {
+                RenderSettings.ambientLight *= 1.35f;
+                RenderSettings.fogDensity *= .78f;
+            }
         }
+
+        void BuildLowPolyArena()
+        {
+            Color floorTint = ThemeIndex == 0 ? new Color(.25f, .29f, .29f) : ThemeIndex == 1 ? new Color(.24f, .24f, .36f)
+                : ThemeIndex == 2 ? new Color(.34f, .27f, .28f) : ThemeIndex == 3 ? new Color(.23f, .31f, .23f) : new Color(.22f, .22f, .3f);
+            Color wallTint = ThemeIndex == 0 ? new Color(.40f, .44f, .43f) : ThemeIndex == 1 ? new Color(.34f, .31f, .48f)
+                : ThemeIndex == 2 ? new Color(.47f, .36f, .37f) : ThemeIndex == 3 ? new Color(.32f, .4f, .29f) : new Color(.32f, .31f, .43f);
+            Color accent = ThemeIndex == 0 ? new Color(1, .48f, .12f) : ThemeIndex == 1 ? new Color(.6f, .36f, 1)
+                : ThemeIndex == 2 ? new Color(1, .25f, .2f) : ThemeIndex == 3 ? new Color(.37f, 1, .38f) : new Color(.46f, .43f, 1);
+            Material floor = Surface("lowpoly / piso", floorTint);
+            Material wall = Surface("lowpoly / alvenaria", wallTint);
+            Material stone = Surface("lowpoly / pedra clara", wallTint * 1.25f);
+            Material dark = Surface("lowpoly / recorte", new Color(.035f, .03f, .055f));
+            Material bone = Surface("lowpoly / osso", new Color(.78f, .76f, .63f));
+            Material iron = Surface("lowpoly / ferro", new Color(.16f, .18f, .23f));
+            Material wood = Surface("lowpoly / madeira", new Color(.3f, .22f, .16f));
+            Material wax = Surface("lowpoly / cera", new Color(.83f, .72f, .48f));
+            Material glow = Surface("lowpoly / chama", accent, null, accent * 2);
+            exitMaterial = Surface("lowpoly / portal", new Color(.26f, .14f, .45f), null, new Color(.3f, .1f, .55f));
+            Cube("Chão sólido", new Vector3(0, -.2f, 0), new Vector3(Width + .8f, .4f, Depth + .8f), floor, true);
+
+            roomDoors = new HauntLowPolyDoors(owner, geometry, wall, stone, dark);
+            // Separate flat floor facets add material variation without textures,
+            // tiny colliders, or changes to the shared walking plane.
+            int roomSeed = owner.LowPolyRoom == null ? 0 : owner.LowPolyRoom.Id;
+            for (int tile = 0; tile < 12; tile++)
+            {
+                float x = -10 + (tile % 4) * 6.4f, z = -8 + (tile / 4) * 7.2f;
+                var facet = Facet("Piso / placa facetada", new Vector3(x, .006f, z), new Vector3(3.7f, .012f, 3.2f),
+                    tile % 3 == 0 ? stone : wall, false, LowPolyShape.Cylinder);
+                facet.transform.localRotation = Quaternion.Euler(0, (tile * 29 + roomSeed * 17) % 90, 0);
+            }
+            BuildLowPolyCover(wall, stone, bone, wood);
+            for (int side = -1; side <= 1; side += 2)
+            {
+                Vector3 lantern = new Vector3(side * 11, 0, -6);
+                Facet("Pedestal / base", lantern + Vector3.up * .13f, new Vector3(.9f, .26f, .9f), stone, false, LowPolyShape.Cylinder);
+                Facet("Candelabro / haste", lantern + Vector3.up * .9f, new Vector3(.16f, 1.6f, .16f), iron, false, LowPolyShape.Cylinder);
+                Facet("Candelabro / braco", lantern + Vector3.up * 1.65f, new Vector3(1, .1f, .12f), bone, false, LowPolyShape.BevelBox);
+                Transform centerFlame = null;
+                for (int candle = -1; candle <= 1; candle++)
+                {
+                    Vector3 at = lantern + new Vector3(candle * .38f, 1.73f, 0);
+                    Facet("Vela facetada", at + Vector3.up * .16f, new Vector3(.14f, .32f, .14f), wax, false, LowPolyShape.Cylinder);
+                    Transform flame = Facet("Chama facetada", at + Vector3.up * .43f, new Vector3(.2f, .36f, .2f), glow, false, LowPolyShape.Cone).transform;
+                    if (candle == 0) centerFlame = flame;
+                }
+                Point(lantern + Vector3.up * 2.2f, accent, 3.1f, 8, centerFlame, side < 0 ? 2 : 6);
+                BuildLowPolyThemeOrnament(new Vector3(side * 11.4f, 0, 5.8f), wall, stone, bone, wood, iron, dark, glow, accent);
+            }
+            bool bossRoom = owner.LowPolyRoom == null || owner.LowPolyRoom.Kind == RoomKind.Boss;
+            if (bossRoom)
+            {
+                Facet("Portal / circulo do andar", ExitPosition + Vector3.up * .055f, new Vector3(3.7f, .11f, 3.7f), stone, false, LowPolyShape.Cylinder);
+                for (int rune = 0; rune < 8; rune++)
+                {
+                    float angle = rune * Mathf.PI * .25f;
+                    Facet("Portal / cristal", ExitPosition + new Vector3(Mathf.Cos(angle) * 1.7f, .42f, Mathf.Sin(angle) * 1.7f), new Vector3(.23f, .8f, .23f), exitMaterial, false, LowPolyShape.Crystal);
+                }
+                seal = Facet("Selo do andar", ExitPosition + Vector3.up * 1.15f, new Vector3(.76f, 1.8f, .76f), exitMaterial, false, LowPolyShape.Crystal);
+                exitLight = Point(ExitPosition + Vector3.up * 1.6f, accent, 1.5f, 8, null, 27);
+            }
+            var sunObject = new GameObject("Luar / low poly"); sunObject.transform.SetParent(geometry, false);
+            sunObject.transform.localRotation = Quaternion.Euler(52, -28, 0);
+            var moon = sunObject.AddComponent<Light>(); moon.type = LightType.Directional;
+            moon.color = ThemeIndex == 2 ? new Color(.8f, .53f, .53f) : ThemeIndex == 3 ? new Color(.54f, .72f, .6f) : new Color(.6f, .67f, .87f);
+            moon.intensity = .8f - ThemeIndex * .035f; moon.shadows = LightShadows.Soft; moon.shadowStrength = .78f;
+        }
+
+        void BuildLowPolyCover(Material wall, Material stone, Material bone, Material wood)
+        {
+            // All doors, four central approaches, and the boss's staging area stay
+            // clear. Deterministic rotations change the silhouette from room to room.
+            int roomId = owner.LowPolyRoom == null ? 0 : owner.LowPolyRoom.Id;
+            for (int side = -1; side <= 1; side += 2)
+                for (int row = 0; row < 2; row++)
+                {
+                    Vector3 at = new Vector3(side * (7.5f + (roomId % 2) * .6f), 0, -4.8f + row * 10.2f);
+                    if (ThemeIndex == 0)
+                    {
+                        Facet("Tumulo / base", at + Vector3.up * .16f, new Vector3(1.9f, .32f, 1.3f), stone, true, LowPolyShape.BevelBox);
+                        Facet("Tumulo / lapide", at + new Vector3(0, 1.05f, -.24f), new Vector3(1.2f, 1.65f, .45f), wall, true, LowPolyShape.BevelBox);
+                        Facet("Tumulo / cruz", at + new Vector3(0, 1.15f, -.49f), new Vector3(.12f, .7f, .06f), bone, false, LowPolyShape.BevelBox);
+                        Facet("Tumulo / cruz", at + new Vector3(0, 1.3f, -.49f), new Vector3(.55f, .12f, .06f), bone, false, LowPolyShape.BevelBox);
+                    }
+                    else if (ThemeIndex == 3)
+                    {
+                        var trunk = Facet("Tronco / cover", at + Vector3.up * .55f, new Vector3(1.1f, 2.8f, 1.1f), wood, true, LowPolyShape.Cylinder);
+                        trunk.transform.localRotation = Quaternion.Euler(0, roomId % 2 == 0 ? 22 : -22, 90);
+                        Facet("Raiz / cover", at + new Vector3(.5f, .42f, .35f), new Vector3(.8f, .8f, .85f), wall, false, LowPolyShape.Cone);
+                    }
+                    else
+                    {
+                        Facet("Pilar / base facetada", at + Vector3.up * .15f, new Vector3(1.6f, .3f, 1.6f), stone, true, LowPolyShape.Cylinder);
+                        Facet("Pilar / corpo facetado", at + Vector3.up * 1.75f, new Vector3(1.1f, 3.2f, 1.1f), wall, true, LowPolyShape.Cylinder);
+                        Facet("Pilar / capitel facetado", at + Vector3.up * 3.4f, new Vector3(1.8f, .25f, 1.8f), stone, false, LowPolyShape.Cylinder);
+                        if (ThemeIndex == 4)
+                            Facet("Pilar / cristal", at + new Vector3(0, 2.3f, -.61f), new Vector3(.4f, .9f, .3f), exitMaterial, false, LowPolyShape.Crystal);
+                    }
+                }
+        }
+
+        void BuildLowPolyThemeOrnament(Vector3 at, Material wall, Material stone, Material bone, Material wood,
+            Material iron, Material dark, Material glow, Color accent)
+        {
+            if (ThemeIndex == 0)
+            {
+                var orange = Surface("lowpoly / abobora", new Color(.85f, .32f, .075f));
+                Facet("Abobora facetada", at + Vector3.up * .5f, new Vector3(1.1f, .9f, 1), orange, false, LowPolyShape.Sphere);
+                Facet("Abobora / caule", at + Vector3.up * 1.05f, new Vector3(.13f, .3f, .13f), wood, false, LowPolyShape.Cylinder);
+                for (int side = -1; side <= 1; side += 2)
+                    Facet("Abobora / olho", at + new Vector3(side * .2f, .57f, -.48f), new Vector3(.16f, .16f, .06f), glow, false, LowPolyShape.Crystal);
+                Facet("Arvore morta / tronco", at + new Vector3(.8f, 1.4f, 1.3f), new Vector3(.3f, 2.8f, .3f), wood, false, LowPolyShape.Cylinder);
+                for (int branch = -1; branch <= 1; branch += 2)
+                    Facet("Arvore morta / galho", at + new Vector3(.8f + branch * .4f, 2.6f, 1.3f), new Vector3(.15f, 1.3f, .15f), wood, false, LowPolyShape.Cylinder).transform.localRotation = Quaternion.Euler(0, 0, branch * 40);
+            }
+            else if (ThemeIndex == 1)
+            {
+                Facet("Santuario / pedestal", at + Vector3.up * .5f, new Vector3(1.4f, 1, 1.4f), stone, false, LowPolyShape.TaperedPrism);
+                var crystal = Facet("Cristal do veu", at + Vector3.up * 1.55f, new Vector3(.7f, 1.4f, .7f), glow, false, LowPolyShape.Crystal);
+                crystal.transform.localRotation = Quaternion.Euler(0, 20, 12);
+                for (int side = -1; side <= 1; side += 2)
+                    Facet("Véu / estandarte", at + new Vector3(side * .83f, 1.4f, .2f), new Vector3(.36f, 2.4f, .07f), wall, false, LowPolyShape.TaperedPrism);
+            }
+            else if (ThemeIndex == 2)
+            {
+                Facet("Altar / pedestal", at + Vector3.up * .5f, new Vector3(2.1f, 1, 1.2f), stone, false, LowPolyShape.BevelBox);
+                Facet("Cruz das cinzas / haste", at + Vector3.up * 1.8f, new Vector3(.23f, 2.2f, .23f), bone, false, LowPolyShape.BevelBox);
+                Facet("Cruz das cinzas / braco", at + Vector3.up * 2.15f, new Vector3(1.3f, .23f, .23f), bone, false, LowPolyShape.BevelBox);
+                for (int candle = -1; candle <= 1; candle += 2)
+                    Facet("Cinza / cristal", at + new Vector3(candle * .75f, 1.2f, -.1f), new Vector3(.22f, .7f, .22f), glow, false, LowPolyShape.Crystal);
+            }
+            else if (ThemeIndex == 3)
+            {
+                var fungus = Surface("lowpoly / fungo", new Color(.46f, .46f, .18f));
+                for (int stem = -1; stem <= 1; stem++)
+                {
+                    Vector3 p = at + new Vector3(stem * .63f, 0, stem % 2 * .35f);
+                    Facet("Fungo / talo facetado", p + Vector3.up * .55f, new Vector3(.18f, 1.1f, .18f), bone, false, LowPolyShape.Cylinder);
+                    Facet("Fungo / copa facetada", p + Vector3.up * 1.15f, new Vector3(.95f, .5f, .95f), fungus, false, LowPolyShape.Cone);
+                }
+                Facet("Icor / faceta", at + new Vector3(0, .02f, -.7f), new Vector3(2.6f, .04f, 1.7f), glow, false, LowPolyShape.Cylinder);
+            }
+            else
+            {
+                var bronze = Surface("lowpoly / bronze", new Color(.48f, .35f, .16f));
+                Facet("Sino / borda facetada", at + Vector3.up * 1.8f, new Vector3(1.65f, .22f, 1.65f), bronze, false, LowPolyShape.Cylinder);
+                Facet("Sino / corpo facetado", at + Vector3.up * 2.25f, new Vector3(1.35f, .85f, 1.35f), bronze, false, LowPolyShape.TaperedPrism);
+                Facet("Sino / badalo", at + Vector3.up * 1.58f, new Vector3(.18f, .4f, .18f), iron, false, LowPolyShape.Cylinder);
+                Facet("Sino / corrente", at + Vector3.up * 3.35f, new Vector3(.08f, 1.4f, .08f), iron, false, LowPolyShape.Cylinder);
+                for (int shard = -1; shard <= 1; shard++)
+                    Facet("Cristal abissal", at + new Vector3(shard * .65f, .6f, -.9f), new Vector3(.35f, 1.3f - Mathf.Abs(shard) * .35f, .35f), glow, false, LowPolyShape.Crystal).transform.localRotation = Quaternion.Euler(shard * 14, 0, shard * 17);
+            }
+            Point(at + Vector3.up * 1.5f, accent, 1.7f, 7, null, 11 + ThemeIndex * 3);
+        }
+
+        GameObject Facet(string name, Vector3 position, Vector3 size, Material material, bool solid, LowPolyShape shape)
+            => owner.Polygons.Part(name, position, size, material, geometry, solid, shape);
 
         void BuildArena()
         {
@@ -454,6 +636,7 @@ namespace Ecos.Haunt.Fps
 
         GameObject Cube(string name, Vector3 position, Vector3 size, Material material, bool solid, Transform parent = null)
         {
+            if (lowPoly) return owner.Polygons.Part(name, position, size, material, parent ? parent : geometry, solid);
             var shape = GameObject.CreatePrimitive(PrimitiveType.Cube);
             shape.name = name; shape.transform.SetParent(parent ? parent : geometry, false);
             shape.transform.localPosition = position; shape.transform.localScale = size;
@@ -465,7 +648,7 @@ namespace Ecos.Haunt.Fps
 
         Material Surface(string name, Color color, Texture2D texture = null, Color? emission = null)
         {
-            var template = Resources.Load<Material>("FpsPalette");
+            var template = Resources.Load<Material>(lowPoly ? "LowPolyPalette" : "FpsPalette");
             Material material;
             if (template) material = new Material(template);
             else
@@ -592,6 +775,7 @@ namespace Ecos.Haunt.Fps
             foreach (var material in materials) if (material) DestroyOwned(material);
             foreach (var texture in textures) if (texture) DestroyOwned(texture);
             materials.Clear(); textures.Clear(); flames.Clear();
+            if (roomDoors != null) roomDoors.Clear(); roomDoors = null;
             if (geometry) { geometry.gameObject.SetActive(false); DestroyOwned(geometry.gameObject); }
         }
         static void DestroyOwned(UnityEngine.Object value)

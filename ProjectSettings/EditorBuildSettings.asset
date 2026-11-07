@@ -6,6 +6,9 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
+    path: Assets/_Game/Scenes/HauntLowPoly.unity
+    guid: fd9db19248a05b9abc8bc3180db110a6
+  - enabled: 1
     path: Assets/_Game/Scenes/HauntFps.unity
     guid: 25ac2ff96dd05cabbdc1f9bae8cad55e
   - enabled: 1

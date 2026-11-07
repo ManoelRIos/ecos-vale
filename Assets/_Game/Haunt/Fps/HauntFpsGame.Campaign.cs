@@ -33,10 +33,12 @@ namespace Ecos.Haunt.Fps
         {
             if (!defeated || defeated != boss || exitReady) return;
             state.RewardRoom(true); kills++; exitReady = true;
+            if (lowPolyMode && LowPolyRoom != null) { LowPolyRoom.Cleared = true; LowPolyRoom.WavesCleared = 1; world.SetRoomDoorsOpen(true); }
             ClearProjectiles(); world.SetExitOpen(true);
             state.Health = Mathf.Min(state.MaxHealth, state.Health + 2);
             Notify("GUARDIAO DERROTADO. E / QUADRADO NO PORTAL.", 5);
             PlayCue(FpsCue.Victory, defeated.transform.position); AddShake(.55f);
+            if (lowPolyMode) CreateLowPolyShop();
         }
 
         void AdvanceFloor()
@@ -46,10 +48,10 @@ namespace Ecos.Haunt.Fps
             {
                 mode = ScreenMode.Victory; PlayCue(FpsCue.Victory, PlayerPosition); UpdateSuspension(); return;
             }
-            bool topDown = player.IsTopDown;
+            bool topDown = lowPolyMode ? player.IsThirdPerson : player.IsTopDown;
             state.NextFloor();
             BuildRun(seed, true, topDown);
-            mode = ScreenMode.Playing; StartWave(0); player.SuspendInput(); UpdateSuspension();
+            mode = ScreenMode.Playing; if (lowPolyMode) BeginLowPolyRoom(); else StartWave(0); player.SuspendInput(); UpdateSuspension();
             Notify("FASE " + state.Floor + " - " + HauntFpsCampaign.ThemeName(state.Floor), 3);
         }
 

@@ -3,12 +3,15 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.Rendering;
+using Ecos.Haunt.LowPoly;
 
 namespace Ecos.Haunt.Fps
 {
     /// <summary>Independent first-person vertical slice. The 2D run remains in Haunt.unity.</summary>
     public sealed partial class HauntFpsGame : MonoBehaviour
     {
+        [SerializeField] bool lowPolyMode = false;
+        HauntLowPolyPrimitives polygons;
         const int PlayerLayer = 8, EnemyLayer = 9, BarrelLayer = 10, ViewLayer = 31;
         const int ProjectileLimit = 96, SparkLimit = 144, TraceLimit = 24;
         enum ScreenMode { Menu, Playing, Victory, Dead }
@@ -61,6 +64,10 @@ namespace Ecos.Haunt.Fps
         sealed class Trace { public LineRenderer Line; public float Remaining; }
 
         public RunState State => state;
+        public bool LowPolyMode => lowPolyMode;
+        public HauntLowPolyPrimitives Polygons => polygons;
+        public DungeonFloor LowPolyFloor { get; private set; }
+        public DungeonRoom LowPolyRoom { get; private set; }
         public HauntFpsPlayer Player => player;
         public HauntFpsWorld World => world;
         public IReadOnlyList<HauntFpsEnemy> Enemies => enemies;
@@ -68,7 +75,7 @@ namespace Ecos.Haunt.Fps
         public HauntFpsBoss Boss => boss;
         public Vector3 PlayerPosition => player ? player.Position : Vector3.zero;
         public bool CanSimulate => !disposed && string.IsNullOrEmpty(failure) && mode == ScreenMode.Playing
-            && !paused && !focusLost && state != null && !state.IsDead;
+            && !paused && !focusLost && !lowPolyShopOpen && state != null && !state.IsDead;
         public int WaveNumber => wave + 1;
         public int KillCount => kills;
         public int ActiveProjectileCount => projectiles.Count;
@@ -86,12 +93,13 @@ namespace Ecos.Haunt.Fps
                 if (!appliedPipeline) throw new InvalidOperationException("FpsPipeline ausente. Execute Ecos > Preparar projeto no Editor.");
                 GraphicsSettings.defaultRenderPipeline = appliedPipeline;
                 QualitySettings.renderPipeline = appliedPipeline;
+                if (lowPolyMode) polygons = new HauntLowPolyPrimitives();
                 sound = gameObject.AddComponent<HauntFpsAudio>();
                 BuildRun(seed);
             }
             catch (Exception error)
             {
-                failure = "FALHA AO PREPARAR O FPS. VEJA O CONSOLE DO UNITY.";
+                failure = "FALHA AO PREPARAR O JOGO. VEJA O CONSOLE DO UNITY.";
                 Debug.LogException(error, this);
             }
             SetCursor(false);
@@ -106,7 +114,15 @@ namespace Ecos.Haunt.Fps
                 state = new RunState(seed, selectedCharacter);
                 if (practiceBoss >= 0) state.Floor = practiceTheme + 1;
                 kills = 0;
+                lowPolyBrokenBarrels.Clear(); lowPolyDrops.Clear(); lowPolyVisited.Clear();
             }
+            if (lowPolyMode && practiceBoss < 0 && (LowPolyFloor == null || LowPolyFloor.Number != state.Floor || !retainState))
+            {
+                LowPolyFloor = DungeonFloor.Generate(seed, state.Floor); LowPolyRoom = LowPolyFloor.Entrance;
+                lowPolyBrokenBarrels.Clear(); lowPolyDrops.Clear(); lowPolyVisited.Clear();
+            }
+            else if (lowPolyMode && practiceBoss >= 0) { LowPolyFloor = null; LowPolyRoom = null; }
+            lowPolyShopOpen = lowPolyMapOpen = false; lowPolyDoorCooldown = .4f;
             wave = spawnSerial = 0; pendingSkeletons = pendingLanterns = 0;
             bossSpawned = false;
             damageGrace = hitMarker = damageOverlay = waveDelay = spawnDelay = 0;
@@ -130,11 +146,13 @@ namespace Ecos.Haunt.Fps
             heroBody = avatar.AddComponent<HauntFpsHeroBody>(); heroBody.Initialize(this); heroBody.Tick(0, false);
             foreach (Vector3 position in world.BarrelSpawns)
             {
+                if (lowPolyMode && LowPolyRoom != null && lowPolyBrokenBarrels.TryGetValue(LowPolyRoom.Id, out var broken) && broken.Contains(position)) continue;
                 var obj = new GameObject("Barril explosivo"); obj.transform.SetParent(runRoot.transform, false);
                 var barrel = obj.AddComponent<HauntFpsBarrel>(); barrel.Initialize(this, position);
                 SetLayer(obj.transform, BarrelLayer); barrels.Add(barrel);
             }
-            hybridArt = runRoot.AddComponent<HauntFpsHybridArt>(); hybridArt.Initialize(this);
+            if (!lowPolyMode) { hybridArt = runRoot.AddComponent<HauntFpsHybridArt>(); hybridArt.Initialize(this); }
+            else RestoreLowPolyDrops();
             lastPlayerPosition = PlayerPosition;
             Physics.SyncTransforms();
             sound.Initialize(ears); sound.SetSuspended(true);
@@ -145,7 +163,7 @@ namespace Ecos.Haunt.Fps
         {
             if (disposed || !string.IsNullOrEmpty(failure)) return;
             BuildRun(newSeed); mode = ScreenMode.Playing;
-            if (practiceBoss >= 0) SpawnBoss(); else StartWave(0);
+            if (practiceBoss >= 0) SpawnBoss(); else if (lowPolyMode) BeginLowPolyRoom(); else StartWave(0);
             player.SuspendInput(); UpdateSuspension();
         }
 
@@ -158,6 +176,10 @@ namespace Ecos.Haunt.Fps
             bool escape = keyboard != null && keyboard.escapeKey.wasPressedThisFrame
                 || pad != null && pad.startButton.wasPressedThisFrame;
             if (keyboard != null && keyboard.mKey.wasPressedThisFrame) sound.SetEnabled(!sound.SoundEnabled);
+            if (lowPolyMode && mode == ScreenMode.Playing && lowPolyShopOpen)
+            {
+                UpdateLowPolyShopInput(escape); return;
+            }
             if (mode != ScreenMode.Playing)
             {
                 if (mode == ScreenMode.Menu && !focusLost)
@@ -180,14 +202,17 @@ namespace Ecos.Haunt.Fps
             else if (paused && pad != null && pad.buttonNorth.wasPressedThisFrame)
             { mode = ScreenMode.Menu; paused = false; UpdateSuspension(); return; }
             if (!CanSimulate) return;
+            if (lowPolyMode && (keyboard != null && keyboard.tabKey.wasPressedThisFrame || pad != null && pad.selectButton.wasPressedThisFrame)) lowPolyMapOpen = !lowPolyMapOpen;
+            if (lowPolyMode) UpdateLowPolyWeaponSelection();
             TickSimulation(Time.unscaledDeltaTime);
             if (!CanSimulate) return;
             bool interact = keyboard != null && keyboard.eKey.wasPressedThisFrame
                 || pad != null && pad.buttonWest.wasPressedThisFrame;
             if (exitReady && interact && Vector3.Distance(PlayerPosition, world.ExitPosition) < 2.8f)
             {
-                AdvanceFloor();
+                AdvanceFloor(); return;
             }
+            if (lowPolyMode && interact) InteractLowPolyRoom();
         }
 
         // A single clock advances reloads, actors and effects. Pause/focus guards
@@ -199,6 +224,7 @@ namespace Ecos.Haunt.Fps
             damageGrace = Mathf.Max(0, damageGrace - dt);
             hitMarker = Mathf.Max(0, hitMarker - dt); damageOverlay = Mathf.Max(0, damageOverlay - dt * 2);
             noticeRemaining = Mathf.Max(0, noticeRemaining - dt);
+            lowPolyDoorCooldown = Mathf.Max(0, lowPolyDoorCooldown - dt);
             bool reloading = state.IsReloading;
             state.TickReload(dt);
             state.TickPower(dt);
@@ -225,6 +251,7 @@ namespace Ecos.Haunt.Fps
             }
             for (int i = 0; i < barrels.Count; i++) if (barrels[i]) barrels[i].Tick(dt);
             if (boss) boss.Tick(dt);
+            if (lowPolyMode) TickLowPolyDrops(dt);
             if (!CanSimulate) return;
             TickProjectiles(dt); TickEffects(dt); TickWaves(dt);
             sound.Tick(dt, !exitReady);
@@ -240,11 +267,12 @@ namespace Ecos.Haunt.Fps
             FpsWaveSpec spec = FpsPrototypeRules.Wave(index, seed);
             pendingSkeletons = spec.Skeletons; pendingLanterns = spec.Lanterns;
             waveDelay = 0; spawnDelay = .75f;
-            Notify("ONDA " + (wave + 1) + " / " + FpsPrototypeRules.WaveCount, 2.1f);
+            Notify("ONDA " + (wave + 1) + " / " + (lowPolyMode ? 2 : FpsPrototypeRules.WaveCount), 2.1f);
         }
 
         void TickWaves(float dt)
         {
+            if (lowPolyMode && (LowPolyRoom == null || LowPolyRoom.Kind != RoomKind.Combat || LowPolyRoom.Cleared)) return;
             if (exitReady || bossSpawned) return;
             if (pendingSkeletons + pendingLanterns > 0)
             {
@@ -252,7 +280,9 @@ namespace Ecos.Haunt.Fps
                 if (spawnDelay > 0) return;
                 int total = FpsPrototypeRules.Wave(wave, seed).Total;
                 int index = total - pendingSkeletons - pendingLanterns;
-                FpsEnemyKind kind = HauntFpsCampaign.EnemyForWave(state.Floor, wave, index);
+                int rosterIndex = lowPolyMode ? index + LowPolyRoom.Id * 3 + (int)LowPolyRoom.Encounter * 2 : index;
+                FpsEnemyKind kind = HauntFpsCampaign.EnemyForWave(state.Floor, wave, rosterIndex);
+                if (lowPolyMode && LowPolyRoom.HasMiniBoss && wave == 1 && index == 0) kind = FpsEnemyKind.Sentinel;
                 if (!TrySpawn(kind)) { spawnDelay = .25f; return; }
                 if (pendingSkeletons > 0) pendingSkeletons--; else pendingLanterns--;
                 spawnDelay = FpsPrototypeRules.Wave(wave, seed).SpawnInterval;
@@ -262,8 +292,8 @@ namespace Ecos.Haunt.Fps
             waveDelay += dt;
             if (waveDelay < 1.5f) return;
             ClearProjectiles();
-            if (wave + 1 < FpsPrototypeRules.WaveCount) StartWave(wave + 1);
-            else SpawnBoss();
+            if (wave + 1 < (lowPolyMode ? 2 : FpsPrototypeRules.WaveCount)) StartWave(wave + 1);
+            else if (lowPolyMode) ClearLowPolyRoom(); else SpawnBoss();
         }
 
         bool TrySpawn(FpsEnemyKind kind)
@@ -296,7 +326,7 @@ namespace Ecos.Haunt.Fps
                 if (!state.IsReloading) { PlayCue(FpsCue.DryFire, PlayerPosition); Notify("SEM BALAS NO TAMBOR. R PARA RECARREGAR.", 1.2f); }
                 return false;
             }
-            FireCharacterWeapon(ray);
+            if (lowPolyMode) FireLowPolyWeapon(ray); else FireCharacterWeapon(ray);
             PlayCue(FpsCue.Shot, PlayerPosition); AddShake(.035f); return true;
         }
 
@@ -339,10 +369,12 @@ namespace Ecos.Haunt.Fps
         Hostile CreateHostile(Vector3 origin, Vector3 direction, float speed, int damage, Color color)
         {
             if (!CanSimulate || projectiles.Count >= ProjectileLimit || direction.sqrMagnitude < .001f || !(speed > 0)) return null;
-            var visual = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            var visual = lowPolyMode
+                ? polygons.Part("Orbe hostil", Vector3.zero, Vector3.one, PixelMaterial("base orbe", color), runRoot.transform, false, LowPolyShape.Sphere)
+                : GameObject.CreatePrimitive(PrimitiveType.Sphere);
             visual.name = "Orbe espectral"; visual.transform.SetParent(runRoot.transform, false);
             visual.transform.position = origin; visual.transform.localScale = Vector3.one * .23f;
-            var collider = visual.GetComponent<Collider>(); collider.enabled = false; Destroy(collider);
+            var collider = visual.GetComponent<Collider>(); if (collider) { collider.enabled = false; Destroy(collider); }
             string palette = Mathf.RoundToInt(color.r * 15) + ":" + Mathf.RoundToInt(color.g * 15) + ":" + Mathf.RoundToInt(color.b * 15);
             Material material = PixelMaterial("orbe espectral " + palette, color);
             material.SetColor("_EmissionColor", color * 1.4f);
@@ -408,6 +440,7 @@ namespace Ecos.Haunt.Fps
         {
             if (!enemy || !enemies.Contains(enemy)) return;
             kills++; state.Coins += 5;
+            if (lowPolyMode) DropLowPolyAmmo(enemy);
             PlayCue(FpsCue.EnemyDeath, enemy.transform.position);
             Burst(enemy.AimPosition, new Color(.55f, .84f, .7f), 12, 2.8f);
         }
@@ -455,9 +488,15 @@ namespace Ecos.Haunt.Fps
         public Material PixelMaterial(string id, Color tint)
         {
             if (materials.TryGetValue(id, out Material existing)) return existing;
-            Material template = Resources.Load<Material>("FpsPalette");
-            if (!template || !template.shader) throw new InvalidOperationException("Material Resources/FpsPalette ausente.");
+            string materialName = lowPolyMode ? "LowPolyPalette" : "FpsPalette";
+            Material template = Resources.Load<Material>(materialName);
+            if (!template || !template.shader) throw new InvalidOperationException("Material Resources/" + materialName + " ausente.");
             var material = new Material(template) { name = "FPS • " + id };
+            if (lowPolyMode)
+            {
+                material.SetColor("_BaseColor", tint); material.SetColor("_EmissionColor", Color.black);
+                materials.Add(id, material); return material;
+            }
             var texture = new Texture2D(32, 32, TextureFormat.RGBA32, false) { name = id + " • pixels", filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Repeat };
             var pixels = new Color[32 * 32];
             for (int y = 0; y < 32; y++) for (int x = 0; x < 32; x++)
@@ -473,6 +512,7 @@ namespace Ecos.Haunt.Fps
 
         public GameObject Box(string name, Vector3 position, Vector3 scale, Material material, Transform parent, bool solid = true)
         {
+            if (lowPolyMode) return polygons.Part(name, position, scale, material, parent, solid);
             var obj = GameObject.CreatePrimitive(PrimitiveType.Cube); obj.name = name;
             obj.transform.SetParent(parent, false); obj.transform.localPosition = position; obj.transform.localScale = scale;
             obj.GetComponent<Renderer>().sharedMaterial = material;
@@ -513,7 +553,7 @@ namespace Ecos.Haunt.Fps
             var line = obj.AddComponent<LineRenderer>();
             Material material = PixelMaterial("traçante dourado", color); material.SetColor("_EmissionColor", color * 1.5f);
             SetupLine(line, material, .035f); line.positionCount = 2; line.SetPosition(0, from); line.SetPosition(1, to);
-            traces.Add(new Trace { Line = line, Remaining = .045f });
+            traces.Add(new Trace { Line = line, Remaining = lowPolyMode && state.Weapon == WeaponKind.RayLantern ? .15f : .045f });
         }
 
         void TickEffects(float dt)
@@ -547,10 +587,10 @@ namespace Ecos.Haunt.Fps
         void OnApplicationFocus(bool focus)
         {
             focusLost = !focus;
-            if (!focus && mode == ScreenMode.Playing) paused = true;
+            if (!focus && mode == ScreenMode.Playing && !lowPolyShopOpen) paused = true;
             UpdateSuspension();
         }
-        void OnApplicationPause(bool value) { if (value) { focusLost = true; paused = true; } else focusLost = false; UpdateSuspension(); }
+        void OnApplicationPause(bool value) { if (value) { focusLost = true; if (!lowPolyShopOpen) paused = true; } else focusLost = false; UpdateSuspension(); }
 
         void ClearProjectiles()
         {
@@ -564,6 +604,7 @@ namespace Ecos.Haunt.Fps
             if (player) player.DisposeView();
             boss = null;
             ClearProjectiles(); enemies.Clear(); barrels.Clear(); sparks.Clear(); traces.Clear();
+            lowPolyDropVisuals.Clear(); lowPolyShopRoot = null;
             if (world != null) world.Dispose(); world = null;
             if (runRoot) Destroy(runRoot); runRoot = null; player = null; ears = null; heroBody = null;
         }
@@ -574,6 +615,7 @@ namespace Ecos.Haunt.Fps
             foreach (var material in materials.Values) if (material) Destroy(material);
             foreach (var texture in textures) if (texture) Destroy(texture);
             materials.Clear(); textures.Clear();
+            polygons?.Dispose(); polygons = null;
             if (appliedPipeline && GraphicsSettings.defaultRenderPipeline == appliedPipeline) GraphicsSettings.defaultRenderPipeline = savedGraphicsPipeline;
             if (appliedPipeline && QualitySettings.renderPipeline == appliedPipeline) QualitySettings.renderPipeline = savedQualityPipeline;
             if (bootstrapped) { Cursor.lockState = savedCursor; Cursor.visible = savedCursorVisible; }

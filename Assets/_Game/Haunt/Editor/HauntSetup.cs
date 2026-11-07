@@ -50,8 +50,9 @@ namespace Ecos.Haunt.Editor
             if (!UsesRenderer(fpsPipeline, fpsRenderer) || fpsPipeline.shadowDistance != 30
                 || !fpsPipeline.supportsMainLightShadows) return true;
             var scenes = EditorBuildSettings.scenes;
-            return scenes.Length != 2 || !scenes[0].enabled || scenes[0].path != HauntFpsProject.ScenePath
-                || !scenes[1].enabled || scenes[1].path != HauntProject.ScenePath;
+            return scenes.Length != 3 || !scenes[0].enabled || scenes[0].path != HauntLowPolyProject.ScenePath
+                || !scenes[1].enabled || scenes[1].path != HauntFpsProject.ScenePath
+                || !scenes[2].enabled || scenes[2].path != HauntProject.ScenePath;
         }
 
         static void PrepareBeforePlay(PlayModeStateChange state)
@@ -97,6 +98,8 @@ namespace Ecos.Haunt.Editor
                     throw new IOException("A cena do roguelike está ausente: " + HauntProject.ScenePath);
                 if (!File.Exists(HauntFpsProject.ScenePath))
                     throw new IOException("A cena do protótipo FPS está ausente: " + HauntFpsProject.ScenePath);
+                if (!File.Exists(HauntLowPolyProject.ScenePath))
+                    throw new IOException("A cena low poly está ausente: " + HauntLowPolyProject.ScenePath);
                 Directory.CreateDirectory("Assets/_Game/Resources");
                 AssetDatabase.Refresh();
                 var pipeline = EnsurePipelineAssets(PipelinePath, RendererPath);
@@ -104,6 +107,7 @@ namespace Ecos.Haunt.Editor
                 HauntFpsProject.EnsurePipeline();
                 EnsureSpriteMaterial();
                 EditorBuildSettings.scenes = new[] {
+                    new EditorBuildSettingsScene(HauntLowPolyProject.ScenePath, true),
                     new EditorBuildSettingsScene(HauntFpsProject.ScenePath, true),
                     new EditorBuildSettingsScene(HauntProject.ScenePath, true)
                 };

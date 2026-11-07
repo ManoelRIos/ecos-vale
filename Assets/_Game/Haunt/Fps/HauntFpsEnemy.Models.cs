@@ -1,4 +1,5 @@
 using UnityEngine;
+using Ecos.Haunt.LowPoly;
 
 namespace Ecos.Haunt.Fps
 {
@@ -8,6 +9,7 @@ namespace Ecos.Haunt.Fps
         // Built-in meshes are shared by Unity; only our faceted lantern owns a mesh.
         void BuildRosterModel()
         {
+            if(game.LowPolyMode){BuildLowPolyRosterModel();return;}
             var bone = game.PixelMaterial("enemy-bone",new Color(.75f,.72f,.56f));
             var dark = game.PixelMaterial("enemy-sockets",new Color(.075f,.06f,.095f));
             var metal = game.PixelMaterial("enemy-roster-metal",new Color(.29f,.34f,.4f));
@@ -109,6 +111,115 @@ namespace Ecos.Haunt.Fps
                         Part("Chifre",new Vector3(side*.23f,1.98f,0),new Vector3(.12f,.35f,.15f),bone);
                     }
                     leftArm=RosterArm(-1,metal);rightArm=RosterArm(1,metal);break;
+            }
+        }
+
+        GameObject LowCreaturePart(string name,Vector3 position,Vector3 size,Material material,LowPolyShape shape,Transform parent=null)
+            => game.Polygons.Part(name,position,size,material,parent?parent:model,false,shape);
+        void BuildLowPolyRosterModel()
+        {
+            Material bone=game.PixelMaterial("lp-creature-bone",new Color(.83f,.78f,.59f));
+            Material dark=game.PixelMaterial("lp-creature-dark",new Color(.055f,.045f,.075f));
+            Material iron=game.PixelMaterial("lp-creature-iron",new Color(.31f,.39f,.45f));
+            Material purple=game.PixelMaterial("lp-creature-purple",new Color(.36f,.15f,.49f));
+            Material ember=game.PixelMaterial("lp-creature-ember",new Color(1,.36f,.07f));ember.SetColor("_EmissionColor",new Color(.9f,.16f,.025f));
+            Material green=game.PixelMaterial("lp-creature-green",new Color(.35f,.76f,.16f));
+            Material hide=game.PixelMaterial("lp-creature-hide",new Color(.45f,.45f,.22f));
+            Material wood=game.PixelMaterial("lp-creature-wood",new Color(.28f,.16f,.08f));
+            switch(kind)
+            {
+                case FpsEnemyKind.Pumpkin:
+                    LowCreaturePart("Abobora facetada",new Vector3(0,.94f,0),new Vector3(1.05f,1.1f,.93f),ember,LowPolyShape.Sphere);
+                    LowCreaturePart("Caule",new Vector3(.035f,1.62f,0),new Vector3(.15f,.38f,.15f),wood,LowPolyShape.Cylinder).transform.localRotation=Quaternion.Euler(0,0,-18);
+                    EyesAt(new Vector3(0,1.08f,.46f),dark,.21f);
+                    LowCreaturePart("Boca da colheita",new Vector3(0,.77f,.47f),new Vector3(.51f,.13f,.06f),dark,LowPolyShape.BevelBox);
+                    RootFeet(wood);break;
+                case FpsEnemyKind.Ghost:case FpsEnemyKind.StalkerShadow:
+                    Material shroud=kind==FpsEnemyKind.Ghost?bone:purple;
+                    LowCreaturePart("Mortalha facetada",new Vector3(0,1.02f,0),new Vector3(1,.99f,.82f),shroud,LowPolyShape.Cone);
+                    LowCreaturePart("Cabeca do espectro",new Vector3(0,1.49f,0),new Vector3(.77f,.71f,.62f),shroud,LowPolyShape.Sphere);
+                    LowCreaturePart("Vazio facial",new Vector3(0,1.46f,.3f),new Vector3(.5f,.3f,.055f),dark,LowPolyShape.BevelBox);
+                    EyesAt(new Vector3(0,1.49f,.34f),kind==FpsEnemyKind.Ghost?green:ember,.16f);
+                    for(int i=-1;i<=1;i++)LowCreaturePart("Cauda espectral",new Vector3(i*.24f,.42f,-.05f),new Vector3(.22f,.5f,.21f),shroud,LowPolyShape.Crystal);
+                    break;
+                case FpsEnemyKind.Cultist:case FpsEnemyKind.Acolyte:
+                    LowCreaturePart("Batina ritual",new Vector3(0,.67f,0),new Vector3(.91f,1.18f,.74f),purple,LowPolyShape.Cone);
+                    LowCreaturePart("Capuz ritual",new Vector3(0,1.5f,0),new Vector3(.76f,.74f,.65f),purple,LowPolyShape.Sphere);
+                    LowCreaturePart("Mascara",new Vector3(0,1.5f,.3f),new Vector3(.43f,.43f,.09f),dark,LowPolyShape.BevelBox);
+                    EyesAt(new Vector3(0,1.56f,.36f),ember,.13f);
+                    leftArm=RosterArm(-1,purple);rightArm=RosterArm(1,purple);
+                    LowCreaturePart("Cajado",new Vector3(.1f,-.19f,.12f),new Vector3(.09f,1.45f,.09f),wood,LowPolyShape.Cylinder,rightArm);
+                    LowCreaturePart("Cristal ritual",new Vector3(.1f,.6f,.12f),new Vector3(.3f,.42f,.27f),kind==FpsEnemyKind.Acolyte?green:ember,LowPolyShape.Crystal,rightArm);
+                    if(kind==FpsEnemyKind.Acolyte)LowCreaturePart("Estola ossea",new Vector3(0,1.02f,.3f),new Vector3(.16f,.78f,.06f),bone,LowPolyShape.BevelBox);
+                    break;
+                case FpsEnemyKind.Bat:case FpsEnemyKind.FireBat:
+                    Material wing=kind==FpsEnemyKind.FireBat?ember:purple;
+                    LowCreaturePart("Torso do morcego",new Vector3(0,1.2f,0),new Vector3(.48f,.6f,.38f),dark,LowPolyShape.Sphere);
+                    for(int side=-1;side<=1;side+=2)
+                    {
+                        Transform pivot=new GameObject("Asa facetada").transform;pivot.SetParent(model,false);pivot.localPosition=new Vector3(side*.23f,1.26f,0);
+                        if(side<0)leftArm=pivot;else rightArm=pivot;
+                        LowCreaturePart("Membrana",new Vector3(side*.43f,.045f,0),new Vector3(.95f,.43f,.13f),wing,LowPolyShape.Crystal,pivot).transform.localRotation=Quaternion.Euler(0,0,side*17);
+                        LowCreaturePart("Orelha",new Vector3(side*.16f,1.69f,0),new Vector3(.15f,.31f,.17f),wing,LowPolyShape.Cone);
+                        for(int i=0;i<3;i++)LowCreaturePart("Garra da asa",new Vector3(side*(.18f+i*.24f),-.18f+i*.045f,0),new Vector3(.1f,.23f,.07f),dark,LowPolyShape.Cone,pivot).transform.localRotation=Quaternion.Euler(180,0,0);
+                    }
+                    EyesAt(new Vector3(0,1.3f,.2f),ember,.12f);break;
+                case FpsEnemyKind.Larva:
+                    for(int i=0;i<4;i++)LowCreaturePart("Segmento larval",new Vector3(0,.33f,-.58f+i*.31f),new Vector3(.6f-i*.03f,.5f,.46f),hide,LowPolyShape.Sphere);
+                    LowCreaturePart("Cabeca da larva",new Vector3(0,.4f,.58f),new Vector3(.64f,.59f,.45f),bone,LowPolyShape.Sphere);
+                    EyesAt(new Vector3(0,.54f,.8f),dark,.17f);break;
+                case FpsEnemyKind.Sentinel:
+                    LowCreaturePart("Pedestal da sentinela",new Vector3(0,.17f,0),new Vector3(.94f,.33f,.85f),iron,LowPolyShape.Cylinder);
+                    LowCreaturePart("Torre facetada",new Vector3(0,.95f,0),new Vector3(.75f,1.3f,.69f),iron,LowPolyShape.TaperedPrism);
+                    LowCreaturePart("Coroa da sentinela",new Vector3(0,1.67f,0),new Vector3(.9f,.28f,.81f),iron,LowPolyShape.Cylinder);
+                    EyesAt(new Vector3(0,1.6f,.4f),ember,.19f);
+                    for(int side=-1;side<=1;side+=2)LowCreaturePart("Canhao de osso",new Vector3(side*.48f,1.12f,.22f),new Vector3(.25f,.59f,.25f),bone,LowPolyShape.Cylinder).transform.localRotation=Quaternion.Euler(90,0,0);
+                    LowCreaturePart("Nucleo da sentinela",new Vector3(0,.93f,.36f),new Vector3(.28f,.45f,.1f),green,LowPolyShape.Crystal);break;
+                case FpsEnemyKind.Slime:
+                    LowCreaturePart("Limo facetado",new Vector3(0,.39f,0),new Vector3(1.1f,.76f,.96f),green,LowPolyShape.Sphere);
+                    LowCreaturePart("Brilho do limo",new Vector3(-.24f,.58f,.28f),new Vector3(.16f,.13f,.08f),bone,LowPolyShape.Sphere);
+                    LowCreaturePart("Boca viscosa",new Vector3(0,.25f,.46f),new Vector3(.23f,.055f,.04f),dark,LowPolyShape.BevelBox);
+                    EyesAt(new Vector3(0,.48f,.46f),dark,.21f);break;
+                case FpsEnemyKind.Spider:
+                    LowCreaturePart("Abdomen aracnideo",new Vector3(0,.5f,-.21f),new Vector3(.92f,.73f,1.02f),purple,LowPolyShape.Sphere);
+                    LowCreaturePart("Cabeca aracnidea",new Vector3(0,.57f,.47f),new Vector3(.61f,.49f,.43f),dark,LowPolyShape.Sphere);
+                    SpiderLegs(iron);EyesAt(new Vector3(0,.67f,.7f),ember,.17f);
+                    for(int side=-1;side<=1;side+=2)LowCreaturePart("Presa",new Vector3(side*.16f,.34f,.71f),new Vector3(.11f,.29f,.11f),bone,LowPolyShape.Cone).transform.localRotation=Quaternion.Euler(160,0,0);break;
+                case FpsEnemyKind.MushroomBrute:
+                    LowCreaturePart("Talo do cogumelo",new Vector3(0,.78f,0),new Vector3(.79f,1.25f,.71f),bone,LowPolyShape.TaperedPrism);
+                    LowCreaturePart("Chapeu fungico",new Vector3(0,1.61f,0),new Vector3(1.58f,.55f,1.35f),purple,LowPolyShape.Cone);
+                    for(int dot=-1;dot<=1;dot++)LowCreaturePart("Esporo",new Vector3(dot*.37f,1.7f,.46f),new Vector3(.17f,.14f,.12f),green,LowPolyShape.Crystal);
+                    EyesAt(new Vector3(0,1.1f,.37f),dark,.2f);leftArm=RosterArm(-1,green);rightArm=RosterArm(1,green);RootFeet(bone);break;
+                case FpsEnemyKind.ClockworkImp:
+                    LowCreaturePart("Torso mecanico",new Vector3(0,.98f,0),new Vector3(.69f,.88f,.56f),iron,LowPolyShape.BevelBox);
+                    LowCreaturePart("Cabeca mecanica",new Vector3(0,1.56f,0),new Vector3(.66f,.57f,.54f),iron,LowPolyShape.BevelBox);
+                    EyesAt(new Vector3(0,1.61f,.29f),ember,.18f);
+                    for(int side=-1;side<=1;side+=2)
+                    {
+                        LowCreaturePart("Antena",new Vector3(side*.24f,1.99f,0),new Vector3(.12f,.32f,.12f),wood,LowPolyShape.Cone);
+                        LowCreaturePart("Engrenagem",new Vector3(side*.4f,1.02f,0),new Vector3(.53f,.14f,.53f),wood,LowPolyShape.Cylinder).transform.localRotation=Quaternion.Euler(0,0,90);
+                    }
+                    LowCreaturePart("Nucleo mecanico",new Vector3(0,.97f,.3f),new Vector3(.25f,.36f,.08f),ember,LowPolyShape.Crystal);RootFeet(iron);break;
+                case FpsEnemyKind.Scarecrow:
+                    LowCreaturePart("Estaca",new Vector3(0,.76f,0),new Vector3(.13f,1.53f,.13f),wood,LowPolyShape.Cylinder);
+                    LowCreaturePart("Trapos",new Vector3(0,1.04f,0),new Vector3(.73f,.7f,.51f),hide,LowPolyShape.TaperedPrism);
+                    LowCreaturePart("Abobora do espantalho",new Vector3(0,1.67f,0),new Vector3(.76f,.7f,.65f),ember,LowPolyShape.Sphere);
+                    EyesAt(new Vector3(0,1.74f,.34f),dark,.16f);leftArm=RosterArm(-1,wood);rightArm=RosterArm(1,wood);
+                    LowCreaturePart("Caule",new Vector3(0,2.1f,0),new Vector3(.12f,.24f,.12f),wood,LowPolyShape.Cylinder);
+                    for(int side=-1;side<=1;side+=2)for(int i=0;i<3;i++)LowCreaturePart("Palha",new Vector3(side*(.4f+i*.11f),.94f,.03f),new Vector3(.12f,.27f,.09f),bone,LowPolyShape.Cone);
+                    LowCreaturePart("Haste da foice",new Vector3(.18f,-.19f,.15f),new Vector3(.08f,1.46f,.08f),wood,LowPolyShape.Cylinder,rightArm);
+                    LowCreaturePart("Lamina da foice",new Vector3(-.06f,.5f,.15f),new Vector3(.68f,.19f,.1f),iron,LowPolyShape.Crystal,rightArm);break;
+                case FpsEnemyKind.Gargoyle:
+                    LowCreaturePart("Pedestal",new Vector3(0,.13f,0),new Vector3(.96f,.26f,.86f),iron,LowPolyShape.Cylinder);
+                    LowCreaturePart("Torso da gargula",new Vector3(0,.85f,0),new Vector3(.86f,1.14f,.69f),iron,LowPolyShape.TaperedPrism);
+                    LowCreaturePart("Cabeca de pedra",new Vector3(0,1.56f,.04f),new Vector3(.73f,.63f,.67f),iron,LowPolyShape.Sphere);
+                    EyesAt(new Vector3(0,1.65f,.4f),ember,.18f);
+                    for(int side=-1;side<=1;side+=2)
+                    {
+                        LowCreaturePart("Asa de pedra",new Vector3(side*.69f,1.32f,-.26f),new Vector3(.9f,.91f,.18f),iron,LowPolyShape.Crystal).transform.localRotation=Quaternion.Euler(0,side*15,side*-27);
+                        LowCreaturePart("Chifre",new Vector3(side*.25f,2.02f,0),new Vector3(.17f,.4f,.17f),bone,LowPolyShape.Cone).transform.localRotation=Quaternion.Euler(0,0,-side*15);
+                    }
+                    leftArm=RosterArm(-1,iron);rightArm=RosterArm(1,iron);break;
             }
         }
         Transform RosterArm(int side,Material material)

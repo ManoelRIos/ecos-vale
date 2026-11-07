@@ -23,16 +23,17 @@ namespace Ecos.Haunt.Fps
                     Text(new Rect(60, height * .4f, width - 120, 80), failure, 2, Gold, TextAnchor.MiddleCenter); return;
                 }
                 if (state == null) return;
+                if (lowPolyMode && lowPolyShopOpen) { DrawLowPolyShop(width, height); return; }
                 if (mode == ScreenMode.Playing)
                 {
                     Text(new Rect(24, 20, 360, 22), CharacterName(state.Character) + "  VIDA " + state.Health + "/" + state.MaxHealth, 2, Ivory);
                     Text(new Rect(width - 420, 20, 396, 22), "FASE " + state.Floor + "/5  " + HauntFpsCampaign.ThemeName(state.Floor), 1, Ivory, TextAnchor.UpperRight);
-                    Text(new Rect(width - 250, 44, 226, 22), bossSpawned ? "GUARDIAO" : "ONDA " + (wave + 1) + "/3", 2, Gold, TextAnchor.UpperRight);
+                    Text(new Rect(width - 250, 44, 226, 22), lowPolyMode ? LowPolyEncounterLabel : bossSpawned ? "GUARDIAO" : "ONDA " + (wave + 1) + "/3", 2, Gold, TextAnchor.UpperRight);
                     int capacity = WeaponAmmo.Stats(state.Weapon).MagazineSize;
-                    Text(new Rect(width - 290, height - 60, 266, 24), state.Magazine + "/" + capacity + "  RESERVA INF.", 2, Ivory, TextAnchor.UpperRight);
+                    Text(new Rect(width - 290, height - 60, 266, 24), state.Magazine + "/" + capacity + "  RESERVA " + (state.ReserveAmmo < 0 ? "INF." : state.ReserveAmmo.ToString()), 2, Ivory, TextAnchor.UpperRight);
                     Text(new Rect(width - 300, height - 32, 276, 18), RunState.WeaponName(state.Weapon), 1, CharacterColor(state.Character), TextAnchor.UpperRight);
                     Text(new Rect(24, height - 60, 360, 20), "Q / L1 " + (state.PowerCooldown > 0 ? "PODER " + Mathf.CeilToInt(state.PowerCooldown) + "S" : state.PowerName), 1, CharacterColor(state.Character));
-                    Text(new Rect(24, height - 32, 390, 20), "TAB / R1 " + (player.IsTopDown ? "VISAO 2D" : "PRIMEIRA PESSOA") + "   ESC PAUSA", 1, Ivory);
+                    Text(new Rect(24, height - 32, 390, 20), lowPolyMode ? "V/R1 " + (player.IsThirdPerson ? "TERCEIRA PESSOA" : "PRIMEIRA PESSOA") + " | TAB MAPA" : "TAB / R1 " + (player.IsTopDown ? "VISAO 2D" : "PRIMEIRA PESSOA") + "   ESC PAUSA", 1, Ivory);
                     if (state.IsReloading)
                     {
                         Text(new Rect(width * .5f - 150, height * .64f, 300, 22), "RECARREGANDO", 2, Ivory, TextAnchor.MiddleCenter);
@@ -63,6 +64,7 @@ namespace Ecos.Haunt.Fps
                     if (exitReady && world != null && Vector3.Distance(PlayerPosition, world.ExitPosition) < 2.8f)
                         Text(new Rect(width * .5f - 260, height - 115, 520, 28), "E / QUADRADO - " + (state.Floor < 5 && practiceBoss < 0 ? "PROXIMA FASE" : "ATRAVESSAR"), 2, Gold, TextAnchor.MiddleCenter);
                     DrawBossHud(width, height);
+                    if (lowPolyMode) DrawLowPolyNavigation(width, height);
                     if (!player.IsTopDown) DrawIncomingWarnings(width, height);
                     if (!paused && !focusLost) return;
                 }
@@ -114,7 +116,7 @@ namespace Ecos.Haunt.Fps
             Fill(new Rect(0, 0, width, height), new Color(.018f, .012f, .035f, .9f));
             float cx = width * .5f, top = Mathf.Max(20, height * .075f);
             Text(new Rect(30, top, width - 60, 34), "ECOS DA MEIA-NOITE", 4, Gold, TextAnchor.MiddleCenter);
-            string title = mode == ScreenMode.Menu ? "DOIS OLHARES. UMA UNICA MASMORRA."
+            string title = mode == ScreenMode.Menu ? (lowPolyMode ? "LOW POLY / PRIMEIRA E TERCEIRA PESSOA" : "DOIS OLHARES. UMA UNICA MASMORRA.")
                 : mode == ScreenMode.Dead ? "A MEIA-NOITE RECLAMOU SUA ALMA"
                 : mode == ScreenMode.Victory ? "VOCE ATRAVESSOU A MEIA-NOITE" : "PAUSA";
             Text(new Rect(30, top + 45, width - 60, 32), title, 2, Ivory, TextAnchor.MiddleCenter);
@@ -132,14 +134,14 @@ namespace Ecos.Haunt.Fps
                 if (Button(new Rect(cx - 350, top + 177, 700, 30), practiceBoss < 0 ? "MODO: CAMPANHA - CINCO FASES" : "TREINO: " + HauntFpsBoss.NameFor(practiceBoss), 1))
                     practiceBoss = practiceBoss < 6 ? practiceBoss + 1 : -1;
                 if (practiceBoss >= 0 && Button(new Rect(cx - 350, top + 214, 700, 26), "CENARIO: " + HauntFpsCampaign.ThemeName(practiceTheme + 1), 1)) practiceTheme = (practiceTheme + 1) % 5;
-                Text(new Rect(cx - 400, top + 250, 800, 42), "TAB / R1 ALTERNA 2D E 3D | WASD / STICK MOVER | MOUSE / STICK MIRAR\nTIRO: ESQUERDO / R2 | RECARGA: R / TRIANGULO | PODER: Q / L1\nEVASAO: DIREITO / CIRCULO | SALTO: ESPACO / X | SOM: M", 1, Ivory, TextAnchor.MiddleCenter);
+                Text(new Rect(cx - 400, top + 250, 800, 42), (lowPolyMode ? "V / R1 ALTERNA PRIMEIRA E TERCEIRA | TAB MAPA | RODA / DIRECIONAL ARMAS" : "TAB / R1 ALTERNA 2D E 3D | WASD / STICK MOVER | MOUSE / STICK MIRAR") + "\nTIRO: ESQUERDO / R2 | RECARGA: R / TRIANGULO | PODER: Q / L1\nEVASAO: DIREITO / CIRCULO | SALTO: ESPACO / X | SOM: M", 1, Ivory, TextAnchor.MiddleCenter);
                 Text(new Rect(cx - 400, top + 294, 800, 10), "MENU: L1/R1 PERSONAGEM | TRIANGULO TREINO | SHARE CENARIO", 1, new Color(.6f, .65f, .69f), TextAnchor.MiddleCenter);
                 y = top + 305;
             }
             else
             {
                 Text(new Rect(cx - 370, top + 104, 740, 54), "FASE " + state.Floor + "/5 | INIMIGOS DERROTADOS " + kills
-                    + "\nTAB / R1 ALTERNA A VISAO | Q / L1 PODER", 1, Ivory, TextAnchor.MiddleCenter);
+                    + (lowPolyMode ? "\nV / R1 ALTERNA A VISAO | Q / L1 PODER | ESC PAUSA" : "\nTAB / R1 ALTERNA A VISAO | Q / L1 PODER"), 1, Ivory, TextAnchor.MiddleCenter);
                 y = top + 183;
             }
             string action = mode == ScreenMode.Playing ? "CONTINUAR [ENTER / X]" : mode == ScreenMode.Menu ? "INICIAR [ENTER / X]" : "TENTAR NOVAMENTE [ENTER / X]";
@@ -153,7 +155,7 @@ namespace Ecos.Haunt.Fps
             if (mode != ScreenMode.Menu && Button(new Rect(cx - 235, y + 79, 470, 28), "VOLTAR A SELECAO", 1))
             { mode = ScreenMode.Menu; paused = false; UpdateSuspension(); }
             float legacyY = y + (mode == ScreenMode.Menu ? 79 : 115);
-            if (Button(new Rect(cx - 235, legacyY, 470, 28), "ABRIR O ROGUELIKE 2D ORIGINAL", 1)) SceneManager.LoadScene("Haunt");
+            if (!lowPolyMode && Button(new Rect(cx - 235, legacyY, 470, 28), "ABRIR O ROGUELIKE 2D ORIGINAL", 1)) SceneManager.LoadScene("Haunt");
         }
 
         bool Button(Rect rect, string label, int size = 2, bool selected = false)

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using Ecos.Haunt.LowPoly;
 
 namespace Ecos.Haunt.Fps
 {
@@ -241,7 +242,17 @@ namespace Ecos.Haunt.Fps
         }
 
         GameObject Part(string label, Vector3 position, Vector3 size, Material material, Transform parent = null)
-            => game.Box(label, position, size, material, parent ? parent : model, false);
+        {
+            if(!game.LowPolyMode)return game.Box(label,position,size,material,parent?parent:model,false);
+            string key=label.ToLowerInvariant();
+            LowPolyShape shape=LowPolyShape.BevelBox;
+            if(key.Contains("abdômen")||key.Contains("ventre")||key.Contains("máscara")||key.Contains("capuz")||key.Contains("face anfíbia")||key.Contains("gomo"))shape=LowPolyShape.Sphere;
+            else if(key.Contains("cristal")||key.Contains("orbe")||key.Contains("badalo")||key.Contains("núcleo")||key.Contains("lâmina"))shape=LowPolyShape.Crystal;
+            else if(key.Contains("mitra")||key.Contains("galho")||key.Contains("caule"))shape=LowPolyShape.Cone;
+            else if(key.Contains("batina")||key.Contains("manto")||key.Contains("tronco")||key.Contains("peitoral"))shape=LowPolyShape.TaperedPrism;
+            else if(key.Contains("borda do sino")||key.Contains("coroa do sino")||(size.y>size.x*3&&size.y>size.z*3&&(key.Contains("cabo")||key.Contains("cajado"))))shape=LowPolyShape.Cylinder;
+            return game.Polygons.Part(label,position,size,material,parent?parent:model,false,shape);
+        }
         Transform Pivot(string label, Vector3 position, Transform parent = null)
         {
             var obj = new GameObject(label); obj.transform.SetParent(parent ? parent : model, false); obj.transform.localPosition = position; return obj.transform;
@@ -334,6 +345,48 @@ namespace Ecos.Haunt.Fps
             {
                 Part("Braço esquerdo",new Vector3(0,-.3f,0),new Vector3(.29f,.7f,.33f),flesh,leftArm);
                 Part("Braço direito",new Vector3(0,-.3f,0),new Vector3(.29f,.7f,.33f),flesh,rightArm);
+            }
+            if(game.LowPolyMode)AddLowPolyRegalia(bone,iron,glow,cloth);
+        }
+
+        void AddLowPolyRegalia(Material bone,Material iron,Material glow,Material cloth)
+        {
+            // Broad, readable secondary silhouettes survive both the shoulder
+            // camera and a first-person view without painted pixel features.
+            switch(Archetype)
+            {
+                case 0:
+                    var leaf=game.PixelMaterial("lp-boss-leaf",new Color(.14f,.36f,.12f));
+                    for(int i=-1;i<=1;i++)
+                        game.Polygons.Part("Folha da coroa",new Vector3(i*.25f,.65f,-.06f),new Vector3(.16f,.13f,.46f),leaf,head,false,LowPolyShape.Crystal).transform.localRotation=Quaternion.Euler(-15,25*i,0);
+                    break;
+                case 1:
+                    for(int side=-1;side<=1;side+=2)
+                        game.Polygons.Part("Chifre funerario",new Vector3(side*.42f,.57f,-.07f),new Vector3(.13f,.55f,.13f),bone,head,false,LowPolyShape.Cone).transform.localRotation=Quaternion.Euler(0,0,side*-24);
+                    break;
+                case 2:
+                    for(int side=-1;side<=1;side+=2)
+                        game.Polygons.Part("Mitra / pinaculo",new Vector3(side*.22f,.78f,0),new Vector3(.29f,.53f,.39f),iron,head,false,LowPolyShape.Cone);
+                    break;
+                case 3:
+                    for(int i=0;i<4;i++)
+                        game.Polygons.Part("Esporo da matriarca",new Vector3((i%2==0?-1:1)*.62f,1.53f,-.3f-(i/2)*.7f),new Vector3(.28f,.4f,.29f),glow,model,false,LowPolyShape.Sphere);
+                    break;
+                case 4:
+                    for(int side=-1;side<=1;side+=2)
+                        game.Polygons.Part("Argola do sino",new Vector3(side*.39f,2.72f,0),new Vector3(.28f,.36f,.17f),iron,model,false,LowPolyShape.Crystal);
+                    for(int link=0;link<3;link++)
+                        game.Polygons.Part("Corrente do abismo",new Vector3(0,2.95f+link*.2f,0),new Vector3(.17f,.28f,.12f),iron,model,false,LowPolyShape.Crystal).transform.localRotation=Quaternion.Euler(0,link%2*90,0);
+                    break;
+                case 5:
+                    for(int side=-1;side<=1;side+=2)
+                        game.Polygons.Part("Espigao da ombreira",new Vector3(side*.91f,2.34f,0),new Vector3(.2f,.54f,.2f),iron,model,false,LowPolyShape.Cone).transform.localRotation=Quaternion.Euler(0,0,-side*25);
+                    game.Polygons.Part("Tabardo do carrasco",new Vector3(0,.63f,.47f),new Vector3(.69f,.78f,.09f),cloth,model,false,LowPolyShape.BevelBox);
+                    break;
+                case 6:
+                    for(int side=-1;side<=1;side+=2)
+                        game.Polygons.Part("Bolsa do brejo",new Vector3(side*.57f,.68f,-.33f),new Vector3(.44f,.62f,.42f),glow,model,false,LowPolyShape.Sphere);
+                    break;
             }
         }
     }

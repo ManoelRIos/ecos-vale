@@ -29,7 +29,8 @@ namespace Ecos.Haunt.Fps
         public int Health { get; private set; }
         public int MaxHealth { get; private set; }
         public FpsEnemyKind Kind => kind;
-        public Vector3 AimPosition => transform.position + Vector3.up * (IsFloating ? 1.35f : 1.15f);
+        bool IsSmallLowPoly => game && game.LowPolyMode && (kind == FpsEnemyKind.Slime || kind == FpsEnemyKind.Larva || kind == FpsEnemyKind.Spider);
+        public Vector3 AimPosition => transform.position + Vector3.up * (IsSmallLowPoly ? .55f : IsFloating ? 1.35f : 1.15f);
         public string SpriteKey => SpriteForKind(kind);
         public bool IsPetrified => kind == FpsEnemyKind.Gargoyle && Mathf.Repeat(phase, 3) < 1.5f;
         public ActorAnimationState AnimationState => IsDead ? ActorAnimationState.Death
@@ -72,12 +73,15 @@ namespace Ecos.Haunt.Fps
                 : kind == FpsEnemyKind.Sentinel || kind == FpsEnemyKind.Scarecrow ? 6
                 : kind == FpsEnemyKind.Bat || kind == FpsEnemyKind.Larva || kind == FpsEnemyKind.FireBat ? 3
                 : kind == FpsEnemyKind.Skeleton ? 4 : 5;
+            if (owner.LowPolyMode && owner.LowPolyRoom != null && owner.LowPolyRoom.HasMiniBoss && enemyKind == FpsEnemyKind.Sentinel)
+            { MaxHealth = Health = 12; transform.localScale = Vector3.one * 1.2f; }
             previousPlayer = game.PlayerPosition;
             attackCooldown = kind == FpsEnemyKind.Skeleton ? .75f : 1.25f;
             phase = Mathf.Abs(spawn.x) * .27f + Mathf.Abs(spawn.z) * .13f;
             steerSide = spawn.x < 0 ? -1 : 1;
             body = gameObject.AddComponent<CharacterController>();
             body.height = 1.8f; body.radius = .36f; body.center = Vector3.up * .9f;
+            if (IsSmallLowPoly) { body.height = .9f; body.radius = .42f; body.center = Vector3.up * .45f; }
             body.skinWidth = .045f; body.stepOffset = .18f; body.slopeLimit = 50;
             model = new GameObject("Visual").transform; model.SetParent(transform, false);
             if (kind == FpsEnemyKind.Skeleton) BuildSkeleton(); else if (kind == FpsEnemyKind.Lantern) BuildLantern(); else BuildRosterModel();
@@ -243,7 +247,7 @@ namespace Ecos.Haunt.Fps
         {
             float rad=angle*Mathf.Deg2Rad,c=Mathf.Cos(rad),s=Mathf.Sin(rad);
             Vector3 aim=new Vector3(direction.x*c+direction.z*s,0,direction.z*c-direction.x*s).normalized;
-            Vector3 origin=transform.position+Vector3.up*1.15f+aim*.62f;
+            Vector3 origin=(game.LowPolyMode ? AimPosition : transform.position+Vector3.up*1.15f)+aim*.62f;
             game.FireHostile(origin,aim,speed,1,ProjectileColor);
         }
 

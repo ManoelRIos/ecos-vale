@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using Ecos.Haunt.LowPoly;
 
 namespace Ecos.Haunt.Fps
 {
@@ -13,6 +14,7 @@ namespace Ecos.Haunt.Fps
         static readonly Vector3 TopOffset = -(TopRotation * Vector3.forward) * TopDistance;
         HauntFpsGame game;
         HauntFpsPlayer player;
+        HauntLowPolyCamera lowPolyCamera;
         Camera view, modelCamera;
         Transform weaponRoot;
         Vector3 fpsLocalPosition, startOffset, focus, flatAim = Vector3.forward;
@@ -24,15 +26,16 @@ namespace Ecos.Haunt.Fps
         bool initialized, disposed, topDown, transitioning, controllerAim, pointerWarpPending;
 
         /// <summary>The requested destination, including while a transition runs.</summary>
-        public bool IsTopDown => topDown;
-        public bool IsTransitioning => transitioning;
+        public bool IsTopDown => !lowPolyCamera && topDown;
+        public bool IsThirdPerson => lowPolyCamera && lowPolyCamera.IsThirdPerson;
+        public bool IsTransitioning => lowPolyCamera ? lowPolyCamera.IsTransitioning : transitioning;
         public bool UsesControllerAim => topDown && controllerAim;
-        public float TransitionProgress => transitioning ? Mathf.Clamp01(elapsed / TransitionDuration) : 1;
-        public Vector3 AimDirection => topDown ? flatAim : view ? view.transform.forward : transform.forward;
-        public Ray AimRay => topDown
+        public float TransitionProgress => lowPolyCamera ? lowPolyCamera.TransitionProgress : transitioning ? Mathf.Clamp01(elapsed / TransitionDuration) : 1;
+        public Vector3 AimDirection => lowPolyCamera ? lowPolyCamera.AimDirection : topDown ? flatAim : view ? view.transform.forward : transform.forward;
+        public Ray AimRay => lowPolyCamera ? lowPolyCamera.AimRay : topDown
             ? new Ray(ShotOrigin, flatAim)
             : new Ray(view ? view.transform.position : ShotOrigin, AimDirection);
-        public Vector3 MuzzlePosition => topDown ? ShotOrigin + flatAim * .45f
+        public Vector3 MuzzlePosition => lowPolyCamera ? lowPolyCamera.MuzzlePosition : topDown ? ShotOrigin + flatAim * .45f
             : weaponRoot ? weaponRoot.TransformPoint(new Vector3(0, .025f, .62f)) : ShotOrigin;
         Vector3 ShotOrigin => (player ? player.Position : transform.position) + Vector3.up * ShotHeight;
 
@@ -41,6 +44,7 @@ namespace Ecos.Haunt.Fps
         {
             get
             {
+                if (lowPolyCamera) return lowPolyCamera.ScreenAimPosition;
                 if (!topDown || !view) return new Vector2(Screen.width * .5f, Screen.height * .5f);
                 if (pointerWarpPending) return warpedMousePosition;
                 if (!controllerAim && Mouse.current != null)
@@ -55,6 +59,12 @@ namespace Ecos.Haunt.Fps
             if (initialized || disposed) return;
             game = owner; player = actor; view = camera; modelCamera = overlay; weaponRoot = weapon;
             if (!view || !player) return;
+            if (owner.LowPolyMode)
+            {
+                lowPolyCamera = gameObject.AddComponent<HauntLowPolyCamera>();
+                lowPolyCamera.Initialize(owner, actor, camera, overlay, weapon);
+                initialized = true; return;
+            }
             fpsLocalPosition = view.transform.localPosition;
             fpsLocalRotation = view.transform.localRotation; fpsFov = view.fieldOfView;
             focus = GroundFocus();
@@ -67,6 +77,7 @@ namespace Ecos.Haunt.Fps
 
         public bool TryToggle()
         {
+            if (lowPolyCamera) return lowPolyCamera.TryToggle();
             if (!initialized || disposed || !game || !game.CanSimulate || transitioning || cooldown > 0) return false;
             startOffset = view.transform.position - player.Position;
             startRotation = view.transform.rotation;
@@ -93,6 +104,7 @@ namespace Ecos.Haunt.Fps
 
         public Vector3 Movement(Vector2 input)
         {
+            if (lowPolyCamera) return lowPolyCamera.Movement(input);
             if (topDown || transitioning) return Vector3.right * input.x + Vector3.forward * input.y;
             Transform basis = player ? player.transform : transform;
             return basis.right * input.x + basis.forward * input.y;
@@ -100,6 +112,7 @@ namespace Ecos.Haunt.Fps
 
         public void Tick(float dt)
         {
+            if (lowPolyCamera) { lowPolyCamera.Tick(dt); return; }
             if (!initialized || disposed || !game || !game.CanSimulate || !(dt > 0) || float.IsInfinity(dt)) return;
             dt = Mathf.Min(dt, .05f); cooldown = Mathf.Max(0, cooldown - dt); tickSerial++;
             if (transitioning)
@@ -234,6 +247,7 @@ namespace Ecos.Haunt.Fps
 
         public void SuspendInput()
         {
+            if (lowPolyCamera) { lowPolyCamera.SuspendInput(); return; }
             pointerWarpPending = false;
             if (Mouse.current != null) lastMousePosition = Mouse.current.position.ReadValue();
         }
@@ -241,6 +255,7 @@ namespace Ecos.Haunt.Fps
         public void Dispose()
         {
             if (disposed) return; disposed = true;
+            if (lowPolyCamera) { lowPolyCamera.Dispose(); return; }
             if (view)
             {
                 view.orthographic = false; view.fieldOfView = fpsFov;

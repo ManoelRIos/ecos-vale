@@ -1,8 +1,20 @@
 # Arquitetura de Ecos da Meia-Noite
 
-O projeto contém duas cenas independentes em `Assets/_Game/Scenes`: `HauntFps.unity` é a entrada padrão da campanha híbrida 2D/FPS; `Haunt.unity` preserva o roguelike 2D. `Haunt.Runtime`, `Haunt.Editor` e `Haunt.Tests` separam jogo, ferramentas e testes. Sons e música são sintetizados localmente, sem rede no runtime.
+O projeto contém três cenas em `Assets/_Game/Scenes`: `HauntLowPoly.unity` inicia a nova base 3D com FPS/TPS; `HauntFps.unity` preserva a campanha híbrida 2D/FPS; `Haunt.unity` preserva o roguelike 2D original. `Haunt.Runtime`, `Haunt.Editor` e `Haunt.Tests` separam jogo, ferramentas e testes. Sons e música são sintetizados localmente, sem rede no runtime.
 
-## Campanha híbrida 2D / FPS
+## Base low poly FPS / terceira pessoa
+
+A nova cena ativa o campo serializado `lowPolyMode` no bootstrap compartilhado `HauntFpsGame`. Os módulos de estado, munição, dano e áudio continuam comuns; o perfil seleciona câmera, material, geometria, construção de salas e progressão. A cena antiga mantém o campo desativado e conserva sua apresentação anterior. O build inicia na cena low poly e inclui as duas referências depois dela.
+
+`HauntLowPolyCamera` apresenta FPS ou câmera sobre o ombro, com movimento relativo à mira, transição curta e consulta de colisão no caminho da câmera. A consulta pelo centro da tela escolhe o alvo, seguida de um disparo a partir da arma física; cobertura junto ao jogador continua interrompendo o tiro. O perfil mantém cursor capturado nas duas perspectivas e não carrega outra cena para trocar a visão.
+
+`HauntLowPolyPrimitives` gera e reutiliza malhas com faces planas: caixas chanfradas, prismas, cilindros, cones, cristais e corpos facetados. A instância possui seus meshes e os libera ao encerrar. `LowPolyPalette.mat` mantém o shader `Ecos/HauntLowPolyToon` referenciado no build. O shader usa cor, bandas de luz, sombras, neblina, emissão e flash, sem amostrar uma textura pixelada. A nova cena não cria a apresentação em sprites de `HauntFpsHybridArt`.
+
+`HauntFpsGame.LowPoly.cs` liga a incursão à árvore cardinal de `DungeonFloor`, conservando salas vencidas e a progressão do `RunState`. `HauntLowPolyDoors` representa as passagens e seus bloqueios físicos. O combate comum usa duas ondas; o chefe ocupa sua sala. Após sua derrota, o comércio usa as mesmas compras atômicas do núcleo e o portal permite avançar. Armas adquiridas possuem reserva finita; inimigos podem deixar munição. O mapa e as interações usam o estado da sala atual.
+
+Os quatro heróis, 17 mobs, sete chefes e 17 armas recebem apresentação 3D. Os detalhes de funcionamento e o roteiro de motor estão em [LOW_POLY_REBOOT.md](LOW_POLY_REBOOT.md). A implementação continua local e solo, sem sincronização multiplayer.
+
+## Campanha híbrida 2D / FPS preservada
 
 `HauntFps.unity` mantém uma única simulação 3D em XZ, com Y para altura. `Fps/HauntFpsGame.cs`, `.Campaign.cs` e `.UI.cs` gerenciam sessão, armas, poderes, ondas, chefes, progressão e interface. A seleção cria `RunState(seed, character)` com a arma inicial de cada uma das quatro almas; carregadores têm 12/6/6/30 balas, reserva infinita e recarga manual. As cinco fases reutilizam o mesmo estado de incursão, com três ondas e um chefe por arena.
 

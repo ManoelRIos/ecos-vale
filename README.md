@@ -1,206 +1,58 @@
-# Ecos da Meia-Noite
+# Ecos da Meia-Noite — low poly
 
-Campanha de ação com alternância entre **visão 2D e primeira pessoa na mesma arena 3D**, estética macabra, texturas pixeladas e geração em C#, para **Unity 6.0 LTS 6000.0.85f1**. Os quatro personagens, os cinco temas e os sete chefes fazem parte desta expansão híbrida. Música e efeitos são sintetizados localmente; o jogo permanece solo e não exige serviços externos.
+Nova base de ação roguelike em **3D low poly**, com alternância entre **primeira e terceira pessoa**, para **Unity 6.0 LTS 6000.0.85f1**. Mantém as ideias de combate frenético, quatro almas jogáveis, armas incomuns e cinco temas macabros, com salas conectadas, cobertura, chefes e Mercado das Almas. O jogo permanece solo.
 
-[**Projeto no GitHub**](https://github.com/ManoelRIos/ecos-vale/tree/codex/ecos-do-vale-vertical-slice) · [**Baixar projeto em ZIP**](https://github.com/ManoelRIos/ecos-vale/raw/refs/heads/codex/ecos-do-vale-vertical-slice/Distribution/EcosDaMeiaNoite.zip)
-
-[**PNG com todos os personagens para referência 3D**](Documentation/TODOS_OS_PERSONAGENS.png): 30 entidades com identificação e poses atuais. Veja [orientações de modelagem e exportação](Documentation/REFERENCIA_3D.md).
+[**Projeto no GitHub**](https://github.com/ManoelRIos/ecos-vale/tree/codex/ecos-lowpoly-fps-tps) · [**Baixar projeto em ZIP**](https://github.com/ManoelRIos/ecos-vale/raw/refs/heads/codex/ecos-lowpoly-fps-tps/Distribution/EcosDaMeiaNoite.zip)
 
 ## Abrir e jogar
 
-1. Instale **Unity 6000.0.85f1** pelo Unity Hub; acrescente Windows Build Support para gerar um executável Windows.
-2. Extraia todo o ZIP em uma **pasta nova e curta**, por exemplo `C:\Dev\EcosDaMeiaNoite`. Preserve suas alterações da cópia anterior. A raiz deve conter `Assets`, `Packages` e `ProjectSettings`.
-3. No Hub, use **Add / Add project from disk** e selecione essa raiz. Aguarde os pacotes e a compilação. Com Play parado, use **Ecos → Abrir protótipo FPS** para abrir `Assets/_Game/Scenes/HauntFps.unity`.
-4. Pressione **Play**, escolha um dos quatro personagens e inicie a campanha. **Tab / R1** alterna a perspectiva durante o combate. Vença as três ondas e o chefe de cada fase; **E / Quadrado** no portal aberto leva à próxima, até a quinta fase.
-5. O menu também oferece **treino de chefe**, com seleção dos sete chefes e dos cinco temas. **Esc / Options** pausa e libera o cursor.
+1. Instale **Unity 6000.0.85f1** pelo Unity Hub. Para gerar um executável Windows, acrescente Windows Build Support.
+2. Extraia o ZIP em uma pasta nova e curta, como `C:\Dev\EcosDaMeiaNoite`. Preserve a cópia anterior e suas alterações próprias.
+3. No Hub, selecione a raiz que contém `Assets`, `Packages` e `ProjectSettings`. Aguarde a resolução dos pacotes e a compilação.
+4. Com Play parado, use **Ecos → Abrir jogo low poly** para abrir `Assets/_Game/Scenes/HauntLowPoly.unity`.
+5. Pressione **Play**, escolha uma alma e inicie. **V / R1** alterna FPS e terceira pessoa. Explore as salas, elimine as ondas e encontre o chefe. **E / Quadrado** usa as portas e as interações próximas.
 
-O atalho opcional `ABRIR_ECOS_DA_MEIA_NOITE.cmd` abre essa mesma cena. `/check` confere a pasta e o log fica em `Logs/MeiaNoite-Editor.log`. Abrir pelo Hub dispensa o atalho. O atalho não foi executado no Windows neste ambiente.
+O atalho opcional `ABRIR_ECOS_DA_MEIA_NOITE.cmd` abre a mesma cena. `/check` verifica a pasta; o log fica em `Logs/MeiaNoite-Editor.log`. A abertura pelo Hub dispensa o atalho. Não há executável Windows validado desta revisão; o ZIP contém o projeto Unity.
 
-Para atualizar por ZIP, use uma extração nova: sobrepor pastas não remove arquivos antigos. Um clone Git atualizado também aplica as remoções rastreadas. Ainda não há um executável Windows validado desta revisão.
+## Controles
 
-## Campanha híbrida 2D / FPS
-
-**A troca de perspectiva preserva o encontro.** Vida, munição, recarga, poderes, inimigos e projéteis continuam no mesmo estado. A visão 2D usa câmera ortográfica, personagens em sprites e paredes apresentadas em corte para melhorar a leitura. A primeira pessoa usa a câmera perspectiva e os modelos 3D. As duas consultam as mesmas colisões da sala. A transição dura 0,4 s, bloqueia disparos nesse intervalo e não concede invencibilidade adicional.
-
-Na primeira pessoa, o mouse e o analógico direito controlam o olhar. Na visão 2D, WASD segue os eixos da sala; o mouse aponta a posição da mira e o analógico direito mantém a direção do tiro. Mãos, armas, clarões, cápsulas e sprites acompanham o personagem selecionado.
-
-| Personagem | Arma inicial | Carregador | Poder — Q / L1 |
-| --- | --- | --- | --- |
-| Caçador | Carabina da Aurora | 12 | Pulso de dano próximo |
-| Médium | Varinha do Véu | 6 | Lamento que atinge criaturas e desfaz projéteis hostis |
-| Ceifador | Ceifador de Ossos | 6 | Colheita de curto alcance |
-| Alquimista | Bobina Voltaica | 30 | Elixir que recupera vida |
-
-As armas iniciais têm reserva infinita e exigem **recarga manual com R / Triângulo**. A carabina dispara em linha, a varinha abre um leque, os ossos podem atravessar criaturas e a bobina pode encadear um alvo próximo. A esquiva protege nos primeiros 60% de sua duração e termina com recuperação vulnerável.
-
-A campanha atravessa **Jardins da Colheita, Galeria dos Véus, Catedral das Cinzas, Ninho da Peste e Abismo dos Sinos**. Cada tema tem paleta, materiais, iluminação, neblina, decoração e disposição de cobertura próprias. As arenas medem 28 × 24 unidades e mantêm uma passagem central. Os encontros distribuem **17 tipos de criatura** entre três ondas e terminam com um chefe sorteado do grupo daquele tema.
-
-Os sete chefes possuem modelos 3D e apresentação em sprites na visão 2D: **Rei das Abóboras, Viúva do Véu, Bispo das Cinzas, Matriarca da Peste, Sino do Abismo, Carrasco de Ferro e Oráculo do Brejo**. Têm introdução, preparação de ataque, padrões próprios, fúria abaixo de metade da vida e morte. Barris explosivos, cobertura, efeitos, som e dano usam a mesma simulação nas duas perspectivas. O portal só abre depois do chefe; avançar conserva a progressão da incursão.
-
-| Ação | Teclado / mouse | Controle PS4 reconhecido |
-| --- | --- | --- |
-| Mover / olhar ou mirar | WASD ou setas / mouse | Analógicos esquerdo / direito |
-| Alternar 2D / primeira pessoa | Tab | R1 |
-| Atirar | Botão esquerdo | R2 |
-| Recarregar | R | Triângulo |
-| Usar poder | Q | L1 |
-| Esquivar | Alt esquerdo, Ctrl esquerdo ou botão direito | Círculo |
-| Saltar | Espaço | X |
-| Usar portal | E | Quadrado |
-| Pausar / liberar cursor | Esc | Options |
-| Confirmar início / reiniciar | Enter | X |
-| Ligar / desligar som | M ou botão do menu | Botão do menu |
-
-Os menus têm cursor livre. Depois de retomar ou alternar a perspectiva, solte o gatilho antes de voltar a disparar. O Input System faz o mapeamento; o funcionamento com o DualShock 4 físico e seus drivers ainda precisa ser testado no PC.
-
-A campanha híbrida usa cinco arenas temáticas. A rede de salas procedurais, a loja e o catálogo completo de armas do roguelike anterior continuam na cena `Haunt.unity`; esses sistemas ainda não foram todos migrados para a campanha híbrida. **Ecos → Abrir roguelike** e o botão do menu dão acesso a essa versão preservada. O build começa em `HauntFps` e inclui `Haunt` como segunda cena.
-
-Veja [PROTOTIPO_FPS.md](Documentation/PROTOTIPO_FPS.md) para módulos e roteiro de teste. **Esta expansão híbrida ainda não foi executada no Editor Unity deste ambiente**; importação, compilação no motor, resultado renderizado, física, áudio reproduzido e controle físico precisam dessa validação.
-
-## Roguelike 2D preservado
-
-As seções seguintes descrevem `Assets/_Game/Scenes/Haunt.unity`. Nessa cena, Play abre a seleção das quatro almas. Uma semente numérica repete a planta, os encontros, o chefe e as ofertas daquela versão; vazia gera outra incursão.
-
-### Personagens no modelo da folha original
-
-O primeiro personagem aparece como **PILOTO** e usa os pixels da folha de *The Pilot*, de *Enter the Gungeon*, enviada pelo usuário. O PNG original permanece intacto em [PilotOriginal.png](Assets/_Game/ArtSources/PilotOriginal.png). O importador recorta as poses, conserva suas cores RGB e remove apenas as cores de fundo indicadas para cada recorte, sem ampliar ou redesenhar o personagem.
-
-**Médium, Ceifador e Alquimista** são variantes desse mesmo modelo, com paletas e acessórios próprios. Compartilham a organização, as direções e as sequências de poses da fonte. O catálogo distingue poses sem arma, com uma mão e com duas mãos, além do traje alternativo. Cada animação usa sua quantidade de quadros e seu tempo; o jogador deixou de depender do limite de quatro poses dos protótipos anteriores.
-
-Os personagens ativos ficam em [CharacterSheets](Assets/_Game/Resources/CharacterSheets), com filtro Point e **16 pixels por unidade**, preservando o desenho nativo. A célula interna de 48×48 inclui espaço transparente e não representa um redimensionamento da arte. A arma equipada continua em um renderer separado; tiros, recarga e poderes usam a pose original adequada e os efeitos do combate.
-
-![Pilot original e variantes no mesmo modelo](Documentation/CHARACTER_MODEL.png)
-
-Veja [CHARACTER_MODEL.md](Documentation/CHARACTER_MODEL.md) para a fonte, o catálogo completo e a importação. As poses de mesa, baú, voo, fantasma e reviver estão disponíveis na biblioteca; sua presença na folha não adiciona essas mecânicas nem multiplayer ao jogo.
-
-### Mobs, bosses, objetos e munição
-
-Espantalho, Gárgula, Sombra, Morcego de Fogo, Esqueleto e Slime mantêm folhas de combate próprias. O Carrasco usa armadura azul e machado; o Mestre Abóbora tem capa roxa, foice e morcegos. Os demais cinco bosses mantêm o mesmo formato de animação.
-
-As **24 folhas procedurais de referência, com 1.700 células**, continuam em [ReferenceSheets](Assets/_Game/Resources/ReferenceSheets): seis mobs em **48×48**, bosses em **96×96**, barris/baú em **32×32** e os protótipos de personagens usados como fallback. Elas trabalham em **32 pixels por unidade**. As 17 armas, relíquias e objetos de cenário também recebem detalhes procedurais de metal, madeira, empunhaduras, mecanismos e partes luminosas. Veja [SPRITESHEETS.md](Documentation/SPRITESHEETS.md) e a [prévia dos equipamentos](Documentation/EQUIPMENT_DETAIL.png).
-
-**R recarrega a arma; no controle, Triângulo.** Cada arma mantém seu próprio carregador e reserva. A arma inicial de cada alma e o revólver têm reserva infinita, mas exigem recarga manual. Armas compradas têm reserva limitada e podem esgotar. Uma carga paga o disparo completo dos leques; feixes consomem por pulso de dano. A recarga bloqueia tiros, movimenta a arma e tem efeitos sonoros próprios. Trocar de arma cancela a recarga sem perder munição; pausa e conversas congelam seu tempo.
-
-Após adquirir uma arma com reserva finita, inimigos têm **12% de chance** de deixar uma caixa de munição. Aproximar-se repõe uma quantidade equivalente a um carregador na reserva da arma equipada, ou de outra arma possuída que precise. Se todas estiverem cheias, a caixa fica no chão. Caixas não coletadas persistem nas revisitas ao mesmo andar. Veja os valores e padrões em [MUNICAO_E_TERROR.md](Documentation/MUNICAO_E_TERROR.md).
-
-A [prévia das folhas procedurais](Documentation/REFERENCE_SPRITESHEETS.png) inclui os protótipos anteriores dos jogadores. Os personagens ativos aparecem na prévia do modelo original acima. As duas montagens usam os pixels dos arquivos, sem renderização no Unity.
-
-### Salas irregulares e expansão de Halloween
-
-As salas usam cinco formatos: **L, T, H, octógono e alcovas**, com recortes, contornos elevados e abismos internos. Quatro acessos cardinais e um núcleo seguro preservam as portas; os formatos L/T recebem corredores de acesso quando necessário. A sala H liga duas áreas pela passagem central. O minimapa agora mostra a silhueta real de cada sala. A colisão dos recortes é compartilhada por movimento, tiros e raios, e a navegação dos inimigos contorna paredes e cobertura.
-
-**Barris explosivos** têm madeira abaulada, cintas, caveira e pavio com faíscas. A explosão anunciada causa dano, empurrão e trauma. **Barris de ácido** têm metal amassado, transbordamento e gotas verdes; deixam uma poça luminosa que causa dano em pulsos por oito segundos. **Pilares destrutíveis** recebem rachaduras antes de perder a colisão. Urnas de água continuam disponíveis. Lápides, grades e velas ossuárias decoram as bordas sem fechar passagens.
-
-Os quatro heróis usam o catálogo de poses do modelo original e mantêm seus poderes e equipamentos. Quatro criaturas ampliam o catálogo para **17 mobs comuns**: Espantalho Amaldiçoado, Gárgula de Pedra, Sombra Perseguidora e Morcego de Fogo. A gárgula alterna 1,5 s de pedra imune e 1,5 s de voo; a sombra cruza paredes; o morcego deixa brasas e dispara quatro tiros ao morrer enquanto o combate continua.
-
-Os sete bosses possuem **Idle, Telegraph, Attack, Enrage e Death**, com quatro poses em cada estado. A fúria aparece abaixo de 50% de vida e aumenta a mobilidade/cadência. Entrar em uma sala de chefe inicia uma **intro obrigatória de três segundos**, com pan de câmera, tarjas, título, subtítulo e provocação. É possível responder ao desafio dentro dessa janela com E ou 1/2; a resposta não encurta o tempo da apresentação.
-
-O atendente oferece diálogo com retrato, letras graduais e voz procedural. E avança/completa o texto; 1/2 escolhem respostas; **NEGOCIAR** abre o catálogo. Há dicas e história além do comércio. Controle usa direcional e X, Círculo fecha. A trilha ambiente desaparece ao entrar no chefe; uma faixa exclusiva a **144 BPM** começa na intro e continua até a vitória, quando retorna o tema do andar.
-
-A prévia a seguir é produzida pelos desenhos C# reais, **sem renderização no Editor Unity**. Veja [SALAS_E_HISTORIAS.md](Documentation/SALAS_E_HISTORIAS.md) para módulos e validação.
-
-A prévia anterior permanece em [IRREGULAR_HALLOWEEN.png](Documentation/IRREGULAR_HALLOWEEN.png); os desenhos atuais estão acima.
-
-### Câmera, impacto e evasão
-
-A câmera antecipa a mira em **20%**, com limite de duas unidades, suavização e recuo oposto ao disparo. O screen shake usa **trauma e Perlin Noise**, com reações fortes a explosões e golpes de chefes. Acertos geram flash branco de **0,06 s**, deformação breve e recuo com colisão; chefes resistem mais ao empurrão. O cano recebe clarão luminoso e ejeta cápsulas que pousam e ficam no chão da sala, com limite de quantidade.
-
-O rolamento concede proteção nos **primeiros 60%** e tem **40% de recuperação vulnerável**. As cópias espectrais usam a pose do personagem escolhido e desaparecem em **0,2 s**. O salto sobre abismos continua usando a duração completa da esquiva.
-
-Os inimigos agora usam um **gerador modular de padrões**: cones, anéis que desaceleram, mira preditiva, projéteis guiados limitados, ondas intercaladas e ataques de morte. Chefes têm espirais, bombas em cruz, teias de lentidão, cruzes que viajam em formação, ondas com brecha rotativa, leques de 180° e orbes que se dividem em 12 tiros. As emissões são anunciadas antes de ocorrerem. Veja o catálogo e os módulos em [GAME_FEEL.md](Documentation/GAME_FEEL.md).
-
-### Combate com mais variedade
-
-Cada sala de combate mantém **três ondas**, mas recebe um perfil próprio: **enxame**, **emboscada**, **fogo cruzado** ou **elite**. Formações e combinações variam, os inimigos são mais ativos e a vida cresce de modo mais moderado. As criaturas emergem de fendas durante 0,9 s; nesse preparo não atacam nem recebem dano. A recompensa e as saídas são liberadas após a última onda. Minibosses aparecem junto aos grupos em salas determinadas pela semente.
-
-Há dezessete criaturas comuns, além do miniboss e dos chefes. O catálogo também preserva **Lanterna Errante**, que orbita e atira; **Cogumelo Bruto**, que pressiona com avanços e ataques marcados; e **Diabrete de Corda**, que alterna movimento e rajadas. A separação entre criaturas reduz os amontoados. O runtime limita os tiros hostis a 140 e reserva capacidade para os disparos do jogador.
-
-As salas têm **barris explosivos** e **urnas de água** atingíveis por tiros de ambos os lados e por raios. Barris anunciam a explosão por 0,55 s, ferem criaturas e jogador e podem provocar reações em cadeia; cobertura bloqueia a explosão. Urnas deixam poças por até 14 s, reduzindo a velocidade de quem anda sobre elas a 60%; esquivar permite atravessar sem essa redução. Objetos quebrados permanecem quebrados ao revisitar a sala durante a incursão.
-
-Andares começam com 7 salas, recebem duas a cada avanço e chegam ao limite de 27. O limite das arenas é 29 × 17 unidades, com área ocupada variando por formato, com câmera próxima que acompanha o personagem. Algumas salas têm abismos atravessáveis por esquiva/salto; cair custa uma vida e retorna ao último chão seguro. Uma seta aponta à saída mais próxima após a purificação e prioriza o portal após o chefe.
-
-### Pixel art, projéteis e profundidade
-
-Os tiros agora têm **corpo maior, contorno contrastante e núcleo claro**, com cápsulas, pétalas, ossos, discos e energia de formas distintas. Um halo curto acompanha todo projétil na mesma altura, acompanhado de clarão e rastro colorido; balas hostis também deixam um rastro curto. Os disparos hostis preservam borda rosa/vermelha. A relíquia de tamanho também aumenta o raio de colisão, mantendo a melhoria funcional.
-
-A apresentação dessa cena reforça o aspecto **2.5D por camadas**: paredes têm faces elevadas e coroamentos, os objetos projetam sombras, atores e cobertura são ordenados pela posição dos pés e as paredes próximas ficam translúcidas quando cobririam o personagem. A posição elevada dos sprites não altera a colisão no chão. A câmera e a simulação do roguelike preservado continuam no plano 2D. Há neblina baixa animada em temas e salas específicos, sem passar sobre os projéteis.
-
-Os cinco temas mantêm pisos e paredes próprios: Jardins da Colheita, Galeria dos Véus, Catedral das Cinzas, Ninho da Peste e Abismo dos Sinos. A atmosfera usa azul noturno e roxo profundo, com vinheta escura de centro transparente. Velas, candelabros, abóboras e lanternas têm luz quente com intensidade e raio modulados por Perlin Noise; cristais, magia e poças recebem luz verde/roxa. Sombras ovais e neblina baixa em movimento reforçam a profundidade. A interface usa letras bitmap 5 × 7; o HUD mantém corações e textos sem tarjas.
-
-A prévia abaixo mostra os pixels gerados pelos métodos C# com tipos auxiliares fora do Editor. **Não é captura da renderização Unity.**
-
-[Prévia anterior do arsenal e dos encontros](Documentation/ARSENAL_AND_ENCOUNTERS.png).
-
-### Personagens, arsenal e relíquias
-
-| Alma | Arma inicial | Poder |
-| --- | --- | --- |
-| Piloto | Carabina da Aurora, cápsula turquesa | Limpa tiros próximos e concede proteção breve |
-| Médium do Véu | Varinha do Véu, pétalas em leque | Rajada espectral ampla |
-| Ceifador Errante | Ceifador de Ossos, dano duplo | Disparo radial e proteção breve |
-| Alquimista de Cinzas | Bobina Voltaica, raio contínuo | Recupera vida |
-
-A loja sorteia **uma ou duas armas por andar**, entre as ainda não adquiridas. A seleção fica estável durante a visita, inclusive depois de comprar; cada produto aparece em uma vitrine. O catálogo também vende cura, dano, cadência, vida máxima e três relíquias:
-
-- **Balas Gigantes:** +30 pontos percentuais de tamanho por compra, até 160%, com aumento correspondente da colisão.
-- **Botas Ligeiras:** +12,5 pontos percentuais de velocidade por compra, até 125%.
-- **Relíquia da alma:** Olho da Aurora ou Dente Lunar concedem +1 de dano aos tiros; Fita do Véu reduz a recarga do poder em 30%; Coração Voltaico aumenta a cura para 3 e reduz sua recarga em 15%.
-
-As três novas armas são o **Guarda-Chuva**, com cinco pétalas e dois ricochetes; a **Colmeia de Bolso**, com três ferrões de perseguição suave; e a **Luva de Boxe**, com tiro pesado que empurra criaturas sem atravessar obstáculos. O catálogo inclui ainda Grampeador, Banana, Pião do Caos, Disco Espelho, Lanterna de Raios, Flauta de Ossos, Bacamarte, Repetidora e Canhão das Almas. Armas têm cadências e padrões próprios; cobertura e paredes bloqueiam projéteis e raios.
-
-Caminhe até o atendente e use E/X ou clique nele a até 2,8 unidades para conversar; escolha NEGOCIAR para abrir o catálogo. Apenas a conversa bloqueia o movimento. Itens usam ícones, preço e uma característica curta, com três cartões por página. Feche a conversa e caminhe até o portal para descer. Compras recusadas não consomem almas; equipamentos e melhorias duram até o fim da incursão.
-
-### Sete chefes
-
-Todos têm animação, ataques anunciados e barra de vida em pixel art na parte inferior. **Carrasco de Ferro** e **Oráculo do Brejo** juntam-se aos cinco guardiões anteriores, com três padrões próprios e mudança de intensidade quando feridos. O tema sorteia um destes três candidatos a cada andar:
-
-| Tema | Candidatos |
-| --- | --- |
-| Jardins da Colheita | Rei das Abóboras, Viúva do Véu, Carrasco de Ferro |
-| Galeria dos Véus | Viúva do Véu, Bispo das Cinzas, Oráculo do Brejo |
-| Catedral das Cinzas | Bispo das Cinzas, Sino do Abismo, Carrasco de Ferro |
-| Ninho da Peste | Matriarca da Peste, Oráculo do Brejo, Rei das Abóboras |
-| Abismo dos Sinos | Sino do Abismo, Carrasco de Ferro, Oráculo do Brejo |
-
-### Teclado, mouse e controle
-
-O suporte inicial usa o **Unity Input System**. Um **DualShock 4 de PS4** reconhecido pelo sistema pode ser usado por USB ou Bluetooth; o funcionamento no hardware/driver específico ainda precisa ser testado. Mira mantém a última direção do analógico direito. Menus, seleção de personagem, loja, pausa e reinício podem ser operados sem mouse.
-
-| Ação | Teclado / mouse | Controle PS4 |
+| Ação | Teclado / mouse | Controle reconhecido pelo Input System |
 | --- | --- | --- |
 | Mover | WASD / setas | Analógico esquerdo |
-| Mirar | Mouse | Analógico direito |
+| Olhar e mirar | Mouse | Analógico direito |
+| Primeira / terceira pessoa | V | R1 |
 | Atirar | Botão esquerdo | R2 |
-| Recarregar | R | Triângulo, fora do catálogo |
-| Esquivar / saltar | Espaço / botão direito | Círculo / L2 |
-| Usar poder | Q | Quadrado |
-| Conversar / usar portal | E | X |
-| Trocar arma | Tab / roda do mouse; 1–0 para atalhos | L1 / R1 |
-| Mapa | M | Share / clique no touchpad |
+| Recarregar | R | Triângulo |
+| Poder da alma | Q | L1 |
+| Esquivar | Botão direito / Alt / Ctrl | Círculo |
+| Saltar | Espaço | X |
+| Porta / atendente / portal | E | Quadrado |
+| Trocar arma | Roda do mouse | Direcional |
+| Mapa | Tab | Share |
 | Pausar | Esc | Options |
-| Navegar e confirmar menu | Mouse | Direcional / analógico esquerdo e X |
-| Fechar conversa | Esc / Fechar | Círculo |
-| Abas / páginas da loja | Botões do catálogo | L1/R1 e Triângulo |
+| Iniciar / reiniciar | Enter | X |
+| Som | M / menu | Menu |
 
-Atalhos: 1 arma inicial; 2 Grampeador; 3 Banana; 4 Pião; 5 Disco; 6 Lanterna; 7 Flauta; 8 Guarda-Chuva; 9 Colmeia; 0 Luva. Tab, roda e L1/R1 alcançam todo o inventário. O mesmo X que abre uma tela não compra um item.
+O cursor fica capturado nas duas perspectivas de combate. A terceira pessoa usa câmera sobre o ombro, com proteção contra paredes e cobertura. A mira calcula o alvo pelo centro da tela e o disparo parte da arma no mundo, de modo que a cobertura junto ao personagem continua bloqueando o tiro. Trocar a câmera mantém vida, arma, munição, recarga, poderes, inimigos e projéteis; a transição bloqueia o disparo e não concede invencibilidade extra.
 
-M abre um atlas de 1060 × 580 na referência 1280 × 720, com desenhos a 95% e fundo escuro a 78%. O minimapa mantém 45% de opacidade. Ambos são passivos: o combate continua.
+## Conteúdo desta base
 
-### Música e efeitos
+Os **quatro personagens** mantêm armas iniciais e poderes próprios: Caçador, Médium, Ceifador e Alquimista. As armas iniciais têm reserva infinita, com carregadores finitos e recarga manual; armas adquiridas usam sua própria munição. O catálogo reaproveita as 17 armas do núcleo, incluindo objetos incomuns. Inimigos podem deixar munição para armas com reserva finita.
 
-Cinco trilhas ambientes e uma faixa exclusiva de chefe, todas sintetizadas e originais, usam melodia, harmonia, baixo e percussão. O mercado recebe uma camada calma; o combate e os chefes aumentam a intensidade, com transições suaves. Disparos, impactos, recargas, gatilho vazio, coleta de munição, poderes, explosões, água, compras e mortes têm efeitos curtos. O áudio tem limite de vozes, pausa com o jogo, respeita perda de foco e pode ser desligado em **SOM** no menu de pausa. Não são necessários arquivos de áudio externos.
+A campanha percorre **cinco temas**: Jardins da Colheita, Galeria dos Véus, Catedral das Cinzas, Ninho da Peste e Abismo dos Sinos. A planta de cada andar usa salas conectadas geradas pela semente. Uma sala é construída por vez; entrada, salas de combate e chefe conservam seu estado nas revisitas. As portas ficam bloqueadas durante o encontro. O mapa ajuda a localizar a progressão e o chefe.
 
-## Desenvolvimento e limites da validação
+O catálogo inclui **17 mobs e sete chefes** com modelos procedurais, preparação de ataques, feedback de dano e padrões de projéteis. O chefe libera o Mercado das Almas e o portal para o próximo andar. A loja oferece armas e melhorias usando as moedas da incursão. Barris, pilares e outras peças dão volume e cobertura ao cenário.
 
-```bash
-python3 -m pip install -r Tools/requirements-validation.txt
-python3 Tools/validate_project.py
-python3 -m unittest discover -s Tools -p 'test_*.py'
-dotnet run --project Tools/HauntChecks.csproj
-```
+A arte da nova cena usa **malhas facetadas, materiais de cor e iluminação toon**, com corpos e armas 3D. A cena low poly não alterna para sprites ou visão ortográfica. Sons e música são sintetizados localmente. Coop, assets modelados externamente e acabamento artístico continuam como expansões futuras.
 
-Passaram **31 testes Python** e **2.507.249 asserções do núcleo real C#**, incluindo as regras independentes do protótipo FPS e os 2.436 andares do roguelike 2D. As verificações de sintaxe e metadados podem ser reproduzidas com os comandos acima. Helpers anteriores com tipos Unity simulados verificaram lógica do roguelike 2D; esses resultados não certificam o runtime FPS.
+## Versões preservadas
 
-**O Editor Unity não está instalado neste ambiente.** Importação, compilação no Unity, aparência renderizada, reprodução sonora, build e controle PS4 físico ainda precisam ser validados no Editor/PC. O jogo continua solo e sem save entre sessões. Consulte [VALIDATION.md](Documentation/VALIDATION.md), [ARCHITECTURE.md](Documentation/ARCHITECTURE.md) e [UNITY_TROUBLESHOOTING.md](Documentation/UNITY_TROUBLESHOOTING.md).
+A nova direção está na branch [`codex/ecos-lowpoly-fps-tps`](https://github.com/ManoelRIos/ecos-vale/tree/codex/ecos-lowpoly-fps-tps). A branch [`codex/ecos-do-vale-vertical-slice`](https://github.com/ManoelRIos/ecos-vale/tree/codex/ecos-do-vale-vertical-slice) conserva o protótipo anterior.
 
-Com Editor licenciado, execute o Test Runner ou `bash Tools/unity-check.sh import`, `fps-smoke`, `smoke`, `tests` e `build`, com `UNITY_EDITOR_PATH` definido. O build usa `Builds/Windows/EcosDaMeiaNoite.exe`, com FPS na primeira cena e o roguelike 2D na segunda. Para gerar o ZIP das fontes, inclua arquivos novos no índice Git e execute `python3 Tools/package_project.py`; o pacote tem raiz `EcosDaMeiaNoite/` e não inclui builds ou caches.
+O projeto também mantém `HauntFps.unity` como referência da campanha híbrida 2D/FPS e `Haunt.unity` como referência do roguelike 2D original. Use **Ecos → Abrir protótipo FPS** ou **Ecos → Abrir roguelike**, com Play parado. O build inicia em `HauntLowPoly`, com as duas cenas anteriores habilitadas depois dela.
+
+## Desenvolvimento e verificação
+
+**O Editor Unity não está instalado no ambiente desta revisão.** Checks de fonte, regras e integração com APIs simuladas não certificam compilação no Unity, shaders, renderização, física, áudio reproduzido ou controle físico. A execução no motor e o build Windows continuam pendentes.
+
+Veja [LOW_POLY_REBOOT.md](Documentation/LOW_POLY_REBOOT.md) para escopo e módulos, [ARCHITECTURE.md](Documentation/ARCHITECTURE.md) para a separação entre os perfis e [VALIDATION.md](Documentation/VALIDATION.md) para resultados e roteiro de verificação. O [PNG de referência dos personagens](Documentation/TODOS_OS_PERSONAGENS.png) permanece disponível para modelagem externa; ele registra a arte 2D anterior.

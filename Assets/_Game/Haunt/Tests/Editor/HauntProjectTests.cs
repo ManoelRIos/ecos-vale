@@ -19,16 +19,19 @@ namespace Ecos.Haunt.Tests
     public sealed class HauntProjectTests
     {
         [Test]
-        public void BuildStartsWithFpsAndPreservesTheRoguelike()
+        public void BuildStartsWithLowPolyAndPreservesBothPreviousScenes()
         {
             var scenes = EditorBuildSettings.scenes;
-            Assert.AreEqual(HauntFpsProject.ScenePath, scenes.First(s => s.enabled).path);
-            Assert.AreEqual(2, scenes.Length);
+            Assert.AreEqual(HauntLowPolyProject.ScenePath, scenes.First(s => s.enabled).path);
+            Assert.AreEqual(3, scenes.Length);
             Assert.IsTrue(scenes[0].enabled);
             Assert.IsTrue(scenes[1].enabled);
-            Assert.AreEqual(HauntProject.ScenePath, scenes[1].path);
+            Assert.IsTrue(scenes[2].enabled);
+            Assert.AreEqual(HauntFpsProject.ScenePath, scenes[1].path);
+            Assert.AreEqual(HauntProject.ScenePath, scenes[2].path);
             Assert.AreEqual(1, scenes.Count(s => s.path == HauntProject.ScenePath));
             Assert.AreEqual(1, scenes.Count(s => s.path == HauntFpsProject.ScenePath));
+            Assert.AreEqual(1, scenes.Count(s => s.path == HauntLowPolyProject.ScenePath));
         }
 
         [Test]
@@ -65,7 +68,8 @@ namespace Ecos.Haunt.Tests
                 Assert.IsTrue(games[0].enabled);
                 Assert.AreEqual(1, scene.GetRootGameObjects().Length);
                 Assert.AreEqual(0, scene.GetRootGameObjects().Sum(g => g.GetComponentsInChildren<HauntGame>(true).Length));
-                Assert.AreEqual(HauntFpsProject.ScenePath, HauntProject.DefaultScenePath);
+                Assert.IsFalse(games[0].LowPolyMode, "The archived hybrid scene keeps its original presentation profile.");
+                Assert.AreEqual(HauntLowPolyProject.ScenePath, HauntProject.DefaultScenePath);
             }
             finally
             {
@@ -2232,6 +2236,118 @@ namespace Ecos.Haunt.Tests
                 Assert.Less(Quaternion.Angle(heading, camera.transform.rotation), .1f);
                 Assert.AreSame(state, game.State); Assert.AreSame(shot, shots[0]);
                 Assert.AreEqual(reload, state.ReloadRemaining);
+                yield return null;
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally { UnityEngine.Object.Destroy(root); }
+        }
+
+        [UnityTest]
+        public IEnumerator LowPolyFirstAndThirdPersonShareStateAndTheCameraStopsAtCover()
+        {
+            var root = new GameObject("Low-poly perspective fixture");
+            try
+            {
+                root.SetActive(false);
+                var game = root.AddComponent<Ecos.Haunt.Fps.HauntFpsGame>();
+                var type = typeof(Ecos.Haunt.Fps.HauntFpsGame);
+                type.GetField("lowPolyMode", PrivateInstance).SetValue(game, true);
+                root.SetActive(true); game.enabled = false; game.BeginRun(42);
+                object FpsCall(string name, params object[] args) => type.GetMethod(name, PrivateInstance).Invoke(game, args);
+                var state = game.State; var world = game.World; var room = game.LowPolyRoom;
+                var pawn = game.Player.GetComponent<CharacterController>();
+                Assert.IsNotNull(game.Polygons);
+                Assert.AreEqual(0, root.GetComponentsInChildren<SpriteRenderer>(true).Length, "The new profile does not instantiate overhead sprites.");
+                Assert.IsTrue(state.TryConsumeShot()); Assert.IsTrue(state.TryReload());
+                state.Health = 4; state.TryUsePower();
+                float reload = state.ReloadRemaining, power = state.PowerCooldown; int ammo = state.Magazine;
+                Assert.IsTrue(game.Player.TryTogglePerspective());
+                Assert.IsTrue(game.Player.IsThirdPerson);
+                Assert.IsFalse(game.Player.IsTopDown);
+                Assert.IsFalse(game.TryFire(new Ray(game.Player.View.transform.position, game.Player.View.transform.forward)));
+                game.Player.Tick(.05f); game.Player.Tick(.05f);
+                FpsCall("SetPaused", true); float progress = game.Player.Perspective.TransitionProgress;
+                for (int i = 0; i < 10; i++) game.Player.Tick(.05f);
+                Assert.AreEqual(progress, game.Player.Perspective.TransitionProgress);
+                Assert.IsFalse(game.Player.TryTogglePerspective());
+                FpsCall("SetPaused", false);
+                for (int i = 0; i < 12; i++) game.Player.Tick(.05f);
+                Assert.IsTrue(game.Player.IsThirdPerson); Assert.IsFalse(game.Player.IsPerspectiveTransition);
+                Assert.IsFalse(game.Player.View.orthographic);
+                Assert.AreSame(state, game.State); Assert.AreSame(world, game.World); Assert.AreSame(room, game.LowPolyRoom);
+                Assert.AreSame(pawn, game.Player.GetComponent<CharacterController>());
+                Assert.AreEqual(4, state.Health); Assert.AreEqual(ammo, state.Magazine);
+                Assert.AreEqual(reload, state.ReloadRemaining); Assert.AreEqual(power, state.PowerCooldown);
+
+                var blocker = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                blocker.transform.SetParent(root.transform, false);
+                blocker.transform.position = game.Player.Position + new Vector3(0, 1.5f, -1);
+                blocker.transform.localScale = new Vector3(3, 3, .25f); Physics.SyncTransforms();
+                for (int i = 0; i < 10; i++) game.Player.Tick(.05f);
+                Vector3 pivot = game.Player.Position + Vector3.up * 1.45f;
+                Assert.Less(Vector3.Distance(pivot, game.Player.View.transform.position), 1.4f,
+                    "A close wall must pull the third-person camera in front of cover.");
+                var ray = game.Player.Perspective.AimRay;
+                Assert.Less(Vector3.Distance(game.Player.Position, ray.origin), 2,
+                    "Third-person bullets start near the weapon rather than the camera.");
+                blocker.SetActive(false); Physics.SyncTransforms();
+                Assert.IsTrue(game.Player.TryTogglePerspective());
+                for (int i = 0; i < 10; i++) game.Player.Tick(.05f);
+                Assert.IsFalse(game.Player.IsThirdPerson); Assert.IsFalse(game.Player.IsTopDown);
+                Assert.IsFalse(game.Player.View.orthographic);
+                Assert.AreSame(state, game.State); Assert.AreEqual(ammo, state.Magazine);
+                yield return null;
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally { UnityEngine.Object.Destroy(root); }
+        }
+
+        [UnityTest]
+        public IEnumerator LowPolyConnectedRoomsLockForCombatAndRevisitsPreserveProgression()
+        {
+            var root = new GameObject("Low-poly room graph fixture");
+            try
+            {
+                root.SetActive(false);
+                var game = root.AddComponent<Ecos.Haunt.Fps.HauntFpsGame>();
+                var type = typeof(Ecos.Haunt.Fps.HauntFpsGame);
+                type.GetField("lowPolyMode", PrivateInstance).SetValue(game, true);
+                root.SetActive(true); game.enabled = false; game.BeginRun(93);
+                var enter = type.GetMethod("EnterLowPolyRoom", PrivateInstance);
+                var tick = type.GetMethod("TickSimulation", PrivateInstance);
+                var run = game.State; run.MaxHealth = run.Health = 100;
+                Assert.AreEqual(7, game.LowPolyFloor.Rooms.Count);
+                Assert.AreSame(game.LowPolyFloor.Entrance, game.LowPolyRoom);
+                Assert.IsTrue(game.World.RoomDoorsOpen);
+                var entrance = game.LowPolyRoom;
+                int nextId = entrance.Neighbors[0]; var next = game.LowPolyFloor.GetRoom(nextId);
+                int dx = next.Position.X - entrance.Position.X, dz = next.Position.Y - entrance.Position.Y;
+                Assert.IsTrue(game.World.TryGetNearbyDoor(new Vector3(dx * 12, 0, dz * 10), 3,
+                    out int doorId, out Vector3 spawn));
+                Assert.AreEqual(nextId, doorId);
+                Assert.Less(Vector3.Dot(spawn, new Vector3(dx, 0, dz)), 0, "The target spawn lies at the opposite edge.");
+                Assert.IsTrue(game.Player.TryTogglePerspective());
+                for (int i = 0; i < 8; i++) game.Player.Tick(.05f);
+                Assert.IsTrue((bool)enter.Invoke(game, new object[] { nextId, spawn }));
+                Assert.AreSame(run, game.State); Assert.AreSame(next, game.LowPolyRoom);
+                Assert.IsTrue(game.Player.IsThirdPerson, "Crossing a door retains the selected perspective.");
+                Assert.IsFalse(game.World.RoomDoorsOpen);
+                Assert.IsFalse((bool)enter.Invoke(game, new object[] { entrance.Id, Vector3.zero }), "Combat seals also guard the transition API.");
+                for (int frame = 0; frame < 1200 && !next.Cleared; frame++)
+                {
+                    tick.Invoke(game, new object[] { .05f });
+                    foreach (var enemy in game.Enemies.ToArray())
+                        if (enemy && !enemy.IsDead) enemy.TakeDamage(100000, enemy.AimPosition, Vector3.zero);
+                }
+                Assert.IsTrue(next.Cleared); Assert.AreEqual(2, next.WavesCleared);
+                Assert.IsTrue(game.World.RoomDoorsOpen); Assert.IsFalse(game.World.ExitOpen);
+                Assert.IsTrue(game.Boss == null, "A normal room cannot replace the graph's boss room.");
+                int coins = run.Coins, kills = game.KillCount, ammo = run.Magazine;
+                Assert.IsTrue((bool)enter.Invoke(game, new object[] { entrance.Id, Vector3.zero }));
+                Assert.IsTrue((bool)enter.Invoke(game, new object[] { nextId, spawn }));
+                Assert.AreSame(run, game.State); Assert.IsTrue(next.Cleared); Assert.IsTrue(game.World.RoomDoorsOpen);
+                Assert.AreEqual(0, game.Enemies.Count, "Revisiting cannot respawn the cleared encounter.");
+                Assert.AreEqual(coins, run.Coins); Assert.AreEqual(kills, game.KillCount); Assert.AreEqual(ammo, run.Magazine);
                 yield return null;
                 LogAssert.NoUnexpectedReceived();
             }

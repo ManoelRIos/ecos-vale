@@ -94,25 +94,34 @@ for name, definition in assemblies.items():
 
 scene = assets / '_Game/Scenes/Haunt.unity'
 fps_scene = assets / '_Game/Scenes/HauntFps.unity'
+lowpoly_scene = assets / '_Game/Scenes/HauntLowPoly.unity'
 check(scene.exists(), 'Missing roguelike entry scene')
 check(fps_scene.exists(), 'Missing first-person prototype scene')
-check(set((assets / '_Game/Scenes').glob('*.unity')) == {fps_scene, scene},
-      'Only the first-person prototype and preserved roguelike scenes should remain')
+check(lowpoly_scene.exists(), 'Missing low-poly entry scene')
+check(set((assets / '_Game/Scenes').glob('*.unity')) == {lowpoly_scene, fps_scene, scene},
+      'The low-poly entry and both preserved scenes must remain')
+if lowpoly_scene.exists():
+    check(re.search(r'^  lowPolyMode: 1$', lowpoly_scene.read_text(), re.M) is not None,
+          'The default low-poly scene must enable its serialized runtime profile')
 build = (ROOT / 'ProjectSettings/EditorBuildSettings.asset').read_text()
-check(re.findall(r'^    path: (.+)$', build, re.M) == ['Assets/_Game/Scenes/HauntFps.unity', 'Assets/_Game/Scenes/Haunt.unity'],
-      'The build must start with the first-person prototype and preserve the roguelike scene')
-check(re.findall(r'^  - enabled: (\d+)$', build, re.M) == ['1', '1'], 'Both game scenes must be enabled')
+check(re.findall(r'^    path: (.+)$', build, re.M) == ['Assets/_Game/Scenes/HauntLowPoly.unity', 'Assets/_Game/Scenes/HauntFps.unity', 'Assets/_Game/Scenes/Haunt.unity'],
+      'The build must start with low poly and preserve both earlier scenes')
+check(re.findall(r'^  - enabled: (\d+)$', build, re.M) == ['1', '1', '1'], 'All three game scenes must be enabled')
 check('activeInputHandler: 1' in (ROOT / 'ProjectSettings/ProjectSettings.asset').read_text(),
       'Input System disabled')
 for relative in ('Haunt/Runtime/HauntGame.cs', 'Haunt/Runtime/HauntGame.Visuals.cs', 'Haunt/Runtime/HauntRendering.cs',
                  'Haunt/Editor/HauntSetup.cs', 'Resources/HauntSprites.mat', 'Haunt/Editor/HauntFpsProject.cs',
                  'Haunt/Core/FpsPrototypeRules.cs', 'Haunt/Fps/HauntFpsGame.cs', 'Haunt/Fps/HauntFpsGame.UI.cs',
-                 'Haunt/Fps/HauntFpsGame.Campaign.cs', 'Haunt/Fps/HauntFpsPlayer.cs',
+                 'Haunt/Fps/HauntFpsGame.Campaign.cs', 'Haunt/Fps/HauntFpsGame.LowPoly.cs', 'Haunt/Fps/HauntFpsGame.LowPolyUI.cs', 'Haunt/Fps/HauntFpsPlayer.cs',
                  'Haunt/Fps/HauntFpsPerspective.cs', 'Haunt/Fps/HauntFpsHybridArt.cs', 'Haunt/Fps/HauntFpsHeroBody.cs',
                  'Haunt/Fps/HauntFpsWorld.cs', 'Haunt/Fps/HauntFpsCampaign.cs',
                  'Haunt/Fps/HauntFpsEnemy.cs', 'Haunt/Fps/HauntFpsEnemy.Models.cs', 'Haunt/Fps/HauntFpsBoss.cs',
                  'Haunt/Fps/HauntFpsBarrel.cs', 'Haunt/Fps/HauntFpsAudio.cs',
-                 'Haunt/Fps/HauntFpsLit.shader', 'Resources/FpsPalette.mat'):
+                 'Haunt/Fps/HauntFpsLit.shader', 'Resources/FpsPalette.mat',
+                 'Haunt/Editor/HauntLowPolyProject.cs', 'Haunt/LowPoly/HauntLowPolyCamera.cs',
+                 'Haunt/LowPoly/HauntLowPolyDoors.cs', 'Haunt/LowPoly/HauntLowPolyArsenal.cs',
+                 'Haunt/LowPoly/HauntLowPolyPrimitives.cs', 'Haunt/LowPoly/HauntLowPolyToon.shader',
+                 'Resources/LowPolyPalette.mat'):
     check((assets / '_Game' / relative).exists(), f'Missing game resource: {relative}')
 for name in ('Art', 'Audio', 'Biomes', 'Core', 'Editor', 'Environment', 'Gameplay', 'Inventory',
              'Multiplayer', 'Player', 'Prefabs', 'Quests', 'ScriptableObjects', 'Tests', 'UI', 'World'):

@@ -81,6 +81,7 @@ namespace Ecos.Haunt.Fps
         {
             if (IsDestroyed) return;
             IsDestroyed = true;
+            game.OnBarrelDestroyed(this);
             solid.enabled = false;
             warningLight.enabled = false;
             visual.gameObject.SetActive(false);
@@ -98,6 +99,11 @@ namespace Ecos.Haunt.Fps
 
         void Cylinder(string name, Vector3 position, Vector3 scale, Material material)
         {
+            if (game.LowPolyMode)
+            {
+                game.Polygons.Part(name, position, new Vector3(scale.x, scale.y * 2, scale.z), material, visual, false, Ecos.Haunt.LowPoly.LowPolyShape.Cylinder);
+                return;
+            }
             var part = GameObject.CreatePrimitive(PrimitiveType.Cylinder); part.name = name;
             part.transform.SetParent(visual, false); part.transform.localPosition = position; part.transform.localScale = scale;
             var collider = part.GetComponent<Collider>(); if (collider) { collider.enabled = false; Destroy(collider); }
