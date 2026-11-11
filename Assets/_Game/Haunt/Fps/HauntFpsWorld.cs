@@ -51,6 +51,8 @@ namespace Ecos.Haunt.Fps
         public const float WallHeight = Tile * 3.5f;
         /// <summary>Typical combat room size, kept for older callers.</summary>
         public const float Width = 17 * Tile, Depth = 13 * Tile;
+        /// <summary>Clear height of every doorway; a brick lintel closes the wall above it in first person.</summary>
+        public const float DoorHeight = Tile * 2.4f;
         const int PitchX = 28, PitchZ = 22, DoorTiles = 3;
         const int TexelsPerTile = 16;
 
@@ -107,7 +109,12 @@ namespace Ecos.Haunt.Fps
         readonly List<Lane> corridors = new List<Lane>();
         readonly List<Vector3> barrelSpots = new List<Vector3>();
         readonly List<FpsDoor> doors = new List<FpsDoor>();
-        Transform geometry;
+        Transform geometry, dressing;
+        readonly List<Vector3> flamePoints = new List<Vector3>();
+        readonly List<Vector2> wallFixtures = new List<Vector2>();
+        Texture2D floorTexture, floorRelief;
+        Material ceilingMat;
+        float flameGlow = 1;
         GameObject seal;
         Material exitMaterial;
         Light exitLight;
@@ -117,7 +124,7 @@ namespace Ecos.Haunt.Fps
             flameMat, stoneMat, stoneTopMat, goldMat;
         float clock;
         bool initialized, disposed;
-        Color previousAmbient, previousFog;
+        Color previousAmbient, previousFog, previousEquator, previousGround;
         AmbientMode previousAmbientMode;
         bool previousFogEnabled;
         FogMode previousFogMode;
@@ -134,6 +141,10 @@ namespace Ecos.Haunt.Fps
             random = new System.Random(unchecked(seed * 486187739 + FloorNumber * 7919));
             geometry = new GameObject(ThemeName + " / masmorra").transform;
             geometry.SetParent(transform, false);
+            // Ceilings, rafters, lintels, pilasters and chandeliers exist only for the eye-level
+            // view; the overhead camera looks down through where they would be.
+            dressing = new GameObject("Arquitetura da primeira pessoa").transform;
+            dressing.SetParent(geometry, false);
             palette = BuildPalette(ThemeIndex);
             ConfigureAtmosphere();
             CreateMaterials();
@@ -164,6 +175,29 @@ namespace Ecos.Haunt.Fps
         }
 
         public FpsRoom GetRoom(int id) => id >= 0 && id < rooms.Count ? rooms[id] : null;
+
+        /// <summary>The colour of this theme's firelight.</summary>
+        public Color TorchColor => palette != null ? palette.Torch : new Color(1, .62f, .28f);
+        /// <summary>Where torches, braziers and candles burn (ember sources).</summary>
+        public IReadOnlyList<Vector3> FlamePoints => flamePoints;
+        public bool FirstPersonDressingVisible => dressing && dressing.gameObject.activeSelf;
+        public int FirstPersonPieceCount => dressing ? dressing.childCount : 0;
+
+        /// <summary>Shows the first-person-only architecture (ceilings and what hangs from them).</summary>
+        public void SetFirstPersonDressing(bool visible)
+        {
+            if (dressing && dressing.gameObject.activeSelf != visible) dressing.gameObject.SetActive(visible);
+        }
+
+        /// <summary>Emission of every flame. Raised when bloom is available so fire glows;
+        /// kept modest otherwise so it never clips to white.</summary>
+        public void SetFlameGlow(float glow)
+        {
+            glow = Mathf.Clamp(glow, .2f, 6);
+            if (Mathf.Approximately(glow, flameGlow) || !flameMat) return;
+            flameGlow = glow;
+            flameMat.SetColor("_EmissionColor", palette.Torch * (1.1f * glow));
+        }
 
         /// <summary>A deterministic candidate spawn point inside the room, away from its walls.</summary>
         public Vector3 SpawnCandidate(FpsRoom room, int serial, int attempt)
@@ -252,7 +286,12 @@ namespace Ecos.Haunt.Fps
         {
             float x0 = room.MinX, x1 = room.MaxX, z0 = room.MinZ, z1 = room.MaxZ;
             var node = new GameObject("Sala " + room.Id + " / " + room.Role).transform; node.SetParent(geometry, false);
-            Block("Piso da sala", new Vector3(x0 - Tile, -.5f, z0 - Tile), new Vector3(x1 + Tile, 0, z1 + Tile), darkMat, floorMat, true, node);
+            // The floor is laid in slabs of a few tiles so each one is lit by the lights near it.
+            int slabsX = Mathf.Max(1, Mathf.RoundToInt((x1 - x0 + Tile * 2) / (Tile * 7))), slabsZ = Mathf.Max(1, Mathf.RoundToInt((z1 - z0 + Tile * 2) / (Tile * 7)));
+            for (int ix = 0; ix < slabsX; ix++) for (int iz = 0; iz < slabsZ; iz++)
+                Block("Piso da sala", new Vector3(Mathf.Lerp(x0 - Tile, x1 + Tile, ix / (float)slabsX), -.5f, Mathf.Lerp(z0 - Tile, z1 + Tile, iz / (float)slabsZ)),
+                    new Vector3(Mathf.Lerp(x0 - Tile, x1 + Tile, (ix + 1) / (float)slabsX), 0, Mathf.Lerp(z0 - Tile, z1 + Tile, (iz + 1) / (float)slabsZ)), darkMat, floorMat, true, node);
+            wallFixtures.Clear();
             bool north = HasNeighbor(room, 0, 1), south = HasNeighbor(room, 0, -1);
             bool west = HasNeighbor(room, -1, 0), east = HasNeighbor(room, 1, 0);
             float door = DoorTiles * Tile * .5f;
@@ -273,6 +312,125 @@ namespace Ecos.Haunt.Fps
                 case FpsRoomRole.Treasure: DecorateTreasure(room, node); break;
                 case FpsRoomRole.Boss: DecorateBoss(room, node); break;
                 default: DecorateCombat(room, node, north, south, west, east); break;
+            }
+            DressRoom(room, north, south, west, east);
+        }
+
+        // ----------------------------------------------------------------- first-person architecture
+
+        /// <summary>A block that belongs to the eye-level view only.</summary>
+        GameObject Dress(string name, Vector3 min, Vector3 max, Material sides, Material top, float faceHeight = 0, bool castShadows = false)
+        {
+            var node = Block(name, min, max, sides, top, false, dressing, faceHeight);
+            var renderer = node.GetComponent<MeshRenderer>();
+            renderer.shadowCastingMode = castShadows ? ShadowCastingMode.On : ShadowCastingMode.Off;
+            return node;
+        }
+
+        void DressRoom(FpsRoom room, bool north, bool south, bool west, bool east)
+        {
+            float x0 = room.MinX, x1 = room.MaxX, z0 = room.MinZ, z1 = room.MaxZ, door = DoorTiles * Tile * .5f;
+            Vector3 c = room.Center;
+            // Stone ceiling over the room and its walls, with timber rafters across it.
+            Dress("Teto", new Vector3(x0 - Tile, WallHeight, z0 - Tile), new Vector3(x1 + Tile, WallHeight + .3f, z1 + Tile), ceilingMat, darkMat);
+            int rafters = Mathf.Max(2, Mathf.RoundToInt((z1 - z0) / (Tile * 3)));
+            for (int i = 0; i < rafters; i++)
+            {
+                float z = Mathf.Lerp(z0, z1, (i + .5f) / rafters);
+                Dress("Viga", new Vector3(x0, WallHeight - .36f, z - .17f), new Vector3(x1, WallHeight, z + .17f), woodMat, woodMat);
+                for (int side = 0; side < 2; side++)
+                {
+                    float x = side == 0 ? x0 : x1 - .3f;
+                    Dress("Viga / mísula", new Vector3(x, WallHeight - .7f, z - .13f), new Vector3(x + .3f, WallHeight - .36f, z + .13f), stoneMat, stoneMat);
+                }
+            }
+            // Brick lintels close the walls above every doorway.
+            if (north) Lintel(new Vector3(c.x, 0, z1 + Tile * .5f), true, door);
+            if (south) Lintel(new Vector3(c.x, 0, z0 - Tile * .5f), true, door);
+            if (west) Lintel(new Vector3(x0 - Tile * .5f, 0, c.z), false, door);
+            if (east) Lintel(new Vector3(x1 + Tile * .5f, 0, c.z), false, door);
+            // Stone pilasters break up the long walls.
+            int alongX = Mathf.RoundToInt((x1 - x0) / (Tile * 4)), alongZ = Mathf.RoundToInt((z1 - z0) / (Tile * 4));
+            for (int i = 1; i < alongX; i++)
+            {
+                float x = Mathf.Lerp(x0, x1, i / (float)alongX);
+                bool atDoor = Mathf.Abs(x - c.x) < door + .7f;
+                if (!(north && atDoor) && !NearFixture(x)) Pilaster(new Vector3(x, 0, z1), Vector3.back);
+                if (!(south && atDoor)) Pilaster(new Vector3(x, 0, z0), Vector3.forward);
+            }
+            for (int i = 1; i < alongZ; i++)
+            {
+                float z = Mathf.Lerp(z0, z1, i / (float)alongZ);
+                bool atDoor = Mathf.Abs(z - c.z) < door + .7f;
+                if (!(west && atDoor)) Pilaster(new Vector3(x0, 0, z), Vector3.right);
+                if (!(east && atDoor)) Pilaster(new Vector3(x1, 0, z), Vector3.left);
+            }
+            Chandelier(c, room.Role == FpsRoomRole.Boss ? 1.5f : 1);
+        }
+
+        bool NearFixture(float x)
+        {
+            foreach (Vector2 fixture in wallFixtures) if (Mathf.Abs(x - fixture.x) < fixture.y + .55f) return true;
+            return false;
+        }
+
+        /// <summary>Brick above a doorway, with a stone course and keystone under it.</summary>
+        void Lintel(Vector3 at, bool alongX, float half)
+        {
+            Vector3 axis = alongX ? Vector3.right : Vector3.forward, depth = alongX ? Vector3.forward : Vector3.right;
+            Vector3 thick = depth * (Tile * .5f);
+            Dress("Verga", Min(at - axis * half - thick + Vector3.up * DoorHeight, at + axis * half + thick + Vector3.up * WallHeight),
+                Max(at - axis * half - thick + Vector3.up * DoorHeight, at + axis * half + thick + Vector3.up * WallHeight), wallMat, topMat, WallHeight, true);
+            Vector3 proud = depth * (Tile * .5f + .05f);
+            Dress("Verga / fiada", Min(at - axis * half - proud + Vector3.up * (DoorHeight - .16f), at + axis * half + proud + Vector3.up * DoorHeight),
+                Max(at - axis * half - proud + Vector3.up * (DoorHeight - .16f), at + axis * half + proud + Vector3.up * DoorHeight), stoneMat, stoneMat);
+            Vector3 prouder = depth * (Tile * .5f + .09f);
+            Dress("Verga / chave", Min(at - axis * .3f - prouder + Vector3.up * (DoorHeight - .3f), at + axis * .3f + prouder + Vector3.up * (DoorHeight + .5f)),
+                Max(at - axis * .3f - prouder + Vector3.up * (DoorHeight - .3f), at + axis * .3f + prouder + Vector3.up * (DoorHeight + .5f)), stoneMat, stoneTopMat);
+            for (int side = -1; side <= 1; side += 2)
+            {
+                Vector3 jamb = at + axis * (side * (half - .15f));
+                Dress("Verga / imposta", Min(jamb - axis * .15f - proud + Vector3.up * (DoorHeight - .5f), jamb + axis * .15f + proud + Vector3.up * (DoorHeight - .16f)),
+                    Max(jamb - axis * .15f - proud + Vector3.up * (DoorHeight - .5f), jamb + axis * .15f + proud + Vector3.up * (DoorHeight - .16f)), stoneMat, stoneMat);
+            }
+        }
+
+        static Vector3 Min(Vector3 a, Vector3 b) => Vector3.Min(a, b);
+        static Vector3 Max(Vector3 a, Vector3 b) => Vector3.Max(a, b);
+
+        /// <summary>A shallow stone column against a wall: plinth, shaft and capital.</summary>
+        void Pilaster(Vector3 foot, Vector3 inward)
+        {
+            Vector3 across = new Vector3(Mathf.Abs(inward.z), 0, Mathf.Abs(inward.x));
+            float top = WallHeight - .36f;
+            void Piece(string name, float half, float outBy, float y0, float y1, Material sides, Material cap)
+            {
+                Vector3 a = foot - across * half + Vector3.up * y0, b = foot + across * half + inward * outBy + Vector3.up * y1;
+                Dress(name, Min(a, b), Max(a, b), sides, cap, 0, true);
+            }
+            Piece("Pilastra / base", .5f, .3f, 0, .42f, stoneMat, stoneTopMat);
+            Piece("Pilastra / fuste", .38f, .2f, .42f, top - .32f, stoneMat, stoneTopMat);
+            Piece("Pilastra / capitel", .5f, .3f, top - .32f, top, stoneMat, stoneTopMat);
+        }
+
+        /// <summary>An iron ring of candles hanging from the ceiling; it carries the room's fill light.</summary>
+        void Chandelier(Vector3 center, float scale)
+        {
+            float y = WallHeight * .68f, r = .62f * scale, bar = .05f;
+            Dress("Lustre / corrente", new Vector3(center.x - .025f, y + .1f, center.z - .025f), new Vector3(center.x + .025f, WallHeight, center.z + .025f), ironMat, ironMat);
+            Dress("Lustre / aro", new Vector3(center.x - r, y, center.z - r - bar), new Vector3(center.x + r, y + .09f, center.z - r + bar), ironMat, ironMat);
+            Dress("Lustre / aro", new Vector3(center.x - r, y, center.z + r - bar), new Vector3(center.x + r, y + .09f, center.z + r + bar), ironMat, ironMat);
+            Dress("Lustre / aro", new Vector3(center.x - r - bar, y, center.z - r), new Vector3(center.x - r + bar, y + .09f, center.z + r), ironMat, ironMat);
+            Dress("Lustre / aro", new Vector3(center.x + r - bar, y, center.z - r), new Vector3(center.x + r + bar, y + .09f, center.z + r), ironMat, ironMat);
+            Dress("Lustre / travessa", new Vector3(center.x - r, y + .02f, center.z - bar), new Vector3(center.x + r, y + .07f, center.z + bar), ironMat, ironMat);
+            Dress("Lustre / travessa", new Vector3(center.x - bar, y + .02f, center.z - r), new Vector3(center.x + bar, y + .07f, center.z + r), ironMat, ironMat);
+            for (int sx = -1; sx <= 1; sx += 2) for (int sz = -1; sz <= 1; sz += 2)
+            {
+                Vector3 at = new Vector3(center.x + sx * r, y + .09f, center.z + sz * r);
+                Dress("Lustre / vela", at + new Vector3(-.04f, 0, -.04f), at + new Vector3(.04f, .15f, .04f), boneMat, boneMat);
+                Transform fire = Dress("Lustre / chama", at + new Vector3(-.035f, .15f, -.035f), at + new Vector3(.035f, .27f, .035f), flameMat, flameMat).transform;
+                flames.Add(new Flame { Shape = fire, Scale = fire.localScale, Phase = at.x * .73f + at.z * 1.31f });
+                flamePoints.Add(at + Vector3.up * .3f);
             }
         }
 
@@ -357,9 +515,11 @@ namespace Ecos.Haunt.Fps
                 Block("Tocha / haste", at + new Vector3(-.07f, -.2f, -.3f), at + new Vector3(.07f, .08f, -.16f), woodMat, woodMat, false, parent);
                 var flame = Block("Tocha / chama", at + new Vector3(-.11f, .08f, -.33f), at + new Vector3(.11f, .38f, -.13f), flameMat, flameMat, false, parent).transform;
                 Point(at + new Vector3(0, .1f, -.9f), palette.Torch, 2.3f, Tile * 6.5f, flame, room.Id * 3.7f + i * 1.9f);
+                flamePoints.Add(at + new Vector3(0, .4f, -.23f));
             }
-            // A low fill light keeps the room readable between the torches.
-            Point(room.Center + Vector3.up * WallHeight * 1.2f, palette.Torch * .55f + new Color(.15f, .15f, .2f), 1.15f,
+            // The chandelier's glow: a fill light under the rafters keeps the room readable
+            // between the torches.
+            Point(room.Center + Vector3.up * WallHeight * .8f, palette.Torch * .55f + new Color(.15f, .15f, .2f), 1.3f,
                 Mathf.Max(room.HalfSize.x, room.HalfSize.y) * 2.1f, null, room.Id * 5.1f);
         }
 
@@ -392,7 +552,7 @@ namespace Ecos.Haunt.Fps
                 Block("Loja / pedestal", slot + new Vector3(-Tile * .45f, 0, -Tile * .45f), slot + new Vector3(Tile * .45f, Tile * .55f, Tile * .45f), stoneMat, stoneTopMat, true, parent);
                 Block("Loja / pano", slot + new Vector3(-Tile * .5f, Tile * .55f, -Tile * .5f), slot + new Vector3(Tile * .5f, Tile * .6f, Tile * .5f), clothMat, clothMat, false, parent);
             }
-            Point(room.Center + new Vector3(0, WallHeight, 0), new Color(1, .82f, .55f), 1.6f, Tile * 10, null, 41);
+            Point(room.Center + new Vector3(0, WallHeight * .74f, Tile * 2), new Color(1, .82f, .55f), 1.6f, Tile * 10, null, 41);
         }
 
         void DecorateTreasure(FpsRoom room, Transform parent)
@@ -497,6 +657,7 @@ namespace Ecos.Haunt.Fps
         void Bookshelf(Vector3 wallPoint, Transform parent)
         {
             Vector3 at = wallPoint - new Vector3(0, 0, Tile * .35f);
+            wallFixtures.Add(new Vector2(wallPoint.x, Tile));
             Block("Estante", at + new Vector3(-Tile, 0, -Tile * .3f), at + new Vector3(Tile, Tile * 1.9f, Tile * .3f), woodMat, woodTopMat, true, parent);
             Block("Estante / livros", at + new Vector3(-Tile * .9f, Tile * .15f, -Tile * .32f), at + new Vector3(Tile * .9f, Tile * 1.8f, -Tile * .3f), shelfMat, shelfMat, false, parent);
         }
@@ -504,6 +665,7 @@ namespace Ecos.Haunt.Fps
         void Banner(Vector3 wallPoint, Transform parent)
         {
             Vector3 at = wallPoint - new Vector3(0, 0, .04f);
+            wallFixtures.Add(new Vector2(wallPoint.x, Tile * .6f));
             Block("Estandarte / haste", at + new Vector3(-Tile * .6f, WallHeight * .86f, -.08f), at + new Vector3(Tile * .6f, WallHeight * .86f + .08f, 0), ironMat, ironMat, false, parent);
             Block("Estandarte / pano", at + new Vector3(-Tile * .5f, WallHeight * .3f, -.06f), at + new Vector3(Tile * .5f, WallHeight * .86f, -.02f), clothMat, clothMat, false, parent);
         }
@@ -540,6 +702,7 @@ namespace Ecos.Haunt.Fps
             Block("Braseiro / bacia", at + new Vector3(-h, Tile * .6f, -h), at + new Vector3(h, Tile * .85f, h), ironMat, darkMat, false, parent);
             var fire = Block("Braseiro / fogo", at + new Vector3(-h * .7f, Tile * .85f, -h * .7f), at + new Vector3(h * .7f, Tile * 1.2f, h * .7f), flameMat, flameMat, false, parent).transform;
             Point(at + Vector3.up * Tile * 1.6f, palette.Torch, 2.6f, Tile * 7, fire, at.x * .37f + at.z);
+            flamePoints.Add(at + Vector3.up * Tile * 1.25f);
         }
 
         void BuildExit(Transform parent)
@@ -569,6 +732,8 @@ namespace Ecos.Haunt.Fps
                         WallBlock("Parede fundo", new Vector3(a, 0, z + half), new Vector3(b, WallHeight, z + half + Tile), node, false, true);
                         WallBlock("Parede frente", new Vector3(a, 0, z - half - Tile), new Vector3(b, WallHeight, z - half), node, true, true);
                         corridors.Add(new Lane { MinX = a - Tile, MaxX = b + Tile, MinZ = z - half, MaxZ = z + half });
+                        Dress("Teto do corredor", new Vector3(a, WallHeight, z - half - Tile), new Vector3(b, WallHeight + .3f, z + half + Tile), ceilingMat, darkMat);
+                        Dress("Viga", new Vector3((a + b) * .5f - .17f, WallHeight - .36f, z - half), new Vector3((a + b) * .5f + .17f, WallHeight, z + half), woodMat, woodMat);
                         Point(new Vector3((a + b) * .5f, WallHeight * .8f, z), palette.Torch * .8f, 1.1f, Tile * 4, null, a);
                     }
                     else
@@ -579,6 +744,8 @@ namespace Ecos.Haunt.Fps
                         WallBlock("Parede lateral", new Vector3(x - half - Tile, 0, a), new Vector3(x - half, WallHeight, b), node, false, false);
                         WallBlock("Parede lateral", new Vector3(x + half, 0, a), new Vector3(x + half + Tile, WallHeight, b), node, false, false);
                         corridors.Add(new Lane { MinX = x - half, MaxX = x + half, MinZ = a - Tile, MaxZ = b + Tile });
+                        Dress("Teto do corredor", new Vector3(x - half - Tile, WallHeight, a), new Vector3(x + half + Tile, WallHeight + .3f, b), ceilingMat, darkMat);
+                        Dress("Viga", new Vector3(x - half, WallHeight - .36f, (a + b) * .5f - .17f), new Vector3(x + half, WallHeight, (a + b) * .5f + .17f), woodMat, woodMat);
                         Point(new Vector3(x, WallHeight * .8f, (a + b) * .5f), palette.Torch * .8f, 1.1f, Tile * 4, null, b);
                     }
                 }
@@ -603,6 +770,7 @@ namespace Ecos.Haunt.Fps
                 previousAmbient = environmentOwner.previousAmbient;
                 previousAmbientMode = environmentOwner.previousAmbientMode;
                 previousFog = environmentOwner.previousFog;
+                previousEquator = environmentOwner.previousEquator; previousGround = environmentOwner.previousGround;
                 previousFogEnabled = environmentOwner.previousFogEnabled;
                 previousFogMode = environmentOwner.previousFogMode;
                 previousFogDensity = environmentOwner.previousFogDensity;
@@ -614,6 +782,7 @@ namespace Ecos.Haunt.Fps
                 previousAmbient = RenderSettings.ambientLight;
                 previousAmbientMode = RenderSettings.ambientMode;
                 previousFog = RenderSettings.fogColor;
+                previousEquator = RenderSettings.ambientEquatorColor; previousGround = RenderSettings.ambientGroundColor;
                 previousFogEnabled = RenderSettings.fog;
                 previousFogMode = RenderSettings.fogMode;
                 previousFogDensity = RenderSettings.fogDensity;
@@ -621,8 +790,13 @@ namespace Ecos.Haunt.Fps
                 previousFogEnd = RenderSettings.fogEndDistance;
             }
             environmentOwner = this;
-            RenderSettings.ambientMode = AmbientMode.Flat;
-            RenderSettings.ambientLight = palette.Ambient * 1.35f;
+            // Floors and wall faces keep the ambient they had under flat lighting; only what
+            // faces down (ceilings, rafters, undersides) falls into shade.
+            Color ambient = palette.Ambient * 1.35f;
+            RenderSettings.ambientMode = AmbientMode.Trilight;
+            RenderSettings.ambientSkyColor = ambient;
+            RenderSettings.ambientEquatorColor = ambient;
+            RenderSettings.ambientGroundColor = ambient * .55f;
             RenderSettings.fog = true;
             RenderSettings.fogColor = palette.Fog;
             RenderSettings.fogMode = FogMode.ExponentialSquared;
@@ -682,28 +856,94 @@ namespace Ecos.Haunt.Fps
 
         void CreateMaterials()
         {
-            floorMat = Surface("piso", Color.white, FloorTexture(), 4);
-            wallMat = Surface("tijolos", Color.white, BrickTexture(), 4);
+            floorTexture = FloorTexture(out float[] floorHeight);
+            floorMat = Surface("piso", Color.white, floorTexture, 4);
+            Texture2D brick = BrickTexture(out float[] brickHeight);
+            wallMat = Surface("tijolos", Color.white, brick, 4);
             topMat = Surface("topo da parede", Color.white, SolidTexture("topo", palette.Top, palette.Top, 1), 1);
             rimMat = Surface("borda clara", Color.white, SolidTexture("borda", palette.Rim, palette.Cap, 2), 1);
-            woodMat = Surface("madeira", Color.white, PlankTexture(false), 1);
-            woodTopMat = Surface("madeira / topo", Color.white, PlankTexture(true), 1);
+            Texture2D plank = PlankTexture(false), plankTop = PlankTexture(true);
+            woodMat = Surface("madeira", Color.white, plank, 1);
+            woodTopMat = Surface("madeira / topo", Color.white, plankTop, 1);
             ironMat = Surface("ferro", Color.white, SolidTexture("ferro", Hex(0x3a3c48), Hex(0x24252e), 3), 1);
             clothMat = Surface("tecido", Color.white, ClothTexture(), 1);
             shelfMat = Surface("livros", Color.white, BookTexture(), 1);
             darkMat = Surface("sombra", Color.white, SolidTexture("sombra", palette.Base, palette.Top, 4), 1);
             boneMat = Surface("osso", Color.white, SolidTexture("osso", Hex(0xd8ccb0), Hex(0xa89c80), 5), 1);
-            stoneMat = Surface("pedra", Color.white, StoneTexture(false), 1);
-            stoneTopMat = Surface("pedra / topo", Color.white, StoneTexture(true), 1);
+            Texture2D stone = StoneTexture(false), stoneTop = StoneTexture(true);
+            stoneMat = Surface("pedra", Color.white, stone, 1);
+            stoneTopMat = Surface("pedra / topo", Color.white, stoneTop, 1);
             goldMat = Surface("ouro", Color.white, SolidTexture("ouro", palette.Accent, Hex(0xa07028), 6), 1, new Color(.3f, .2f, .05f));
+            // The ceiling reuses the floor slabs, darker and cooler.
+            ceilingMat = Surface("teto", new Color(.62f, .6f, .66f), floorTexture, 4);
             // Flames keep their hue: a bright core texture with a warm edge, moderate emission.
             flameMat = Surface("chama", Color.white, SolidTexture("chama", Hex(0xffd27a), Hex(0xff8a2a), 7), 1, palette.Torch * 1.1f);
             exitMaterial = Surface("selo da saída", new Color(.33f, .16f, .5f), null, 1, new Color(.3f, .08f, .5f));
+
+            // Relief and surface response only exist on the stylized shader.
+            if (!HauntFpsGame.UsingStylizedShader) return;
+            int floorSize = TexelsPerTile * 4;
+            floorRelief = ReliefTexture("piso", floorSize, floorSize, floorHeight, 1.6f);
+            Relief(floorMat, floorRelief, .9f); Relief(ceilingMat, floorRelief, .9f);
+            Relief(wallMat, ReliefTexture("tijolos", brick.width, brick.height, brickHeight, 1.8f), 1);
+            Relief(woodMat, ReliefFromColors("madeira", plank, 2.2f), .7f);
+            Relief(woodTopMat, ReliefFromColors("madeira topo", plankTop, 2.2f), .7f);
+            Relief(stoneMat, ReliefFromColors("pedra", stone, 2.4f), .7f);
+            Relief(stoneTopMat, ReliefFromColors("pedra topo", stoneTop, 2.4f), .7f);
+            Color warm = Color.Lerp(Color.white, palette.Torch, .5f);
+            HauntFpsGame.Polish(floorMat, .28f, warm);
+            HauntFpsGame.Polish(ceilingMat, .05f, warm);
+            HauntFpsGame.Polish(wallMat, .06f, warm, null, .6f, 1.3f);
+            HauntFpsGame.Polish(woodMat, .1f, warm, null, .35f, .9f);
+            HauntFpsGame.Polish(woodTopMat, .16f, warm);
+            HauntFpsGame.Polish(stoneMat, .14f, warm, null, .4f, .8f);
+            HauntFpsGame.Polish(stoneTopMat, .2f, warm);
+            HauntFpsGame.Polish(ironMat, .6f, new Color(.8f, .9f, 1));
+            HauntFpsGame.Polish(goldMat, .8f, new Color(1, .82f, .45f));
+            HauntFpsGame.Polish(boneMat, .2f, warm);
         }
+
+        static void Relief(Material material, Texture2D normals, float strength)
+        {
+            if (!material || !normals || !material.HasProperty("_ReliefMap")) return;
+            material.SetTexture("_ReliefMap", normals);
+            material.SetFloat("_ReliefScale", strength);
+        }
+
+        /// <summary>Tangent-space normal map of a height field, one texel per colour texel,
+        /// wrapping like the colour texture. Stored as plain RGB in a linear texture.</summary>
+        Texture2D ReliefTexture(string name, int width, int height, float[] heights, float strength)
+        {
+            var pixels = new Color32[width * height];
+            for (int y = 0; y < height; y++) for (int x = 0; x < width; x++)
+            {
+                float left = heights[y * width + (x + width - 1) % width], right = heights[y * width + (x + 1) % width];
+                float down = heights[(y + height - 1) % height * width + x], up = heights[(y + 1) % height * width + x];
+                Vector3 n = new Vector3((left - right) * strength, (down - up) * strength, 1).normalized;
+                pixels[y * width + x] = new Color32((byte)Mathf.RoundToInt((n.x * .5f + .5f) * 255), (byte)Mathf.RoundToInt((n.y * .5f + .5f) * 255),
+                    (byte)Mathf.RoundToInt((n.z * .5f + .5f) * 255), 255);
+            }
+            var texture = new Texture2D(width, height, TextureFormat.RGBA32, false, true)
+            { name = "Masmorra / relevo " + name, filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Repeat, anisoLevel = 0 };
+            texture.SetPixels32(pixels); texture.Apply(false, true); textures.Add(texture); return texture;
+        }
+
+        /// <summary>Relief for painted textures: darker texels (seams, grain, cracks) sit lower.</summary>
+        Texture2D ReliefFromColors(string name, Texture2D colors, float strength)
+        {
+            // The painters keep their pixels only on the GPU, so repaint from the known size.
+            Color32[] pixels;
+            if (!paintedPixels.TryGetValue(colors, out pixels)) return null;
+            var heights = new float[pixels.Length];
+            for (int i = 0; i < pixels.Length; i++) heights[i] = (pixels[i].r * .3f + pixels[i].g * .59f + pixels[i].b * .11f) / 255f;
+            return ReliefTexture(name, colors.width, colors.height, heights, strength);
+        }
+
+        readonly Dictionary<Texture2D, Color32[]> paintedPixels = new Dictionary<Texture2D, Color32[]>();
 
         Material Surface(string name, Color color, Texture2D texture, float tilesPerTexture, Color? emission = null)
         {
-            var template = Resources.Load<Material>("FpsPalette");
+            var template = HauntFpsGame.LitTemplate();
             Material material;
             if (template) material = new Material(template);
             else
@@ -746,15 +986,18 @@ namespace Ecos.Haunt.Fps
         {
             var texture = new Texture2D(width, height, TextureFormat.RGBA32, false)
             { name = "Masmorra / " + name, filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Repeat, anisoLevel = 0 };
-            texture.SetPixels32(pixels); texture.Apply(false, true); textures.Add(texture); return texture;
+            texture.SetPixels32(pixels); texture.Apply(false, true); textures.Add(texture);
+            paintedPixels[texture] = pixels;
+            return texture;
         }
 
         /// <summary>4×4 stone tiles with a lit upper-left bevel, a dark lower-right edge,
         /// per-tile tone changes and the odd crack, like hand-placed dungeon floors.</summary>
-        Texture2D FloorTexture()
+        Texture2D FloorTexture(out float[] heights)
         {
             const int n = TexelsPerTile * 4;
             var px = new Color32[n * n];
+            heights = new float[n * n];
             for (int y = 0; y < n; y++) for (int x = 0; x < n; x++)
             {
                 int tx = x / TexelsPerTile, ty = y / TexelsPerTile, lx = x % TexelsPerTile, ly = y % TexelsPerTile;
@@ -778,22 +1021,29 @@ namespace Ecos.Haunt.Fps
                     }
                 }
                 px[y * n + x] = c;
+                // Slabs stand proud of the grout, with a chamfer one texel wide; cracks cut in.
+                bool grout = lx == 0 || ly == 0, chamfer = lx == 1 || ly == 1 || lx == TexelsPerTile - 1 || ly == TexelsPerTile - 1;
+                bool crack = !grout && !chamfer && (c.Equals(palette.FloorDark) || c.Equals(palette.Grout));
+                heights[y * n + x] = grout ? 0 : crack ? .35f : chamfer ? .7f : 1 + ((tile >> 12) % 5) * .04f;
             }
             return Finish("piso", n, n, px);
         }
 
         /// <summary>Bricks for wall faces. The texture covers four tiles across and one full
         /// wall height: a dark base, staggered bricks lit from above and a bright cap course.</summary>
-        Texture2D BrickTexture()
+        Texture2D BrickTexture(out float[] heights)
         {
             int w = TexelsPerTile * 4, h = Mathf.RoundToInt(WallHeight / Tile * TexelsPerTile);
             var px = new Color32[w * h];
+            heights = new float[w * h];
             for (int y = 0; y < h; y++) for (int x = 0; x < w; x++)
             {
                 Color32 c;
-                if (y < 4) c = y == 3 ? palette.BrickDark : palette.Base;
-                else if (y >= h - 3) c = y == h - 1 ? palette.Rim : palette.Cap;
-                else if (y == h - 4) c = palette.Mortar;
+                // Height: a plinth at the base, a proud cap course, bricks above recessed mortar.
+                float lift = 1;
+                if (y < 4) { c = y == 3 ? palette.BrickDark : palette.Base; lift = y == 3 ? .9f : 1.2f; }
+                else if (y >= h - 3) { c = y == h - 1 ? palette.Rim : palette.Cap; lift = 1.3f; }
+                else if (y == h - 4) { c = palette.Mortar; lift = 0; }
                 else
                 {
                     int row = (y - 4) / 6, ly = (y - 4) % 6;
@@ -806,7 +1056,10 @@ namespace Ecos.Haunt.Fps
                     else if (ly == 1 || lx == 15) c = Shade(body, -22);
                     else c = body;
                     if (c.Equals(body) && Hash(x, y, 4) % 29 == 0) c = Shade(body, -14);
+                    // Some bricks sit a little deeper or prouder than their neighbours.
+                    lift = ly == 0 || lx == 0 ? 0 : .85f + (tone % 4) * .07f;
                 }
+                heights[y * w + x] = lift;
                 px[y * w + x] = c;
             }
             return Finish("tijolos", w, h, px);
@@ -945,7 +1198,9 @@ namespace Ecos.Haunt.Fps
                     else
                     {
                         float horizontal = Mathf.Abs(n.x) > .5f ? w.z : w.x;
-                        float vertical = faceHeight > 0 ? (p.y + h.y) / faceHeight * 4f : (p.y + worldCenter.y) / Tile;
+                        // Brick faces map the wall's full height from the floor up, so a lintel
+                        // high on the wall continues the courses of the wall beside it.
+                        float vertical = faceHeight > 0 ? (p.y + worldCenter.y) / faceHeight * 4f : (p.y + worldCenter.y) / Tile;
                         uv = new Vector2(horizontal / Tile, vertical);
                     }
                     uvs.Add(uv);
@@ -1002,9 +1257,10 @@ namespace Ecos.Haunt.Fps
             for (int i = 0; i < flames.Count; i++)
             {
                 var flame = flames[i];
-                if (!flame.Light || flame.Light == exitLight) continue;
+                if (flame.Light && flame.Light == exitLight) continue;
+                if (!flame.Light && !flame.Shape) continue;
                 float wobble = Mathf.PerlinNoise(flame.Phase, clock * 2.6f) * 2 - 1;
-                flame.Light.intensity = flame.Strength * (1 + wobble * .16f);
+                if (flame.Light) flame.Light.intensity = flame.Strength * (1 + wobble * .16f);
                 if (flame.Shape) flame.Shape.localScale = new Vector3(flame.Scale.x, flame.Scale.y * (1 + wobble * .2f), flame.Scale.z);
             }
             // Door grates slide up from the floor while a room is locked.
@@ -1023,6 +1279,7 @@ namespace Ecos.Haunt.Fps
             if (environmentOwner == this)
             {
                 environmentOwner = null;
+                RenderSettings.ambientEquatorColor = previousEquator; RenderSettings.ambientGroundColor = previousGround;
                 RenderSettings.ambientMode = previousAmbientMode; RenderSettings.ambientLight = previousAmbient;
                 RenderSettings.fog = previousFogEnabled; RenderSettings.fogColor = previousFog;
                 RenderSettings.fogMode = previousFogMode; RenderSettings.fogDensity = previousFogDensity;
@@ -1031,7 +1288,7 @@ namespace Ecos.Haunt.Fps
             foreach (var material in materials) if (material) DestroyOwned(material);
             foreach (var texture in textures) if (texture) DestroyOwned(texture);
             foreach (var mesh in meshes) if (mesh) DestroyOwned(mesh);
-            materials.Clear(); textures.Clear(); meshes.Clear(); flames.Clear(); doors.Clear();
+            materials.Clear(); textures.Clear(); meshes.Clear(); flames.Clear(); doors.Clear(); paintedPixels.Clear(); flamePoints.Clear();
             if (geometry) { geometry.gameObject.SetActive(false); DestroyOwned(geometry.gameObject); }
         }
         static void DestroyOwned(UnityEngine.Object value)

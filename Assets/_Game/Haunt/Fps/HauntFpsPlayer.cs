@@ -38,6 +38,8 @@ namespace Ecos.Haunt.Fps
         }
 
         public Camera View => view;
+        /// <summary>The overlay camera that draws the weapon and hands in first person.</summary>
+        public Camera ModelCamera => modelCamera;
         public HauntFpsPerspective Perspective => perspective;
         public bool IsTopDown => perspective && perspective.IsTopDown;
         public bool IsPerspectiveTransition => perspective && perspective.IsTransitioning;

@@ -48,7 +48,7 @@ namespace Ecos.Haunt.Editor
             var fpsPipeline = AssetDatabase.LoadAssetAtPath<UniversalRenderPipelineAsset>(HauntFpsProject.PipelinePath);
             var fpsRenderer = AssetDatabase.LoadAssetAtPath<UniversalRendererData>(HauntFpsProject.RendererPath);
             if (!UsesRenderer(fpsPipeline, fpsRenderer) || fpsPipeline.shadowDistance != 30
-                || !fpsPipeline.supportsMainLightShadows) return true;
+                || !fpsPipeline.supportsMainLightShadows || HauntFpsProject.PictureNeedsSetup(fpsPipeline, fpsRenderer)) return true;
             var scenes = EditorBuildSettings.scenes;
             return scenes.Length != 2 || !scenes[0].enabled || scenes[0].path != HauntFpsProject.ScenePath
                 || !scenes[1].enabled || scenes[1].path != HauntProject.ScenePath;

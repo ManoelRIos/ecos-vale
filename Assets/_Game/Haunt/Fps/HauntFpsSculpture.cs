@@ -27,7 +27,7 @@ namespace Ecos.Haunt.Fps
         {
             if (disposed || !sprite || !sprite.texture) return null;
             if (materials.TryGetValue(sprite.texture, out var existing) && existing) return existing;
-            var template = Resources.Load<Material>("FpsPalette");
+            var template = HauntFpsGame.LitTemplate();
             if (!template) return null;
             var material = new Material(template) { name = "Escultura / " + sprite.texture.name };
             material.SetTexture("_BaseMap", Painted(sprite.texture));

@@ -164,6 +164,8 @@ namespace Ecos.Haunt.Fps
                 SetLayer(obj.transform, BarrelLayer); barrels.Add(barrel);
             }
             hybridArt = runRoot.AddComponent<HauntFpsHybridArt>(); hybridArt.Initialize(this);
+            look = runRoot.AddComponent<HauntFpsLook>(); look.Initialize();
+            TickLook(0);
             FurnishFloor();
             lastPlayerPosition = PlayerPosition;
             Physics.SyncTransforms();
@@ -238,6 +240,7 @@ namespace Ecos.Haunt.Fps
             UpdateRooms(dt);
             bool moving = (PlayerPosition - lastPlayerPosition).sqrMagnitude > .00001f;
             if (heroBody) heroBody.Tick(dt, moving);
+            TickLook(dt);
             if (ears)
             {
                 ears.position = PlayerPosition + Vector3.up * 1.6f;
@@ -484,14 +487,75 @@ namespace Ecos.Haunt.Fps
         }
 
         public void PlayCue(FpsCue cue, Vector3 position) { if (sound) sound.Play(cue, 1, position); }
+        HauntFpsLook look;
+        public HauntFpsLook Look => look;
+
+        /// <summary>Post-processing, fog and motes follow the camera along the 2D/first-person path.</summary>
+        void TickLook(float dt)
+        {
+            if (!look || !player || !player.View) return;
+            float distance = Vector3.Distance(player.View.transform.position, PlayerPosition + Vector3.up * 1.6f);
+            look.Tick(dt, world, player.View, player.ModelCamera, player.OverheadAmount, distance, player.ShowsTopDownArt);
+        }
+
         public void AddShake(float amount) { if (player) player.AddTrauma(amount); }
         public void Notify(string text, float seconds) { notice = text ?? ""; noticeRemaining = Mathf.Max(0, seconds); }
+
+        /// <summary>Set false to force the plain HauntFpsLit shader everywhere.</summary>
+        public static bool StylizedShading = true;
+        /// <summary>True when the stylized shader (relief, glints, rim, contact shade) is in use.</summary>
+        public static bool UsingStylizedShader { get; private set; }
+        static Material litTemplate;
+        static bool litTemplateStylized;
+
+        /// <summary>The material every lit surface is cloned from. The stylized shader is used
+        /// only when it imported without errors; otherwise the proven plain shader takes over,
+        /// so a shader problem can never turn the dungeon into error-pink.</summary>
+        public static Material LitTemplate()
+        {
+            if (litTemplate && litTemplateStylized == StylizedShading) return litTemplate;
+            litTemplateStylized = StylizedShading;
+            Material stylized = StylizedShading ? Resources.Load<Material>("FpsStylized") : null;
+            if (stylized && ShaderUsable(stylized.shader, "Ecos/HauntFpsStylized"))
+            {
+                UsingStylizedShader = true;
+                return litTemplate = stylized;
+            }
+            UsingStylizedShader = false;
+            Material plain = Resources.Load<Material>("FpsPalette");
+            if (!plain || !plain.shader) throw new InvalidOperationException("Material Resources/FpsPalette ausente.");
+            return litTemplate = plain;
+        }
+
+        static bool ShaderUsable(Shader shader, string expectedName)
+        {
+            // A shader that failed to import is replaced by Unity's error shader.
+            if (!shader || shader.name != expectedName || !shader.isSupported) return false;
+#if UNITY_EDITOR
+            if (UnityEditor.ShaderUtil.ShaderHasError(shader)) return false;
+#endif
+            return true;
+        }
+
+        /// <summary>Surface response on the stylized shader; ignored by the plain one.</summary>
+        public static void Polish(Material material, float gloss, Color? glint = null, Color? rim = null, float contactShade = 0,
+            float contactHeight = 1.2f)
+        {
+            if (!material) return;
+            if (material.HasProperty("_Gloss")) material.SetFloat("_Gloss", Mathf.Clamp01(gloss));
+            if (glint.HasValue && material.HasProperty("_GlintColor")) material.SetColor("_GlintColor", glint.Value);
+            if (rim.HasValue && material.HasProperty("_RimColor")) material.SetColor("_RimColor", rim.Value);
+            if (material.HasProperty("_ContactShade"))
+            {
+                material.SetFloat("_ContactShade", Mathf.Clamp01(contactShade));
+                material.SetFloat("_ContactHeight", Mathf.Max(.05f, contactHeight));
+            }
+        }
 
         public Material PixelMaterial(string id, Color tint)
         {
             if (materials.TryGetValue(id, out Material existing)) return existing;
-            Material template = Resources.Load<Material>("FpsPalette");
-            if (!template || !template.shader) throw new InvalidOperationException("Material Resources/FpsPalette ausente.");
+            Material template = LitTemplate();
             var material = new Material(template) { name = "FPS • " + id };
             var texture = new Texture2D(32, 32, TextureFormat.RGBA32, false) { name = id + " • pixels", filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Repeat };
             var pixels = new Color[32 * 32];
@@ -503,6 +567,11 @@ namespace Ecos.Haunt.Fps
             texture.SetPixels(pixels); texture.Apply(false, true);
             material.SetTexture("_BaseMap", texture); material.SetColor("_BaseColor", tint);
             material.SetColor("_EmissionColor", Color.black);
+            // Metals catch small highlights from torches and muzzle flashes.
+            if (id.Contains("steel") || id.Contains("iron") || id.Contains("metal")) Polish(material, .55f, new Color(.8f, .9f, 1));
+            else if (id.Contains("brass") || id.Contains("gold")) Polish(material, .7f, new Color(1, .8f, .45f));
+            else if (id.Contains("bone") || id.Contains("skull")) Polish(material, .2f, new Color(1, .96f, .86f));
+            else if (id.Contains("gun")) Polish(material, .35f, new Color(.75f, .82f, 1));
             materials.Add(id, material); textures.Add(texture); return material;
         }
 
@@ -596,6 +665,7 @@ namespace Ecos.Haunt.Fps
         {
             if (runRoot) runRoot.SetActive(false);
             if (hybridArt) hybridArt.Dispose(); hybridArt = null;
+            if (look) look.Dispose(); look = null;
             if (player) player.DisposeView();
             boss = null;
             ClearProjectiles(); enemies.Clear(); barrels.Clear(); sparks.Clear(); traces.Clear();

@@ -16,6 +16,21 @@ namespace Ecos.Haunt.Editor
         public const string PipelinePath = "Assets/_Game/Resources/FpsPipeline.asset";
         public const string RendererPath = "Assets/_Game/Resources/FpsRenderer.asset";
         public const string MaterialPath = "Assets/_Game/Resources/FpsPalette.mat";
+        public const string PostDataPath = "Packages/com.unity.render-pipelines.universal/Runtime/Data/PostProcessData.asset";
+        /// <summary>Lights that may shade one object: torches, braziers, the chandelier and muzzle flashes.</summary>
+        public const int LightsPerObject = 8;
+
+        /// <summary>URP's own post-processing resources; null if the package layout changed.</summary>
+        public static PostProcessData DefaultPostData() => AssetDatabase.LoadAssetAtPath<PostProcessData>(PostDataPath);
+
+        /// <summary>True when the FPS renderer and pipeline still lack the picture settings
+        /// (post-processing resources, HDR and the per-object light budget).</summary>
+        public static bool PictureNeedsSetup(UniversalRenderPipelineAsset pipeline, UniversalRendererData renderer)
+        {
+            if (!pipeline || !renderer) return true;
+            if (!renderer.postProcessData && DefaultPostData()) return true;
+            return !pipeline.supportsHDR || pipeline.maxAdditionalLightsCount != LightsPerObject;
+        }
 
         [MenuItem("Ecos/Abrir protótipo FPS", false, -10)]
         public static void Open()
@@ -39,7 +54,19 @@ namespace Ecos.Haunt.Editor
         public static UniversalRenderPipelineAsset EnsurePipelineAssets(string pipelinePath, string rendererPath)
         {
             var pipeline = HauntSetup.EnsurePipelineAssets(pipelinePath, rendererPath);
-            bool dirty = pipeline.shadowDistance != 30 || pipeline.msaaSampleCount != 1 || pipeline.renderScale != 1;
+            bool dirty = pipeline.shadowDistance != 30 || pipeline.msaaSampleCount != 1 || pipeline.renderScale != 1
+                || !pipeline.supportsHDR || pipeline.maxAdditionalLightsCount != LightsPerObject;
+            // Bloom, tone mapping and grading need the renderer to carry URP's post-processing
+            // resources, and HDR so firelight can exceed white before it is tone mapped.
+            var renderer = AssetDatabase.LoadAssetAtPath<UniversalRendererData>(rendererPath);
+            if (renderer && !renderer.postProcessData)
+            {
+                var post = DefaultPostData();
+                if (post) { renderer.postProcessData = post; EditorUtility.SetDirty(renderer); }
+                else Debug.LogWarning("Ecos: recursos de pós-processamento do URP não encontrados; o jogo roda sem bloom e gradação.");
+            }
+            pipeline.supportsHDR = true;
+            pipeline.maxAdditionalLightsCount = LightsPerObject;
             pipeline.shadowDistance = 30;
             pipeline.msaaSampleCount = 1;
             pipeline.renderScale = 1;
