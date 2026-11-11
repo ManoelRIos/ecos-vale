@@ -34,6 +34,9 @@ namespace Ecos.Haunt.Fps
             material.SetTextureScale("_BaseMap", Vector2.one);
             material.SetColor("_BaseColor", Color.white);
             material.SetColor("_EmissionColor", new Color(.05f, .045f, .06f));
+            // A cool rim light lifts each creature off the dark room behind it, and its
+            // rounded body catches a soft highlight from the torches.
+            HauntFpsGame.Polish(material, .12f, new Color(1, .95f, .88f), new Color(.2f, .24f, .36f));
             materials[sprite.texture] = material;
             return material;
         }
