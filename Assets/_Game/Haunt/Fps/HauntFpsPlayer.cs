@@ -343,9 +343,12 @@ namespace Ecos.Haunt.Fps
             weaponRoot = new GameObject("Revolver and gloved hands").transform;
             weaponRoot.SetParent(modelObject.transform, false);
             weaponRoot.localPosition = new Vector3(.24f, -.225f, .42f);
-            Material metal = game.PixelMaterial("fps-gun-steel", new Color(.24f, .3f, .33f));
-            Material dark = game.PixelMaterial("fps-gun-dark", new Color(.07f, .09f, .12f));
-            Material trim = game.PixelMaterial("fps-gun-brass", new Color(.69f, .46f, .2f));
+            // Weapons are held close to the eye in dark rooms: lighter metals, warm wood and a
+            // little self-light keep their shapes readable, and a rim picks out their edges.
+            Material metal = ViewMaterial("fps-gun-steel", new Color(.5f, .56f, .62f), .6f);
+            Material dark = ViewMaterial("fps-gun-dark", new Color(.17f, .2f, .28f), .45f);
+            Material trim = ViewMaterial("fps-gun-brass", new Color(.88f, .62f, .24f), .75f);
+            woodMaterial = ViewMaterial("fps-gun-wood", new Color(.45f, .26f, .14f), .18f);
             CharacterKind character = game.State.Character;
             string characterId = character.ToString();
             Color gloveColor = character == CharacterKind.Reaper ? new Color(.67f, .65f, .54f)
@@ -357,20 +360,29 @@ namespace Ecos.Haunt.Fps
             muzzleTint = character == CharacterKind.Medium ? new Color(.72f, .38f, 1)
                 : character == CharacterKind.Reaper ? new Color(.75f, .95f, .65f)
                 : character == CharacterKind.Alchemist ? new Color(.3f, 1, .65f) : new Color(1, .82f, .31f);
-            Material glove = game.PixelMaterial("fps-gloves-" + characterId, gloveColor);
-            Material sleeve = game.PixelMaterial("fps-sleeves-" + characterId, sleeveColor);
-            Material bone = game.PixelMaterial("fps-gun-bone", new Color(.8f, .78f, .64f));
+            Material glove = ViewMaterial("fps-gloves-" + characterId, Color.Lerp(gloveColor, Color.white, .12f), .12f);
+            Material sleeve = ViewMaterial("fps-sleeves-" + characterId, Color.Lerp(sleeveColor, Color.white, .1f), .05f);
+            Material bone = ViewMaterial("fps-gun-bone", new Color(.86f, .83f, .7f), .22f);
             Material energy = game.PixelMaterial("fps-gun-energy-" + characterId, muzzleTint);
-            energy.SetColor("_EmissionColor", muzzleTint * .7f);
+            // Spectral parts glow past white so the bloom catches them.
+            energy.EnableKeyword("_EMISSION"); energy.SetColor("_EmissionColor", muzzleTint * 2.1f);
             casingMaterial = character == CharacterKind.Hunter ? trim : character == CharacterKind.Reaper ? bone : energy;
             if (character == CharacterKind.Medium) BuildVeilWand(dark, trim, energy);
             else if (character == CharacterKind.Reaper) BuildBoneScythe(dark, metal, bone, energy);
             else if (character == CharacterKind.Alchemist) BuildArcCoil(dark, metal, trim, energy);
             else BuildHunterCarbine(metal, dark, trim, bone, energy);
             Part("Right glove", new Vector3(0, -.14f, -.02f), new Vector3(.14f, .14f, .17f), glove);
+            // Fingers wrap the grip and a thumb rests on its side.
+            for (int finger = 0; finger < 4; finger++)
+                Part("Right finger " + finger, new Vector3(.012f, -.085f - finger * .034f, .072f), new Vector3(.125f, .028f, .05f), glove);
+            Part("Right thumb", new Vector3(-.072f, -.075f, .03f), new Vector3(.035f, .04f, .11f), glove, new Vector3(-12, 0, 0));
             Part("Right sleeve", new Vector3(.035f, -.255f, -.125f), new Vector3(.17f, .19f, .32f), sleeve, new Vector3(-22, -8, -8));
+            Part("Right cuff", new Vector3(.012f, -.195f, -.05f), new Vector3(.185f, .2f, .05f), trim, new Vector3(-22, -8, -8));
             Part("Support glove", new Vector3(-.11f, -.08f, .23f), new Vector3(.13f, .12f, .18f), glove, new Vector3(0, 0, 15));
+            for (int finger = 0; finger < 4; finger++)
+                Part("Support finger " + finger, new Vector3(-.062f, -.02f, .165f + finger * .043f), new Vector3(.09f, .03f, .034f), glove, new Vector3(0, 0, 15));
             Part("Support sleeve", new Vector3(-.24f, -.18f, .1f), new Vector3(.17f, .18f, .3f), sleeve, new Vector3(-20, 18, -30));
+            Part("Support cuff", new Vector3(-.185f, -.135f, .165f), new Vector3(.185f, .195f, .05f), trim, new Vector3(-20, 18, -30));
             flashRoot = new GameObject("Muzzle flash").transform;
             flashRoot.SetParent(weaponRoot, false); flashRoot.localPosition = muzzleLocal;
             Material flash = game.PixelMaterial("fps-muzzle-" + characterId, muzzleTint);
@@ -392,34 +404,82 @@ namespace Ecos.Haunt.Fps
             worldFlashRoot.gameObject.SetActive(false); worldFlashLight.enabled = false;
         }
 
+        Material woodMaterial;
+
+        /// <summary>A material for the weapon and hands: gloss, a warm edge light and a little
+        /// self-light so the model never sinks into black between two torches.</summary>
+        Material ViewMaterial(string id, Color tint, float gloss, float lift = .09f)
+        {
+            Material material = game.PixelMaterial(id, tint);
+            HauntFpsGame.Polish(material, gloss, null, new Color(.3f, .21f, .12f));
+            material.SetColor("_EmissionColor", tint * lift);
+            return material;
+        }
+
+        /// <summary>An eight-sided bar along the weapon's length: two boxes, one turned 45 degrees.</summary>
+        void Octagon(string name, Vector3 position, float width, float length, Material material)
+        {
+            Part(name, position, new Vector3(width, width, length), material);
+            Part(name + " / faces", position, new Vector3(width * .92f, width * .92f, length * .998f), material, new Vector3(0, 0, 45));
+        }
+
         void BuildHunterCarbine(Material metal, Material dark, Material trim, Material bone, Material energy)
         {
             weaponRoot.name = "Carabina da Aurora / luvas do Caçador";
-            muzzleLocal = new Vector3(0, .025f, .78f);
-            Part("Receiver", new Vector3(0, 0, .1f), new Vector3(.19f, .14f, .34f), metal);
-            Part("Rifled barrel", new Vector3(0, .025f, .47f), new Vector3(.105f, .1f, .49f), dark);
-            Part("Muzzle ring", new Vector3(0, .025f, .725f), new Vector3(.13f, .12f, .045f), trim);
-            Part("Cylinder", new Vector3(.02f, -.005f, .075f), new Vector3(.215f, .13f, .17f), trim);
-            Part("Top rail", new Vector3(0, .09f, .2f), new Vector3(.12f, .035f, .46f), dark);
-            Part("Front sight", new Vector3(0, .09f, .67f), new Vector3(.025f, .04f, .035f), energy);
-            Part("Rear sight", new Vector3(0, .115f, -.02f), new Vector3(.065f, .035f, .025f), metal);
-            Part("Grip", new Vector3(0, -.14f, -.015f), new Vector3(.105f, .22f, .13f), dark, new Vector3(-15, 0, 0));
-            for (int i = 0; i < 3; i++)
-                Part("Grip notch " + i, new Vector3(.056f, -.09f - i * .05f, -.015f), new Vector3(.012f, .018f, .09f), trim);
-            Part("Soul chamber", new Vector3(-.102f, .015f, .13f), new Vector3(.018f, .065f, .12f), energy);
-            Part("Bone charm", new Vector3(.115f, .005f, .1f), new Vector3(.012f, .06f, .055f), bone);
-            Part("Charm eye A", new Vector3(.123f, .018f, .087f), new Vector3(.006f, .012f, .012f), dark);
-            Part("Charm eye B", new Vector3(.123f, .018f, .113f), new Vector3(.006f, .012f, .012f), dark);
-            Part("Shoulder stock", new Vector3(0, -.025f, -.2f), new Vector3(.17f, .16f, .22f), dark);
-            for (int band = 0; band < 3; band++)
-                Part("Barrel band", new Vector3(0, .025f, .35f + band * .13f), new Vector3(.125f, .125f, .025f), trim);
+            muzzleLocal = new Vector3(0, .03f, .79f);
+            Material wood = woodMaterial;
+            // A revolving carbine: walnut stock and fore-end, steel frame and drum, an
+            // eight-sided barrel bound in brass, and a soul chamber glowing on its flank.
+            Part("Shoulder stock", new Vector3(0, -.03f, -.2f), new Vector3(.12f, .15f, .24f), wood);
+            Part("Stock comb", new Vector3(0, .05f, -.17f), new Vector3(.09f, .03f, .17f), wood, new Vector3(-6, 0, 0));
+            Part("Butt plate", new Vector3(0, -.03f, -.325f), new Vector3(.13f, .165f, .018f), trim);
+            Part("Grip", new Vector3(0, -.14f, -.015f), new Vector3(.095f, .22f, .12f), wood, new Vector3(-15, 0, 0));
+            Part("Grip cap", new Vector3(0, -.248f, -.045f), new Vector3(.105f, .02f, .13f), trim, new Vector3(-15, 0, 0));
+            Part("Frame", new Vector3(0, 0, .1f), new Vector3(.14f, .13f, .32f), metal);
+            Part("Top strap", new Vector3(0, .072f, .1f), new Vector3(.07f, .02f, .32f), dark);
+            for (int side = -1; side <= 1; side += 2)
+            {
+                Part("Side plate", new Vector3(side * .072f, -.005f, -.02f), new Vector3(.008f, .08f, .1f), trim);
+                Part("Side screw", new Vector3(side * .077f, -.005f, -.02f), new Vector3(.006f, .022f, .022f), dark, new Vector3(45, 0, 0));
+            }
+            Octagon("Drum", new Vector3(0, -.002f, .12f), .178f, .15f, metal);
+            for (int flute = 0; flute < 4; flute++)
+            {
+                float angle = flute * 90;
+                Vector3 offset = Quaternion.Euler(0, 0, angle) * new Vector3(0, .09f, 0);
+                Part("Drum flute", new Vector3(offset.x, -.002f + offset.y, .12f), new Vector3(.05f, .008f, .1f), dark, new Vector3(0, 0, angle));
+            }
+            Octagon("Drum band", new Vector3(0, -.002f, .2f), .186f, .014f, trim);
+            Part("Hammer", new Vector3(0, .078f, -.07f), new Vector3(.028f, .05f, .04f), metal, new Vector3(-28, 0, 0));
+            Part("Hammer spur", new Vector3(0, .1f, -.092f), new Vector3(.034f, .014f, .03f), dark, new Vector3(-28, 0, 0));
+            Octagon("Barrel", new Vector3(0, .03f, .5f), .07f, .52f, dark);
+            Part("Fore-end", new Vector3(0, -.032f, .4f), new Vector3(.082f, .058f, .3f), wood);
+            Part("Fore-end cap", new Vector3(0, -.032f, .556f), new Vector3(.088f, .064f, .014f), trim);
+            for (int band = 0; band < 2; band++)
+                Part("Barrel band", new Vector3(0, .002f, .31f + band * .17f), new Vector3(.096f, .128f, .02f), trim);
+            Octagon("Muzzle ring", new Vector3(0, .03f, .745f), .092f, .034f, trim);
+            Part("Bore", new Vector3(0, .03f, .7635f), new Vector3(.034f, .034f, .004f), dark);
+            Part("Sight rib", new Vector3(0, .072f, .5f), new Vector3(.016f, .012f, .46f), metal);
+            Part("Front sight", new Vector3(0, .092f, .72f), new Vector3(.014f, .034f, .02f), energy);
+            for (int side = -1; side <= 1; side += 2)
+                Part("Rear sight", new Vector3(side * .02f, .096f, -.03f), new Vector3(.012f, .028f, .02f), metal);
+            Part("Trigger guard", new Vector3(0, -.092f, .06f), new Vector3(.018f, .01f, .11f), trim);
+            Part("Trigger guard front", new Vector3(0, -.075f, .115f), new Vector3(.018f, .04f, .01f), trim);
+            Part("Trigger", new Vector3(0, -.074f, .05f), new Vector3(.012f, .034f, .012f), dark, new Vector3(18, 0, 0));
+            Part("Soul chamber", new Vector3(-.082f, .02f, .3f), new Vector3(.014f, .05f, .11f), energy);
+            Part("Soul chamber cage", new Vector3(-.086f, .02f, .3f), new Vector3(.008f, .012f, .125f), trim);
+            Part("Bone charm cord", new Vector3(.076f, -.03f, .3f), new Vector3(.006f, .05f, .006f), dark);
+            Part("Bone charm", new Vector3(.08f, -.075f, .3f), new Vector3(.012f, .05f, .046f), bone);
+            Part("Charm eye A", new Vector3(.087f, -.066f, .289f), new Vector3(.006f, .012f, .012f), dark);
+            Part("Charm eye B", new Vector3(.087f, -.066f, .311f), new Vector3(.006f, .012f, .012f), dark);
         }
 
         void BuildVeilWand(Material dark, Material trim, Material energy)
         {
             weaponRoot.name = "Varinha do Véu / mangas do Médium";
             muzzleLocal = new Vector3(0, .07f, .66f);
-            Part("Obsidian staff", new Vector3(0, -.015f, .18f), new Vector3(.075f, .075f, .69f), dark);
+            Octagon("Obsidian staff", new Vector3(0, -.015f, .18f), .07f, .69f, dark);
+            Part("Staff pommel", new Vector3(0, -.015f, -.18f), new Vector3(.095f, .095f, .05f), trim, new Vector3(0, 0, 45));
             for (int band = 0; band < 4; band++)
                 Part("Arcane binding", new Vector3(0, -.015f, -.08f + band * .15f), new Vector3(.092f, .092f, .035f), trim);
             Part("Crystal cradle left", new Vector3(-.085f, .025f, .48f), new Vector3(.04f, .04f, .22f), trim, new Vector3(0, 18, 0));
@@ -435,7 +495,8 @@ namespace Ecos.Haunt.Fps
         {
             weaponRoot.name = "Ceifador de Ossos / foice do Ceifador";
             muzzleLocal = new Vector3(0, .045f, .68f);
-            Part("Scythe haft", new Vector3(0, -.045f, .18f), new Vector3(.075f, .08f, .78f), dark);
+            Octagon("Scythe haft", new Vector3(0, -.045f, .18f), .072f, .78f, woodMaterial);
+            Part("Haft ferrule", new Vector3(0, -.045f, .47f), new Vector3(.09f, .09f, .05f), metal);
             for (int grip = 0; grip < 4; grip++)
                 Part("Bone grip", new Vector3(0, -.045f, -.06f + grip * .13f), new Vector3(.1f, .1f, .045f), bone);
             Part("Blade heel", new Vector3(-.07f, .06f, .5f), new Vector3(.24f, .06f, .13f), metal, new Vector3(0, 15, 0));
@@ -453,7 +514,10 @@ namespace Ecos.Haunt.Fps
             weaponRoot.name = "Bobina Voltaica / frascos do Alquimista";
             muzzleLocal = new Vector3(0, .04f, .66f);
             Part("Induction housing", new Vector3(0, -.005f, .18f), new Vector3(.19f, .14f, .37f), metal);
-            Part("Coil core", new Vector3(0, .02f, .45f), new Vector3(.09f, .09f, .29f), dark);
+            Octagon("Coil core", new Vector3(0, .02f, .45f), .088f, .29f, dark);
+            Part("Coil grip", new Vector3(0, -.14f, -.015f), new Vector3(.095f, .2f, .12f), woodMaterial, new Vector3(-15, 0, 0));
+            for (int rivet = 0; rivet < 3; rivet++)
+                Part("Housing rivet", new Vector3(.097f, .04f, .05f + rivet * .12f), new Vector3(.008f, .02f, .02f), trim);
             for (int winding = 0; winding < 5; winding++)
                 Part("Copper winding", new Vector3(0, .02f, .33f + winding * .055f), new Vector3(.17f, .15f, .025f), trim);
             Part("Arc tip", new Vector3(0, .04f, .6f), new Vector3(.09f, .08f, .09f), energy);

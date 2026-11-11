@@ -796,7 +796,7 @@ namespace Ecos.Haunt.Fps
             RenderSettings.ambientMode = AmbientMode.Trilight;
             RenderSettings.ambientSkyColor = ambient;
             RenderSettings.ambientEquatorColor = ambient;
-            RenderSettings.ambientGroundColor = ambient * .55f;
+            RenderSettings.ambientGroundColor = ambient * .72f;
             RenderSettings.fog = true;
             RenderSettings.fogColor = palette.Fog;
             RenderSettings.fogMode = FogMode.ExponentialSquared;
@@ -875,7 +875,7 @@ namespace Ecos.Haunt.Fps
             stoneTopMat = Surface("pedra / topo", Color.white, stoneTop, 1);
             goldMat = Surface("ouro", Color.white, SolidTexture("ouro", palette.Accent, Hex(0xa07028), 6), 1, new Color(.3f, .2f, .05f));
             // The ceiling reuses the floor slabs, darker and cooler.
-            ceilingMat = Surface("teto", new Color(.62f, .6f, .66f), floorTexture, 4);
+            ceilingMat = Surface("teto", new Color(.8f, .77f, .84f), floorTexture, 4);
             // Flames keep their hue: a bright core texture with a warm edge, moderate emission.
             flameMat = Surface("chama", Color.white, SolidTexture("chama", Hex(0xffd27a), Hex(0xff8a2a), 7), 1, palette.Torch * 1.1f);
             exitMaterial = Surface("selo da saída", new Color(.33f, .16f, .5f), null, 1, new Color(.3f, .08f, .5f));
