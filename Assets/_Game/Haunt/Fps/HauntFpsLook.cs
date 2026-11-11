@@ -136,7 +136,8 @@ namespace Ecos.Haunt.Fps
             if (world)
             {
                 world.SetFirstPersonDressing(overheadAmount <= .01f);
-                world.SetFlameGlow(PostEffectsActive ? 2.4f : 1);
+                // Enough to bloom while the flame keeps its orange instead of clipping to white.
+                world.SetFlameGlow(PostEffectsActive ? 1.8f : 1);
                 if (RenderSettings.fog)
                 {
                     // The dolly path carries the camera far away; thin the fog with distance so

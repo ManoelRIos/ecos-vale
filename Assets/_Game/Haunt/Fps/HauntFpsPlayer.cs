@@ -377,12 +377,12 @@ namespace Ecos.Haunt.Fps
                 Part("Right finger " + finger, new Vector3(.012f, -.085f - finger * .034f, .072f), new Vector3(.125f, .028f, .05f), glove);
             Part("Right thumb", new Vector3(-.072f, -.075f, .03f), new Vector3(.035f, .04f, .11f), glove, new Vector3(-12, 0, 0));
             Part("Right sleeve", new Vector3(.035f, -.255f, -.125f), new Vector3(.17f, .19f, .32f), sleeve, new Vector3(-22, -8, -8));
-            Part("Right cuff", new Vector3(.012f, -.195f, -.05f), new Vector3(.185f, .2f, .05f), trim, new Vector3(-22, -8, -8));
+            Part("Right cuff", new Vector3(.012f, -.195f, -.05f), new Vector3(.18f, .2f, .028f), dark, new Vector3(-22, -8, -8));
             Part("Support glove", new Vector3(-.11f, -.08f, .23f), new Vector3(.13f, .12f, .18f), glove, new Vector3(0, 0, 15));
             for (int finger = 0; finger < 4; finger++)
                 Part("Support finger " + finger, new Vector3(-.062f, -.02f, .165f + finger * .043f), new Vector3(.09f, .03f, .034f), glove, new Vector3(0, 0, 15));
             Part("Support sleeve", new Vector3(-.24f, -.18f, .1f), new Vector3(.17f, .18f, .3f), sleeve, new Vector3(-20, 18, -30));
-            Part("Support cuff", new Vector3(-.185f, -.135f, .165f), new Vector3(.185f, .195f, .05f), trim, new Vector3(-20, 18, -30));
+            Part("Support cuff", new Vector3(-.185f, -.135f, .165f), new Vector3(.18f, .19f, .028f), dark, new Vector3(-20, 18, -30));
             flashRoot = new GameObject("Muzzle flash").transform;
             flashRoot.SetParent(weaponRoot, false); flashRoot.localPosition = muzzleLocal;
             Material flash = game.PixelMaterial("fps-muzzle-" + characterId, muzzleTint);
